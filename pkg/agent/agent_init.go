@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/agent/interfaces"
@@ -19,6 +20,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/skills"
 	"github.com/sipeed/picoclaw/pkg/state"
 	"github.com/sipeed/picoclaw/pkg/tools"
+	kios "github.com/sipeed/picoclaw/pkg/tools/kios"
 )
 
 func NewAgentLoop(
@@ -119,10 +121,27 @@ func registerSharedTools(
 		}
 	}
 
+	// Kios village-shop tools — enabled when UPSTASH_REDIS_URL is set.
+	var kiosTools []tools.Tool
+	if os.Getenv("UPSTASH_REDIS_URL") != "" {
+		if kiosStore, err := kios.NewStore(); err != nil {
+			logger.WarnCF("kios", "kios tools disabled", map[string]any{"error": err.Error()})
+		} else {
+			if err := kios.SeedFromOldData(context.Background(), kiosStore); err != nil {
+				logger.WarnCF("kios", "kios seed failed", map[string]any{"error": err.Error()})
+			}
+			kiosTools = kios.AllTools(kiosStore)
+		}
+	}
+
 	for _, agentID := range registry.ListAgentIDs() {
 		agent, ok := registry.GetAgent(agentID)
 		if !ok {
 			continue
+		}
+
+		for _, kt := range kiosTools {
+			agent.Tools.Register(kt)
 		}
 
 		if cfg.Tools.IsToolEnabled("web") {

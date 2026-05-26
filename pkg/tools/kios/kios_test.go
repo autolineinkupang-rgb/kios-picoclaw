@@ -1,0 +1,239 @@
+package kios
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
+
+	tools "github.com/sipeed/picoclaw/pkg/tools"
+)
+
+func TestToolsRegister(t *testing.T) {
+	s := newTestStore(t)
+	reg := tools.NewToolRegistry()
+	for _, tool := range AllTools(s) {
+		reg.Register(tool)
+	}
+	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga"} {
+		if !reg.HasRegistered(name) {
+			t.Errorf("tool %q not registered (registry: %v)", name, reg.List())
+		}
+	}
+}
+
+func newTestStore(t *testing.T) *Store {
+	t.Helper()
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	return NewStoreWithClient(rdb)
+}
+
+func seedProduct(t *testing.T, s *Store, id, nama string, stok, beli, jual, kritis int) {
+	t.Helper()
+	if err := s.SetProduk(context.Background(), &Produk{
+		ID: id, Nama: nama, Kategori: "umum", Satuan: "pcs",
+		Stok: stok, HargaBeli: beli, HargaJual: jual, StokMinimum: 5, StokKritis: kritis,
+	}); err != nil {
+		t.Fatalf("seed product: %v", err)
+	}
+}
+
+func TestFormatRupiah(t *testing.T) {
+	cases := map[int]string{0: "Rp 0", 500: "Rp 500", 15000: "Rp 15.000", 62000: "Rp 62.000", 1500000: "Rp 1.500.000"}
+	for in, want := range cases {
+		if got := FormatRupiah(in); got != want {
+			t.Errorf("FormatRupiah(%d)=%q want %q", in, got, want)
+		}
+	}
+}
+
+func TestParseRupiah(t *testing.T) {
+	cases := map[string]int{"15000": 15000, "Rp 15.000": 15000, "1.500.000": 1500000, "15,000": 15000, "": 0, "abc": 0}
+	for in, want := range cases {
+		if got := parseRupiah(in); got != want {
+			t.Errorf("parseRupiah(%q)=%d want %d", in, got, want)
+		}
+	}
+}
+
+func TestCariProduk(t *testing.T) {
+	list := []*Produk{
+		{ID: "002", Nama: "Beras Medium 5kg"},
+		{ID: "003", Nama: "Gula Pasir 1kg"},
+	}
+	if got := CariProduk(list, "002"); len(got) != 1 || got[0].ID != "002" {
+		t.Errorf("exact id match failed: %v", got)
+	}
+	if got := CariProduk(list, "beras"); len(got) != 1 || got[0].ID != "002" {
+		t.Errorf("substring match failed: %v", got)
+	}
+	if got := CariProduk(list, "gula pasir"); len(got) != 1 || got[0].ID != "003" {
+		t.Errorf("all-words match failed: %v", got)
+	}
+}
+
+func TestPerformJual(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+
+	tx, item, sisa, err := performJual(ctx, s, "beras", 2, "tunai", "ken")
+	if err != nil {
+		t.Fatalf("performJual: %v", err)
+	}
+	if tx.Total != 124000 {
+		t.Errorf("total=%d want 124000", tx.Total)
+	}
+	if sisa != 8 || item.Stok != 8 {
+		t.Errorf("sisa=%d item.Stok=%d want 8", sisa, item.Stok)
+	}
+	if !strings.HasPrefix(tx.ID, "TRX-") {
+		t.Errorf("tx id=%q want TRX- prefix", tx.ID)
+	}
+	// Persisted decrement
+	got, _ := s.GetProduk(ctx, "002")
+	if got.Stok != 8 {
+		t.Errorf("persisted stok=%d want 8", got.Stok)
+	}
+	// Insufficient stock
+	if _, _, _, err := performJual(ctx, s, "beras", 999, "tunai", "ken"); err == nil {
+		t.Error("expected error for insufficient stock")
+	}
+	// Non-positive qty
+	if _, _, _, err := performJual(ctx, s, "beras", 0, "tunai", "ken"); err == nil {
+		t.Error("expected error for qty<=0")
+	}
+}
+
+func TestStokToolJualAndMenipis(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 4, 55000, 62000, 3)
+	tool := NewStokTool(s)
+
+	res := tool.Execute(ctx, map[string]any{"action": "jual", "produk": "beras", "qty": float64(2)})
+	if res.IsError {
+		t.Fatalf("jual error: %s", res.ForLLM)
+	}
+	if !strings.Contains(res.ForLLM, "menipis") {
+		t.Errorf("expected low-stock warning, got: %s", res.ForLLM)
+	}
+
+	res = tool.Execute(ctx, map[string]any{"action": "stok_menipis"})
+	if !strings.Contains(res.ForLLM, "Beras") {
+		t.Errorf("stok_menipis should list Beras, got: %s", res.ForLLM)
+	}
+}
+
+func TestStokToolTambahAutoCreate(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewStokTool(s)
+
+	res := tool.Execute(ctx, map[string]any{"action": "tambah", "produk": "Indomie Goreng", "qty": float64(20), "harga": float64(2800), "auto_create": true})
+	if res.IsError {
+		t.Fatalf("auto-create restock error: %s", res.ForLLM)
+	}
+	all, _ := s.GetAllProduk(ctx)
+	if len(all) != 1 || all[0].Stok != 20 {
+		t.Fatalf("expected 1 product stok 20, got %+v", all)
+	}
+	// margin 15%: 2800*1.15 = 3220
+	if all[0].HargaJual != 3220 {
+		t.Errorf("auto harga_jual=%d want 3220", all[0].HargaJual)
+	}
+	// Without auto_create on unknown product -> error
+	res = tool.Execute(ctx, map[string]any{"action": "tambah", "produk": "Barang Asing", "qty": float64(1)})
+	if !res.IsError {
+		t.Error("expected error restocking unknown product without auto_create")
+	}
+}
+
+func TestKasirStrukAndShift(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+	tool := NewKasirTool(s)
+
+	res := tool.Execute(ctx, map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(50000)})
+	if res.IsError {
+		t.Fatalf("kasir jual error: %s", res.ForLLM)
+	}
+	if res.ForUser == "" || !strings.Contains(res.ForUser, "STRUK") {
+		t.Errorf("expected receipt in ForUser, got: %q", res.ForUser)
+	}
+	if !strings.Contains(res.ForUser, "Kembalian: Rp 20.000") {
+		t.Errorf("expected kembalian 20.000 (50000-30000), got: %s", res.ForUser)
+	}
+
+	// Shift open/close
+	if res := tool.Execute(ctx, map[string]any{"action": "buka_shift", "saldo_awal": float64(100000)}); res.IsError {
+		t.Fatalf("buka_shift error: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "buka_shift"}); !res.IsError {
+		t.Error("expected error opening a second shift")
+	}
+	res = tool.Execute(ctx, map[string]any{"action": "status_shift"})
+	if !strings.Contains(res.ForLLM, "BUKA") {
+		t.Errorf("status should report open shift, got: %s", res.ForLLM)
+	}
+}
+
+func TestLaporanLaba(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	stok := NewStokTool(s)
+	stok.Execute(ctx, map[string]any{"action": "jual", "produk": "beras", "qty": float64(2)})
+
+	lap := NewLaporanTool(s)
+	res := lap.Execute(ctx, map[string]any{"action": "laba", "periode": "hari_ini"})
+	if res.IsError {
+		t.Fatalf("laba error: %s", res.ForLLM)
+	}
+	// omzet 124000, modal 110000, laba 14000
+	if !strings.Contains(res.ForLLM, "Rp 14.000") {
+		t.Errorf("expected laba Rp 14.000, got: %s", res.ForLLM)
+	}
+}
+
+func TestHargaUpdateLogsHistory(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+	tool := NewHargaTool(s)
+
+	res := tool.Execute(ctx, map[string]any{"action": "update", "produk": "gula", "harga_jual": float64(16000)})
+	if res.IsError {
+		t.Fatalf("harga update error: %s", res.ForLLM)
+	}
+	hist, _ := s.GetAllPriceHistory(ctx)
+	if len(hist) != 1 || hist[0].HargaBaru != 16000 || hist[0].Selisih != 1000 {
+		t.Errorf("expected 1 price-history entry (16000, +1000), got %+v", hist)
+	}
+	got, _ := s.GetProduk(ctx, "003")
+	if got.HargaJual != 16000 {
+		t.Errorf("harga_jual not updated, got %d", got.HargaJual)
+	}
+}
+
+func TestOwnerOnlyGate(t *testing.T) {
+	t.Setenv("KIOS_DEFAULT_ROLE", "kasir")
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	tool := NewStokTool(s)
+
+	// kasir (default) may sell
+	if res := tool.Execute(ctx, map[string]any{"action": "jual", "produk": "beras", "qty": float64(1)}); res.IsError {
+		t.Errorf("kasir should be allowed to sell, got: %s", res.ForLLM)
+	}
+	// kasir may NOT delete
+	res := tool.Execute(ctx, map[string]any{"action": "hapus", "produk": "beras"})
+	if !res.IsError || !strings.Contains(res.ForLLM, "owner") {
+		t.Errorf("kasir must be refused on hapus, got: %s (err=%v)", res.ForLLM, res.IsError)
+	}
+}

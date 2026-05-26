@@ -1,0 +1,60 @@
+# Deploy kios-picoclaw ke Railway
+
+Bot kios berbasis picoclaw (Go) — ringan (<50MB RAM), data tersimpan di Upstash Redis,
+dioperasikan lewat Telegram. Panduan ini memakai **Dockerfile** di root repo.
+
+> Catatan tier: Railway tidak punya free tier permanen yang besar. Ada **Trial** ($5 kredit
+> sekali pakai, 30 hari) dan **Free plan** ($0/bln, ~$1 kredit/bln, 0.5 GB RAM, 1 project).
+> Footprint picoclaw kecil sehingga muat di RAM Free plan; batasnya ada di kredit usage untuk
+> layanan 24/7. Untuk pemakaian stabil, plan **Hobby** ($5/bln) paling aman.
+
+## 1. Siapkan Upstash Redis (gratis)
+1. Buat akun di https://console.upstash.com → **Create Database** (Redis, region terdekat mis. Singapore).
+2. Salin **`UPSTASH_REDIS_URL`** bentuk `rediss://default:<password>@<host>.upstash.io:6379`
+   (pakai TLS endpoint / "rediss"). Data kios bertahan walau container redeploy.
+
+## 2. Siapkan bot Telegram
+1. Chat **@BotFather** → `/newbot` → simpan **`TELEGRAM_BOT_TOKEN`**.
+2. Chat **@userinfobot** untuk dapat **user ID** kamu (angka). Kumpulkan semua id yang boleh
+   pakai bot, pisah koma → **`KIOS_ALLOW_FROM`** (mis. `111111111,222222222`).
+3. (opsional) Di BotFather set `/setprivacy` → **Disable** kalau bot dipakai di grup.
+
+## 3. Siapkan Groq (+ Gemini opsional)
+- Groq API key dari https://console.groq.com/keys → **`GROQ_API_KEY`** (LLM utama, gratis/cepat).
+- (opsional) Gemini API key dari https://aistudio.google.com/app/apikey → **`GEMINI_API_KEY`** (cadangan).
+
+## 4. Deploy ke Railway
+1. Push repo ini ke GitHub.
+2. Railway → **New Project → Deploy from GitHub repo** → pilih repo ini.
+   Railway mendeteksi `railway.json` + `Dockerfile` otomatis.
+3. Buka tab **Variables**, isi (lihat `deploy/env.example`):
+   - `TELEGRAM_BOT_TOKEN`
+   - `KIOS_ALLOW_FROM`
+   - `GROQ_API_KEY`
+   - `UPSTASH_REDIS_URL`
+   - (opsional) `GEMINI_API_KEY`, `KIOS_DEFAULT_ROLE`, `GROQ_MODEL`, `GEMINI_MODEL`
+   > `PORT` di-set otomatis oleh Railway — jangan diisi manual.
+4. **Deploy**. Railway build dari Dockerfile (≈2–4 menit). Entrypoint merender `config.json`
+   dari Variables, lalu menjalankan `picoclaw gateway`.
+
+## 5. Verifikasi
+- Log Railway harus menampilkan `kios-picoclaw: starting gateway on 0.0.0.0:$PORT`
+  lalu `Gateway started`. Healthcheck `/health` jadi hijau.
+- Chat bot di Telegram (dari user id yang ada di `KIOS_ALLOW_FROM`):
+  - "cek stok" → daftar produk
+  - "jual 2 beras bayar 50000" → struk + kembalian
+  - "laporan hari ini" → ringkasan + laba
+- User di luar whitelist tidak akan direspons (gate `allow_from`).
+
+## 6. (Opsional) Migrasi data lama
+Data baru mulai kosong (Redis). Untuk impor CSV lama sekali jalan:
+1. Sertakan folder berisi `stok.csv, transaksi.csv, pembelian.csv, price-history.csv, users.json`
+   ke image, atau mount volume.
+2. Set `KIOS_SEED_DIR=/path/ke/data` → saat start, data diimpor sekali (idempotent via `kios:seed:done`).
+3. Setelah berhasil, hapus `KIOS_SEED_DIR` agar tidak dicek tiap boot.
+
+## Catatan RBAC
+- `allow_from` = gerbang utama (hanya id terdaftar yang bisa pakai bot).
+- Peran (`kasir`/`owner`) diambil dari Redis `kios:users` berdasarkan Telegram ID pengirim.
+  Selama belum diisi, semua user whitelist dianggap `KIOS_DEFAULT_ROLE` (default `owner`).
+  Set `KIOS_DEFAULT_ROLE=kasir` untuk mengunci aksi destruktif sampai owner didaftarkan.
