@@ -26,25 +26,27 @@ func (t *StokTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type": "string",
-				"enum": []string{"cek", "cari", "jual", "tambah", "tambah_produk",
+				"enum": []string{"cek", "cari", "jual", "tambah", "tambah_produk", "edit_produk",
 					"hapus", "set_stok", "update_exp", "batalkan_tx", "stok_menipis"},
 				"description": "Aksi yang dijalankan.",
 			},
-			"produk":      map[string]any{"type": "string", "description": "id atau nama produk"},
-			"qty":         map[string]any{"type": "integer", "description": "jumlah (jual/restock)"},
-			"metode":      map[string]any{"type": "string", "enum": []string{"tunai", "transfer", "qris"}, "description": "metode bayar saat jual"},
-			"harga":       map[string]any{"type": "integer", "description": "harga beli (restock)"},
-			"supplier":    map[string]any{"type": "string"},
-			"auto_create": map[string]any{"type": "boolean", "description": "buat produk otomatis saat restock bila belum ada"},
-			"nama":        map[string]any{"type": "string", "description": "nama produk baru (tambah_produk)"},
-			"kategori":    map[string]any{"type": "string"},
-			"satuan":      map[string]any{"type": "string"},
-			"harga_beli":  map[string]any{"type": "integer"},
-			"harga_jual":  map[string]any{"type": "integer"},
-			"stok_awal":   map[string]any{"type": "integer"},
-			"stok_baru":   map[string]any{"type": "integer", "description": "nilai stok absolut (set_stok)"},
-			"exp_date":    map[string]any{"type": "string", "description": "tanggal kedaluwarsa YYYY-MM-DD"},
-			"id":          map[string]any{"type": "string", "description": "id transaksi (batalkan_tx)"},
+			"produk":       map[string]any{"type": "string", "description": "id atau nama produk"},
+			"qty":          map[string]any{"type": "integer", "description": "jumlah (jual/restock)"},
+			"metode":       map[string]any{"type": "string", "enum": []string{"tunai", "transfer", "qris"}, "description": "metode bayar saat jual"},
+			"harga":        map[string]any{"type": "integer", "description": "harga beli (restock)"},
+			"supplier":     map[string]any{"type": "string"},
+			"auto_create":  map[string]any{"type": "boolean", "description": "buat produk otomatis saat restock bila belum ada"},
+			"nama":         map[string]any{"type": "string", "description": "nama produk (tambah_produk) / nama baru (edit_produk)"},
+			"kategori":     map[string]any{"type": "string"},
+			"satuan":       map[string]any{"type": "string"},
+			"harga_beli":   map[string]any{"type": "integer"},
+			"harga_jual":   map[string]any{"type": "integer"},
+			"stok_awal":    map[string]any{"type": "integer"},
+			"stok_baru":    map[string]any{"type": "integer", "description": "nilai stok absolut (set_stok)"},
+			"stok_minimum": map[string]any{"type": "integer"},
+			"stok_kritis":  map[string]any{"type": "integer"},
+			"exp_date":     map[string]any{"type": "string", "description": "tanggal kedaluwarsa YYYY-MM-DD"},
+			"id":           map[string]any{"type": "string", "description": "id transaksi (batalkan_tx)"},
 		},
 		"required": []string{"action"},
 	}
@@ -69,6 +71,11 @@ func (t *StokTool) Execute(ctx context.Context, args map[string]any) *tools.Tool
 			return r
 		}
 		return t.tambahProduk(ctx, args)
+	case "edit_produk":
+		if r := requireOwner(role); r != nil {
+			return r
+		}
+		return t.editProduk(ctx, args)
 	case "hapus":
 		if r := requireOwner(role); r != nil {
 			return r
@@ -260,6 +267,57 @@ func (t *StokTool) tambahProduk(ctx context.Context, args map[string]any) *tools
 	}
 	return tools.NewToolResult(fmt.Sprintf("Produk terdaftar: [%s] %s, stok %d %s, jual %s.",
 		p.ID, p.Nama, p.Stok, p.Satuan, FormatRupiah(p.HargaJual)))
+}
+
+func (t *StokTool) editProduk(ctx context.Context, args map[string]any) *tools.ToolResult {
+	item, err := findOne(ctx, t.store, argStr(args, "produk"))
+	if err != nil {
+		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+	}
+	if item == nil {
+		return tools.NewToolResult("Produk tidak ditemukan.")
+	}
+	var changed []string
+	if v := argStr(args, "nama"); v != "" {
+		item.Nama = v
+		changed = append(changed, "nama")
+	}
+	if v := argStr(args, "kategori"); v != "" {
+		item.Kategori = v
+		changed = append(changed, "kategori")
+	}
+	if v := argStr(args, "satuan"); v != "" {
+		item.Satuan = v
+		changed = append(changed, "satuan")
+	}
+	if v := argStr(args, "supplier"); v != "" {
+		item.Supplier = v
+		changed = append(changed, "supplier")
+	}
+	if p := argIntPtr(args, "harga_jual"); p != nil && *p > 0 {
+		item.HargaJual = *p
+		changed = append(changed, "harga_jual")
+	}
+	if p := argIntPtr(args, "harga_beli"); p != nil && *p >= 0 {
+		item.HargaBeli = *p
+		changed = append(changed, "harga_beli")
+	}
+	if p := argIntPtr(args, "stok_minimum"); p != nil && *p >= 0 {
+		item.StokMinimum = *p
+		changed = append(changed, "stok_minimum")
+	}
+	if p := argIntPtr(args, "stok_kritis"); p != nil && *p >= 0 {
+		item.StokKritis = *p
+		changed = append(changed, "stok_kritis")
+	}
+	if len(changed) == 0 {
+		return tools.ErrorResult("Tidak ada field yang diubah. Sebutkan nama/kategori/satuan/supplier/harga_jual/harga_beli/stok_minimum/stok_kritis.")
+	}
+	item.LastUpdate = NowWITA().Format("2006-01-02")
+	if err := t.store.SetProduk(ctx, item); err != nil {
+		return tools.ErrorResult("Gagal simpan perubahan.").WithError(err)
+	}
+	return tools.NewToolResult(fmt.Sprintf("Produk %s ([%s]) diperbarui: %s.", item.Nama, item.ID, strings.Join(changed, ", ")))
 }
 
 func (t *StokTool) hapus(ctx context.Context, args map[string]any) *tools.ToolResult {

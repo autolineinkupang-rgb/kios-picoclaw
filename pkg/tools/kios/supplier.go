@@ -25,10 +25,11 @@ func (t *SupplierTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type":        "string",
-				"enum":        []string{"tambah", "daftar", "cari", "hapus", "banding_harga"},
+				"enum":        []string{"tambah", "edit", "daftar", "cari", "hapus", "banding_harga"},
 				"description": "Aksi supplier.",
 			},
 			"nama":         map[string]any{"type": "string", "description": "nama/id supplier"},
+			"nama_baru":    map[string]any{"type": "string", "description": "nama baru (edit/ganti nama)"},
 			"kontak":       map[string]any{"type": "string"},
 			"alamat":       map[string]any{"type": "string"},
 			"produk_utama": map[string]any{"type": "string"},
@@ -50,6 +51,11 @@ func (t *SupplierTool) Execute(ctx context.Context, args map[string]any) *tools.
 			return r
 		}
 		return t.tambah(ctx, args)
+	case "edit":
+		if r := requireOwner(role); r != nil {
+			return r
+		}
+		return t.edit(ctx, args)
 	case "daftar":
 		return t.daftar(ctx)
 	case "cari":
@@ -90,6 +96,45 @@ func (t *SupplierTool) tambah(ctx context.Context, args map[string]any) *tools.T
 		return tools.ErrorResult("Gagal simpan supplier.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Supplier ditambahkan: [%s] %s (kontak: %s).", sup.ID, sup.Nama, sup.Kontak))
+}
+
+func (t *SupplierTool) edit(ctx context.Context, args map[string]any) *tools.ToolResult {
+	all, err := t.store.GetAllSupplier(ctx)
+	if err != nil {
+		return tools.ErrorResult("Gagal baca supplier.").WithError(err)
+	}
+	sup := CariSupplier(all, argStr(args, "nama"))
+	if sup == nil {
+		return tools.NewToolResult("Supplier tidak ditemukan.")
+	}
+	var changed []string
+	if v := argStr(args, "nama_baru"); v != "" {
+		sup.Nama = v
+		changed = append(changed, "nama")
+	}
+	if v := argStr(args, "kontak"); v != "" {
+		sup.Kontak = v
+		changed = append(changed, "kontak")
+	}
+	if v := argStr(args, "alamat"); v != "" {
+		sup.Alamat = v
+		changed = append(changed, "alamat")
+	}
+	if v := argStr(args, "produk_utama"); v != "" {
+		sup.ProdukUtama = v
+		changed = append(changed, "produk_utama")
+	}
+	if v := argStr(args, "catatan"); v != "" {
+		sup.Catatan = v
+		changed = append(changed, "catatan")
+	}
+	if len(changed) == 0 {
+		return tools.ErrorResult("Tidak ada field yang diubah. Sebutkan nama_baru/kontak/alamat/produk_utama/catatan.")
+	}
+	if err := t.store.SetSupplier(ctx, sup); err != nil {
+		return tools.ErrorResult("Gagal simpan supplier.").WithError(err)
+	}
+	return tools.NewToolResult(fmt.Sprintf("Supplier %s ([%s]) diperbarui: %s.", sup.Nama, sup.ID, strings.Join(changed, ", ")))
 }
 
 func (t *SupplierTool) daftar(ctx context.Context) *tools.ToolResult {

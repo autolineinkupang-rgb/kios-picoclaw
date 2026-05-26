@@ -248,6 +248,40 @@ func TestSupplierTool(t *testing.T) {
 	}
 }
 
+func TestEditProduk(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	tool := NewStokTool(s)
+
+	if res := tool.Execute(ctx, map[string]any{"action": "edit_produk", "produk": "beras", "kategori": "sembako", "harga_jual": float64(65000), "stok_minimum": float64(8)}); res.IsError {
+		t.Fatalf("edit_produk: %s", res.ForLLM)
+	}
+	it, _ := s.GetProduk(ctx, "002")
+	if it.Kategori != "sembako" || it.HargaJual != 65000 || it.StokMinimum != 8 {
+		t.Errorf("edit not applied: %+v", it)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "edit_produk", "produk": "beras"}); !res.IsError {
+		t.Error("expected error when no fields given")
+	}
+}
+
+func TestSupplierEdit(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewSupplierTool(s)
+	tool.Execute(ctx, map[string]any{"action": "tambah", "nama": "UD Maju", "kontak": "0812"})
+
+	if res := tool.Execute(ctx, map[string]any{"action": "edit", "nama": "UD Maju", "kontak": "0899", "alamat": "Baa"}); res.IsError {
+		t.Fatalf("edit: %s", res.ForLLM)
+	}
+	all, _ := s.GetAllSupplier(ctx)
+	sup := CariSupplier(all, "UD Maju")
+	if sup == nil || sup.Kontak != "0899" || sup.Alamat != "Baa" {
+		t.Errorf("supplier edit not applied: %+v", sup)
+	}
+}
+
 func TestPromoTool(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
