@@ -104,6 +104,65 @@ func TestMenuDefinitionsIncludesKios(t *testing.T) {
 	}
 }
 
+func TestImportProdukCSV(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "produk.csv")
+	csvData := "nama,kategori,satuan,stok,harga_beli,harga_jual,stok_minimum,stok_kritis,supplier\n" +
+		"Beras Medium 5kg,sembako,karung,20,55000,62000,10,3,UD Maju\n" +
+		"Gula Pasir 1kg,sembako,bungkus,15,13500,15000,8,2,Distributor\n" +
+		",,,,,,,,\n" // blank name -> skipped
+	if err := os.WriteFile(path, []byte(csvData), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ImportProdukCSV(ctx, s, path)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if res.Created != 2 || res.Skipped != 1 {
+		t.Errorf("expected 2 created / 1 skipped, got %+v", res)
+	}
+	all, _ := s.GetAllProduk(ctx)
+	if len(all) != 2 {
+		t.Fatalf("expected 2 products, got %d", len(all))
+	}
+	var beras *Produk
+	for _, p := range all {
+		if p.Nama == "Beras Medium 5kg" {
+			beras = p
+		}
+	}
+	if beras == nil || beras.HargaJual != 62000 || beras.Stok != 20 || beras.Supplier != "UD Maju" {
+		t.Errorf("beras fields wrong: %+v", beras)
+	}
+	// Re-import updates existing (matched by name), no duplicates.
+	res2, _ := ImportProdukCSV(ctx, s, path)
+	if res2.Updated != 2 || res2.Created != 0 {
+		t.Errorf("re-import should update 2, got %+v", res2)
+	}
+	if all2, _ := s.GetAllProduk(ctx); len(all2) != 2 {
+		t.Errorf("re-import should not duplicate, got %d", len(all2))
+	}
+}
+
+func TestImportSupplierCSV(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "sup.csv")
+	if err := os.WriteFile(path, []byte("nama,kontak,produk_utama\nUD Maju,0812,beras\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := ImportSupplierCSV(ctx, s, path)
+	if err != nil || res.Created != 1 {
+		t.Fatalf("supplier import: %+v err=%v", res, err)
+	}
+	all, _ := s.GetAllSupplier(ctx)
+	if sup := CariSupplier(all, "UD Maju"); sup == nil || sup.Kontak != "0812" {
+		t.Errorf("supplier not imported correctly: %+v", sup)
+	}
+}
+
 func TestParseJualArgs(t *testing.T) {
 	cases := []struct {
 		text   string

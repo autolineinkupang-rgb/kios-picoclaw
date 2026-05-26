@@ -1,0 +1,5 @@
+nama,kategori,satuan,stok,harga_beli,harga_jual,stok_minimum,stok_kritis,supplier
+Beras Medium 5kg,sembako,karung,20,55000,62000,10,3,UD Maju
+Gula Pasir 1kg,sembako,bungkus,15,13500,15000,8,2,Distributor Kupang
+Minyak Goreng 1L,sembako,botol,24,16000,18000,10,3,UD Maju
+Indomie Goreng,mie,pcs,50,2800,3500,20,5,Grosir Baa
