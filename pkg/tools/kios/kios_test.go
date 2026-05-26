@@ -319,8 +319,8 @@ func TestTemplateCommand(t *testing.T) {
 	if err := def.Handler(context.Background(), req, rt); err != nil {
 		t.Fatalf("/template: %v", err)
 	}
-	if len(sent) < 2 {
-		t.Errorf("expected 2 template files sent, got %v", sent)
+	if len(sent) < 3 {
+		t.Errorf("expected 3 template files sent (produk/supplier/pustaka), got %v", sent)
 	}
 	if !strings.Contains(replyText, "Template terkirim") {
 		t.Errorf("unexpected reply: %s", replyText)

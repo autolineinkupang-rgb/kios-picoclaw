@@ -151,7 +151,7 @@ func Commands(store *Store) []commands.Definition {
 					return reply(req, "Maaf kak, fitur kirim file belum tersedia di sini.")
 				}
 				dir := templateDir()
-				files := []string{"produk-template.xlsx", "supplier-template.xlsx"}
+				files := []string{"produk-template.xlsx", "supplier-template.xlsx", "pustaka-template.xlsx"}
 				sent := 0
 				for _, name := range files {
 					path := filepath.Join(dir, name)

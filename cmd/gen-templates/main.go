@@ -48,6 +48,21 @@ var sheets = []sheet{
 			{"Pangkalan Gas Baa", "0838xxxxxxx", "Ba'a", "gas LPG 3kg", "ambil sendiri, antri pagi"},
 		},
 	},
+	{
+		file:    "templates/pustaka-template.xlsx",
+		name:    "Pustaka",
+		headers: []string{"judul", "info", "url", "kategori"},
+		rows: [][]any{
+			{"Panel Harga Badan Pangan", "Harga pangan harian nasional", "https://panelharga.badanpangan.go.id", "harga"},
+			{"PIHPS Bank Indonesia", "Harga pangan strategis antarwilayah", "https://www.bi.go.id/hargapangan", "harga"},
+			{"Kemendag SP2KP/EWS", "Harga & pasokan bahan pokok nasional", "https://ews.kemendag.go.id", "harga"},
+			{"Distan & Ketahanan Pangan NTT", "Harga komoditi pasar Kupang (mingguan)", "https://distankp.nttprov.go.id", "harga"},
+			{"BPS Nusa Tenggara Timur", "Inflasi & statistik harga NTT", "https://ntt.bps.go.id", "statistik"},
+			{"ANTARA Kupang", "Berita ekonomi & harga pangan NTT", "https://kupang.antaranews.com", "berita"},
+			{"Pemkab Rote Ndao", "Berita & program pangan daerah", "https://rotendaokab.go.id", "berita"},
+			{"OnlineNTT", "Berita lokal Rote Ndao & NTT", "https://www.onlinentt.com", "berita"},
+		},
+	},
 }
 
 func main() {
