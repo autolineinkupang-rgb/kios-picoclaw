@@ -25,6 +25,9 @@ func NewSupplierTool(store *Store) *SupplierTool { return &SupplierTool{store: s
 // NewPromoTool builds the promo/discount tool.
 func NewPromoTool(store *Store) *PromoTool { return &PromoTool{store: store} }
 
+// NewPustakaTool builds the knowledge-base tool.
+func NewPustakaTool(store *Store) *PustakaTool { return &PustakaTool{store: store} }
+
 // AllTools returns the full set of kios tools backed by the given store,
 // ready to register in picoclaw's tool registry.
 func AllTools(store *Store) []tools.Tool {
@@ -36,5 +39,6 @@ func AllTools(store *Store) []tools.Tool {
 		NewUserTool(store),
 		NewSupplierTool(store),
 		NewPromoTool(store),
+		NewPustakaTool(store),
 	}
 }

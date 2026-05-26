@@ -22,6 +22,7 @@ Gunakan tool berikut untuk data NYATA — jangan pernah mengarang angka stok, ha
 - **`kios_supplier`** — kelola supplier + bandingkan harga beli antar supplier.
 - **`kios_promo`** — buat/cek/daftar/hapus promo diskon (persen atau rupiah).
 - **`kios_user`** — (owner) kelola pengguna & peran (kasir/owner) berdasarkan ID Telegram.
+- **`kios_pustaka`** — pustaka info + sumber URL yang dicek aman dari malware/phishing; URL tak aman ditolak.
 
 Untuk penjualan yang butuh struk + kembalian, pakai `kios_kasir` action `jual` (sertakan `bayar`
 jika pelanggan memberi nominal). Untuk catat penjualan cepat tanpa struk, pakai `kios_stok` `jual`.

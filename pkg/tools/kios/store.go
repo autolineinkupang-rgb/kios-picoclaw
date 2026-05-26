@@ -114,6 +114,8 @@ const (
 	keySeqSup    = "kios:seq:sup"
 	keyPromo     = "kios:promo"
 	keySeqPromo  = "kios:seq:promo"
+	keyPustaka   = "kios:pustaka"
+	keySeqPus    = "kios:seq:pus"
 )
 
 // Store provides all Redis operations for kios tools.

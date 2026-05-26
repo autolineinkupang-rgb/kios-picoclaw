@@ -75,10 +75,59 @@ func TestToolsRegister(t *testing.T) {
 	for _, tool := range AllTools(s) {
 		reg.Register(tool)
 	}
-	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user", "kios_supplier", "kios_promo"} {
+	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user", "kios_supplier", "kios_promo", "kios_pustaka"} {
 		if !reg.HasRegistered(name) {
 			t.Errorf("tool %q not registered (registry: %v)", name, reg.List())
 		}
+	}
+}
+
+func TestSkorAman(t *testing.T) {
+	cases := []struct {
+		url  string
+		aman bool
+	}{
+		{"https://bps.go.id/data", true},        // trusted + https + .go.id
+		{"https://shopee.co.id/produk", true},   // trusted + .id
+		{"http://192.168.1.1/login", false},     // IP host + non-https
+		{"https://bit.ly/abc", false},           // shortener
+		{"https://x.com/malware?exec=1", false}, // suspicious path
+		{"ftp://example.com/file", false},       // non-http scheme
+		{"", false},                             // empty
+	}
+	for _, c := range cases {
+		got := SkorAman(c.url)
+		if got.Aman != c.aman {
+			t.Errorf("SkorAman(%q).Aman=%v (skor %d, %s), want %v", c.url, got.Aman, got.Skor, got.Alasan, c.aman)
+		}
+	}
+}
+
+func TestPustakaTool(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewPustakaTool(s)
+
+	// Safe URL is accepted.
+	if res := tool.Execute(ctx, map[string]any{"action": "tambah", "judul": "Harga pangan NTT", "url": "https://bps.go.id/harga", "kategori": "harga"}); res.IsError {
+		t.Fatalf("tambah safe url: %s", res.ForLLM)
+	}
+	// Unsafe URL is rejected and not stored.
+	if res := tool.Execute(ctx, map[string]any{"action": "tambah", "judul": "Jahat", "url": "http://1.2.3.4/malware?exec=1"}); !res.IsError {
+		t.Error("expected unsafe URL to be rejected")
+	}
+	all, _ := s.GetAllPustaka(ctx)
+	if len(all) != 1 {
+		t.Fatalf("expected exactly 1 stored entry (unsafe rejected), got %d", len(all))
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "daftar"}); !strings.Contains(res.ForLLM, "Harga pangan") {
+		t.Errorf("daftar missing entry: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "cek_url", "url": "https://bit.ly/x"}); !strings.Contains(res.ForLLM, "TIDAK AMAN") {
+		t.Errorf("cek_url should flag shortener unsafe: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "hapus", "id": all[0].ID}); res.IsError {
+		t.Errorf("hapus: %s", res.ForLLM)
 	}
 }
 

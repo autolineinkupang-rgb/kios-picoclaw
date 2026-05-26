@@ -141,6 +141,56 @@ func (s *Store) NextPromoID(ctx context.Context) (string, error) {
 	return fmt.Sprintf("PROMO-%04d", n), nil
 }
 
+// Pustaka is a knowledge-base entry: info plus an optional safe source URL.
+type Pustaka struct {
+	ID          string `json:"id"`
+	Judul       string `json:"judul"`
+	Info        string `json:"info"`
+	URL         string `json:"url"`
+	Skor        int    `json:"skor"` // URL safety score (0 when no URL)
+	Kategori    string `json:"kategori"`
+	Ditambahkan string `json:"ditambahkan"`
+}
+
+// GetAllPustaka returns all knowledge-base entries.
+func (s *Store) GetAllPustaka(ctx context.Context) ([]*Pustaka, error) {
+	m, err := s.rdb.HGetAll(ctx, keyPustaka).Result()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Pustaka, 0, len(m))
+	for _, v := range m {
+		var p Pustaka
+		if err := json.Unmarshal([]byte(v), &p); err == nil {
+			out = append(out, &p)
+		}
+	}
+	return out, nil
+}
+
+// SetPustaka stores a knowledge-base entry.
+func (s *Store) SetPustaka(ctx context.Context, p *Pustaka) error {
+	b, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	return s.rdb.HSet(ctx, keyPustaka, p.ID, string(b)).Err()
+}
+
+// DelPustaka removes a knowledge-base entry by ID.
+func (s *Store) DelPustaka(ctx context.Context, id string) error {
+	return s.rdb.HDel(ctx, keyPustaka, id).Err()
+}
+
+// NextPustakaID generates the next knowledge-base ID (PUS-NNNN).
+func (s *Store) NextPustakaID(ctx context.Context) (string, error) {
+	n, err := s.rdb.Incr(ctx, keySeqPus).Result()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("PUS-%04d", n), nil
+}
+
 // promoAktif reports whether a promo is active on the given date (YYYY-MM-DD).
 func promoAktif(p *Promo, today string) bool {
 	if !p.Aktif {
