@@ -111,14 +111,14 @@ func (t *StokTool) Execute(ctx context.Context, args map[string]any) *tools.Tool
 	case "stok_menipis":
 		return t.stokMenipis(ctx)
 	default:
-		return tools.ErrorResult("Aksi stok tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi stok belum dikenal kak 🤔")
 	}
 }
 
 func (t *StokTool) cek(ctx context.Context) *tools.ToolResult {
 	all, err := t.store.GetAllProduk(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca stok.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca data stok kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if len(all) == 0 {
 		return tools.NewToolResult("Belum ada produk di stok.")
@@ -134,10 +134,10 @@ func (t *StokTool) cek(ctx context.Context) *tools.ToolResult {
 func (t *StokTool) cari(ctx context.Context, args map[string]any) *tools.ToolResult {
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, ada kendala pas cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Hmm, produknya nggak ketemu kak 🔍 Coba ketik /stok buat lihat daftar produk ya.")
 	}
 	return tools.NewToolResult(fmt.Sprintf("[%s] %s — stok %d %s, jual %s, beli %s, supplier %s",
 		item.ID, item.Nama, item.Stok, item.Satuan,
@@ -165,24 +165,24 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 	hargaBeli := argInt(args, "harga")
 	supplier := argStr(args, "supplier")
 	if qty <= 0 {
-		return tools.ErrorResult("Jumlah restock harus lebih dari 0.")
+		return tools.ErrorResult("Jumlah restock-nya harus lebih dari 0 ya kak 🙏")
 	}
 	if hargaBeli < 0 {
-		return tools.ErrorResult("Harga beli tidak boleh negatif.")
+		return tools.ErrorResult("Harga beli nggak boleh minus ya kak 😊")
 	}
 	item, err := findOne(ctx, t.store, nama)
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, ada kendala pas cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	now := NowWITA().Format("2006-01-02")
 
 	if item == nil {
 		if !argBool(args, "auto_create") {
-			return tools.ErrorResult(fmt.Sprintf("Produk %q belum terdaftar. Daftarkan dulu atau set auto_create=true.", nama))
+			return tools.ErrorResult(fmt.Sprintf("Produk \"%s\" belum terdaftar kak 😊 Daftarkan dulu ya, atau set auto_create kalau mau langsung dibuat.", nama))
 		}
 		id, err := t.store.NextProdukID(ctx)
 		if err != nil {
-			return tools.ErrorResult("Gagal buat id produk.").WithError(err)
+			return tools.ErrorResult("Aduh, ada kendala bikin id produk kak 😣 Coba lagi ya.").WithError(err)
 		}
 		hargaJual := 0
 		if hargaBeli > 0 {
@@ -194,7 +194,7 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 			StokMinimum: 5, StokKritis: 2, Supplier: supplier, LastUpdate: now,
 		}
 		if err := t.store.SetProduk(ctx, item); err != nil {
-			return tools.ErrorResult("Gagal simpan produk baru.").WithError(err)
+			return tools.ErrorResult("Aduh, gagal simpan produk baru kak 😣 Coba lagi sebentar ya.").WithError(err)
 		}
 		t.recordPembelian(ctx, item, qty, hargaBeli, supplier, kasir, "auto-create")
 		return tools.NewToolResult(fmt.Sprintf("Produk baru dibuat: [%s] %s, stok %d, harga jual %s (margin 15%%).",
@@ -220,7 +220,7 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 		item.Supplier = supplier
 	}
 	if err := t.store.SetProduk(ctx, item); err != nil {
-		return tools.ErrorResult("Gagal update stok.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal update stok kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	t.recordPembelian(ctx, item, qty, hargaBeli, item.Supplier, kasir, "")
 	msg := fmt.Sprintf("Restock %s +%d, stok jadi %d.", item.Nama, qty, item.Stok)
@@ -245,19 +245,19 @@ func (t *StokTool) tambahProduk(ctx context.Context, args map[string]any) *tools
 		nama = argStr(args, "produk")
 	}
 	if nama == "" {
-		return tools.ErrorResult("Nama produk wajib diisi.")
+		return tools.ErrorResult("Nama produknya diisi dulu ya kak 🙏")
 	}
 	hargaJual := argInt(args, "harga_jual")
 	if hargaJual <= 0 {
-		return tools.ErrorResult("Harga jual wajib diisi.")
+		return tools.ErrorResult("Harga jualnya diisi dulu ya kak 😊")
 	}
 	stokAwal := argInt(args, "stok_awal")
 	if stokAwal < 0 {
-		return tools.ErrorResult("Stok awal tidak boleh negatif.")
+		return tools.ErrorResult("Stok awal nggak boleh minus ya kak.")
 	}
 	id, err := t.store.NextProdukID(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal buat id produk.").WithError(err)
+		return tools.ErrorResult("Aduh, ada kendala bikin id produk kak 😣 Coba lagi ya.").WithError(err)
 	}
 	kategori := argStr(args, "kategori")
 	if kategori == "" {
@@ -275,7 +275,7 @@ func (t *StokTool) tambahProduk(ctx context.Context, args map[string]any) *tools
 		LastUpdate: NowWITA().Format("2006-01-02"), HasExp: exp != "", ExpDate: exp,
 	}
 	if err := t.store.SetProduk(ctx, p); err != nil {
-		return tools.ErrorResult("Gagal simpan produk.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal simpan produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Produk terdaftar: [%s] %s, stok %d %s, jual %s.",
 		p.ID, p.Nama, p.Stok, p.Satuan, FormatRupiah(p.HargaJual)))
@@ -284,10 +284,10 @@ func (t *StokTool) tambahProduk(ctx context.Context, args map[string]any) *tools
 func (t *StokTool) editProduk(ctx context.Context, args map[string]any) *tools.ToolResult {
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, ada kendala pas cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Hmm, produknya nggak ketemu kak 🔍 Coba ketik /stok buat lihat daftar produk ya.")
 	}
 	var changed []string
 	if v := argStr(args, "nama"); v != "" {
@@ -327,7 +327,7 @@ func (t *StokTool) editProduk(ctx context.Context, args map[string]any) *tools.T
 	}
 	item.LastUpdate = NowWITA().Format("2006-01-02")
 	if err := t.store.SetProduk(ctx, item); err != nil {
-		return tools.ErrorResult("Gagal simpan perubahan.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal simpan perubahan kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Produk %s ([%s]) diperbarui: %s.", item.Nama, item.ID, strings.Join(changed, ", ")))
 }
@@ -372,13 +372,13 @@ func (t *StokTool) editMassal(ctx context.Context, args map[string]any) *tools.T
 func (t *StokTool) hapus(ctx context.Context, args map[string]any) *tools.ToolResult {
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, ada kendala pas cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Hmm, produknya nggak ketemu kak 🔍 Coba ketik /stok buat lihat daftar produk ya.")
 	}
 	if err := t.store.DelProduk(ctx, item.ID); err != nil {
-		return tools.ErrorResult("Gagal hapus produk.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal hapus produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Produk %s ([%s]) dihapus.", item.Nama, item.ID))
 }
@@ -386,20 +386,20 @@ func (t *StokTool) hapus(ctx context.Context, args map[string]any) *tools.ToolRe
 func (t *StokTool) setStok(ctx context.Context, args map[string]any) *tools.ToolResult {
 	baru := argInt(args, "stok_baru")
 	if baru < 0 {
-		return tools.ErrorResult("Stok baru tidak boleh negatif.")
+		return tools.ErrorResult("Stok baru nggak boleh minus ya kak 😊")
 	}
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, ada kendala pas cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Hmm, produknya nggak ketemu kak 🔍 Coba ketik /stok buat lihat daftar produk ya.")
 	}
 	lama := item.Stok
 	item.Stok = baru
 	item.LastUpdate = NowWITA().Format("2006-01-02")
 	if err := t.store.SetProduk(ctx, item); err != nil {
-		return tools.ErrorResult("Gagal set stok.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal set stok kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Stok %s: %d → %d.", item.Nama, lama, baru))
 }
@@ -407,20 +407,20 @@ func (t *StokTool) setStok(ctx context.Context, args map[string]any) *tools.Tool
 func (t *StokTool) updateExp(ctx context.Context, args map[string]any) *tools.ToolResult {
 	exp := argStr(args, "exp_date")
 	if exp == "" {
-		return tools.ErrorResult("exp_date wajib diisi.")
+		return tools.ErrorResult("exp_date-nya diisi dulu ya kak 🙏")
 	}
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, ada kendala pas cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Hmm, produknya nggak ketemu kak 🔍 Coba ketik /stok buat lihat daftar produk ya.")
 	}
 	item.HasExp = true
 	item.ExpDate = exp
 	item.LastUpdate = NowWITA().Format("2006-01-02")
 	if err := t.store.SetProduk(ctx, item); err != nil {
-		return tools.ErrorResult("Gagal update exp.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal update exp kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Tanggal kedaluwarsa %s = %s.", item.Nama, exp))
 }
@@ -428,14 +428,14 @@ func (t *StokTool) updateExp(ctx context.Context, args map[string]any) *tools.To
 func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.ToolResult {
 	id := strings.ToUpper(argStr(args, "id"))
 	if id == "" {
-		return tools.ErrorResult("ID transaksi wajib diisi.")
+		return tools.ErrorResult("ID transaksi-nya diisi dulu ya kak 🙏")
 	}
 	tx, err := t.store.RemoveTransaksi(ctx, id)
 	if err != nil {
-		return tools.ErrorResult("Gagal batalkan transaksi.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal batalkan transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if tx == nil {
-		return tools.NewToolResult(fmt.Sprintf("Transaksi %s tidak ditemukan.", id))
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s nggak ketemu kak 🔍", id))
 	}
 	if item, _ := t.store.GetProduk(ctx, tx.ProdukID); item != nil {
 		item.Stok += tx.Qty
@@ -448,7 +448,7 @@ func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.T
 func (t *StokTool) stokMenipis(ctx context.Context) *tools.ToolResult {
 	all, err := t.store.GetAllProduk(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca stok.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca data stok kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	var b strings.Builder
 	count := 0

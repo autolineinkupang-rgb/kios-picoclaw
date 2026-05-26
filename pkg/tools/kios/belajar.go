@@ -192,28 +192,28 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 	switch argStr(args, "action") {
 	case "alias_set":
 		if argStr(args, "alias") == "" || argStr(args, "target") == "" {
-			return tools.ErrorResult("alias dan target wajib diisi.")
+			return tools.ErrorResult("alias dan target-nya diisi dulu ya kak 🙏")
 		}
 		t.store.SaveAlias(ctx, argStr(args, "alias"), argStr(args, "target"))
 		return tools.NewToolResult(fmt.Sprintf("Alias '%s' → '%s' disimpan.", argStr(args, "alias"), argStr(args, "target")))
 	case "alias_get":
 		v := t.store.ResolveAlias(ctx, argStr(args, "alias"))
 		if v == "" {
-			return tools.NewToolResult("Alias tidak ditemukan.")
+			return tools.NewToolResult("Alias nggak ketemu kak 🔍")
 		}
 		return tools.NewToolResult(fmt.Sprintf("'%s' → '%s'", argStr(args, "alias"), v))
 	case "shortcut_set":
 		nama := argStr(args, "nama")
 		items := splitItems(argStr(args, "items"))
 		if nama == "" || len(items) == 0 {
-			return tools.ErrorResult("nama dan items (pisah koma) wajib diisi.")
+			return tools.ErrorResult("nama dan items (pisah koma)-nya diisi dulu ya kak 🙏")
 		}
 		t.store.SaveShortcut(ctx, nama, items)
 		return tools.NewToolResult(fmt.Sprintf("Shortcut '%s' = %s.", nama, strings.Join(items, ", ")))
 	case "shortcut_get":
 		items := t.store.GetShortcut(ctx, argStr(args, "nama"))
 		if len(items) == 0 {
-			return tools.NewToolResult("Shortcut tidak ditemukan.")
+			return tools.NewToolResult("Shortcut nggak ketemu kak 🔍")
 		}
 		return tools.NewToolResult(fmt.Sprintf("'%s' = %s", argStr(args, "nama"), strings.Join(items, ", ")))
 	case "shortcut_list":
@@ -234,14 +234,14 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 		return t.habitSummary(ctx)
 	case "pattern_save":
 		if argStr(args, "input") == "" {
-			return tools.ErrorResult("input wajib diisi.")
+			return tools.ErrorResult("input-nya diisi dulu ya kak 🙏")
 		}
 		t.store.SavePattern(ctx, argStr(args, "input"), argStr(args, "intent"), argStr(args, "target"))
 		return tools.NewToolResult("Pola disimpan.")
 	case "pattern_get":
 		p := t.store.GetPattern(ctx, argStr(args, "input"))
 		if p == nil {
-			return tools.NewToolResult("Pola tidak ditemukan.")
+			return tools.NewToolResult("Pola nggak ketemu kak 🔍")
 		}
 		return tools.NewToolResult(fmt.Sprintf("intent=%s target=%s (x%d)", p.Intent, p.Target, p.Count))
 	case "unknown_add":
@@ -253,7 +253,7 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 		t.store.ResolveUnknown(ctx, argStr(args, "cmd"))
 		return tools.NewToolResult("Perintah tak dikenal ditandai selesai.")
 	default:
-		return tools.ErrorResult("Aksi belajar tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi belajar belum dikenal kak 🤔")
 	}
 }
 

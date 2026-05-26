@@ -68,7 +68,7 @@ func (t *KasirTool) Execute(ctx context.Context, args map[string]any) *tools.Too
 	case "status_shift":
 		return t.statusShift(ctx)
 	default:
-		return tools.ErrorResult("Aksi kasir tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi kasir belum dikenal kak 🤔")
 	}
 }
 
@@ -163,7 +163,7 @@ func (t *KasirTool) struk(tx *Transaksi, item *Produk, bayar *int, promoID strin
 func (t *KasirTool) bukaShift(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
 	sh, err := t.store.GetShift(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca shift.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca shift kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if sh != nil && sh.Status == "buka" {
 		return tools.ErrorResult(fmt.Sprintf("Shift sudah dibuka oleh %s sejak %s WITA.", sh.Kasir, sh.WaktuBuka))
@@ -174,7 +174,7 @@ func (t *KasirTool) bukaShift(ctx context.Context, args map[string]any, kasir st
 		WaktuBuka: now.Format("2006-01-02 15:04"), Status: "buka",
 	}
 	if err := t.store.SetShift(ctx, newShift); err != nil {
-		return tools.ErrorResult("Gagal buka shift.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal buka shift kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Shift dibuka oleh %s, saldo awal %s, jam %s WITA.",
 		kasir, FormatRupiah(newShift.SaldoAwal), newShift.WaktuBuka))
@@ -183,7 +183,7 @@ func (t *KasirTool) bukaShift(ctx context.Context, args map[string]any, kasir st
 func (t *KasirTool) tutupShift(ctx context.Context, args map[string]any) *tools.ToolResult {
 	sh, err := t.store.GetShift(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca shift.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca shift kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if sh == nil || sh.Status != "buka" {
 		return tools.ErrorResult("Belum ada shift yang dibuka kak. Ketik buka shift dulu ya.")
@@ -194,7 +194,7 @@ func (t *KasirTool) tutupShift(ctx context.Context, args map[string]any) *tools.
 	sh.WaktuTutup = now.Format("2006-01-02 15:04")
 	sh.SaldoAkhir = argInt(args, "saldo_akhir")
 	if err := t.store.SetShift(ctx, sh); err != nil {
-		return tools.ErrorResult("Gagal tutup shift.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal tutup shift kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Shift ditutup. Kasir: %s. Transaksi: %d. Omzet: %s. Saldo akhir: %s.",
 		sh.Kasir, jumlah, FormatRupiah(omzet), FormatRupiah(sh.SaldoAkhir)))
@@ -203,7 +203,7 @@ func (t *KasirTool) tutupShift(ctx context.Context, args map[string]any) *tools.
 func (t *KasirTool) statusShift(ctx context.Context) *tools.ToolResult {
 	sh, err := t.store.GetShift(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca shift.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca shift kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if sh == nil || sh.Status != "buka" {
 		return tools.NewToolResult("Tidak ada shift yang sedang buka.")

@@ -68,32 +68,32 @@ func (t *SupplierTool) Execute(ctx context.Context, args map[string]any) *tools.
 	case "banding_harga":
 		return t.bandingHarga(ctx, args)
 	default:
-		return tools.ErrorResult("Aksi supplier tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi supplier belum dikenal kak 🤔")
 	}
 }
 
 func (t *SupplierTool) tambah(ctx context.Context, args map[string]any) *tools.ToolResult {
 	nama := argStr(args, "nama")
 	if nama == "" {
-		return tools.ErrorResult("Nama supplier wajib diisi.")
+		return tools.ErrorResult("Nama supplier-nya diisi dulu ya kak 🙏")
 	}
 	all, err := t.store.GetAllSupplier(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if CariSupplier(all, nama) != nil {
 		return tools.ErrorResult(fmt.Sprintf("Supplier %q sudah terdaftar kak.", nama))
 	}
 	id, err := t.store.NextSupplierID(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal buat id supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal buat id supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	sup := &Supplier{
 		ID: id, Nama: nama, Kontak: argStr(args, "kontak"), Alamat: argStr(args, "alamat"),
 		ProdukUtama: argStr(args, "produk_utama"), Catatan: argStr(args, "catatan"),
 	}
 	if err := t.store.SetSupplier(ctx, sup); err != nil {
-		return tools.ErrorResult("Gagal simpan supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal simpan supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Supplier ditambahkan: [%s] %s (kontak: %s).", sup.ID, sup.Nama, sup.Kontak))
 }
@@ -101,11 +101,11 @@ func (t *SupplierTool) tambah(ctx context.Context, args map[string]any) *tools.T
 func (t *SupplierTool) edit(ctx context.Context, args map[string]any) *tools.ToolResult {
 	all, err := t.store.GetAllSupplier(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	sup := CariSupplier(all, argStr(args, "nama"))
 	if sup == nil {
-		return tools.NewToolResult("Supplier tidak ditemukan.")
+		return tools.NewToolResult("Supplier nggak ketemu kak 🔍")
 	}
 	var changed []string
 	if v := argStr(args, "nama_baru"); v != "" {
@@ -132,7 +132,7 @@ func (t *SupplierTool) edit(ctx context.Context, args map[string]any) *tools.Too
 		return tools.ErrorResult("Tidak ada field yang diubah. Sebutkan nama_baru/kontak/alamat/produk_utama/catatan.")
 	}
 	if err := t.store.SetSupplier(ctx, sup); err != nil {
-		return tools.ErrorResult("Gagal simpan supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal simpan supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Supplier %s ([%s]) diperbarui: %s.", sup.Nama, sup.ID, strings.Join(changed, ", ")))
 }
@@ -140,7 +140,7 @@ func (t *SupplierTool) edit(ctx context.Context, args map[string]any) *tools.Too
 func (t *SupplierTool) daftar(ctx context.Context) *tools.ToolResult {
 	all, err := t.store.GetAllSupplier(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if len(all) == 0 {
 		return tools.NewToolResult("Belum ada supplier terdaftar.")
@@ -156,11 +156,11 @@ func (t *SupplierTool) daftar(ctx context.Context) *tools.ToolResult {
 func (t *SupplierTool) cari(ctx context.Context, args map[string]any) *tools.ToolResult {
 	all, err := t.store.GetAllSupplier(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	sup := CariSupplier(all, argStr(args, "nama"))
 	if sup == nil {
-		return tools.NewToolResult("Supplier tidak ditemukan.")
+		return tools.NewToolResult("Supplier nggak ketemu kak 🔍")
 	}
 	produk, _ := t.store.GetAllProduk(ctx)
 	var supplied []string
@@ -180,14 +180,14 @@ func (t *SupplierTool) cari(ctx context.Context, args map[string]any) *tools.Too
 func (t *SupplierTool) hapus(ctx context.Context, args map[string]any) *tools.ToolResult {
 	all, err := t.store.GetAllSupplier(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	sup := CariSupplier(all, argStr(args, "nama"))
 	if sup == nil {
-		return tools.NewToolResult("Supplier tidak ditemukan.")
+		return tools.NewToolResult("Supplier nggak ketemu kak 🔍")
 	}
 	if err := t.store.DelSupplier(ctx, sup.ID); err != nil {
-		return tools.ErrorResult("Gagal hapus supplier.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal hapus supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Supplier %s ([%s]) dihapus.", sup.Nama, sup.ID))
 }
@@ -197,7 +197,7 @@ func (t *SupplierTool) hapus(ctx context.Context, args map[string]any) *tools.To
 func (t *SupplierTool) bandingHarga(ctx context.Context, args map[string]any) *tools.ToolResult {
 	produk := argStr(args, "produk")
 	if produk == "" {
-		return tools.ErrorResult("Nama produk wajib diisi.")
+		return tools.ErrorResult("Nama produk-nya diisi dulu ya kak 🙏")
 	}
 	item, _ := findOne(ctx, t.store, produk)
 	namaProduk := produk

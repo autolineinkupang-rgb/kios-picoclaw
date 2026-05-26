@@ -62,14 +62,14 @@ func (t *PustakaTool) Execute(ctx context.Context, args map[string]any) *tools.T
 		}
 		return t.hapus(ctx, args)
 	default:
-		return tools.ErrorResult("Aksi pustaka tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi pustaka belum dikenal kak 🤔")
 	}
 }
 
 func (t *PustakaTool) cekURL(args map[string]any) *tools.ToolResult {
 	u := argStr(args, "url")
 	if u == "" {
-		return tools.ErrorResult("URL wajib diisi.")
+		return tools.ErrorResult("URL-nya diisi dulu ya kak 🙏")
 	}
 	s := SkorAman(u)
 	verdict := "AMAN"
@@ -84,7 +84,7 @@ func (t *PustakaTool) tambah(ctx context.Context, args map[string]any) *tools.To
 	info := argStr(args, "info")
 	u := argStr(args, "url")
 	if judul == "" {
-		return tools.ErrorResult("Judul wajib diisi.")
+		return tools.ErrorResult("Judul-nya diisi dulu ya kak 🙏")
 	}
 	if info == "" && u == "" {
 		return tools.ErrorResult("Isi info atau url minimal salah satu.")
@@ -99,14 +99,14 @@ func (t *PustakaTool) tambah(ctx context.Context, args map[string]any) *tools.To
 	}
 	id, err := t.store.NextPustakaID(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal buat id pustaka.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal buat id pustaka kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	p := &Pustaka{
 		ID: id, Judul: judul, Info: info, URL: u, Skor: skor,
 		Kategori: argStr(args, "kategori"), Ditambahkan: NowWITA().Format("2006-01-02 15:04"),
 	}
 	if err := t.store.SetPustaka(ctx, p); err != nil {
-		return tools.ErrorResult("Gagal simpan pustaka.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal simpan pustaka kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	msg := fmt.Sprintf("Tersimpan: [%s] %s.", p.ID, p.Judul)
 	if u != "" {
@@ -119,7 +119,7 @@ func (t *PustakaTool) cari(ctx context.Context, args map[string]any) *tools.Tool
 	q := strings.ToLower(strings.TrimSpace(argStr(args, "q")))
 	all, err := t.store.GetAllPustaka(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca pustaka.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca pustaka kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	var b strings.Builder
 	count := 0
@@ -140,7 +140,7 @@ func (t *PustakaTool) cari(ctx context.Context, args map[string]any) *tools.Tool
 func (t *PustakaTool) daftar(ctx context.Context) *tools.ToolResult {
 	all, err := t.store.GetAllPustaka(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca pustaka.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca pustaka kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if len(all) == 0 {
 		return tools.NewToolResult("Pustaka masih kosong.")
@@ -169,19 +169,19 @@ func (t *PustakaTool) writeEntry(b *strings.Builder, p *Pustaka) {
 func (t *PustakaTool) hapus(ctx context.Context, args map[string]any) *tools.ToolResult {
 	id := strings.ToUpper(argStr(args, "id"))
 	if id == "" {
-		return tools.ErrorResult("ID entri wajib diisi.")
+		return tools.ErrorResult("ID entri-nya diisi dulu ya kak 🙏")
 	}
 	all, err := t.store.GetAllPustaka(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca pustaka.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca pustaka kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	for _, p := range all {
 		if strings.EqualFold(p.ID, id) {
 			if err := t.store.DelPustaka(ctx, p.ID); err != nil {
-				return tools.ErrorResult("Gagal hapus entri.").WithError(err)
+				return tools.ErrorResult("Aduh, gagal hapus entri kak 😣 Coba lagi sebentar ya.").WithError(err)
 			}
 			return tools.NewToolResult(fmt.Sprintf("Entri %s (%s) dihapus.", p.ID, p.Judul))
 		}
 	}
-	return tools.NewToolResult(fmt.Sprintf("Entri %s tidak ditemukan.", id))
+	return tools.NewToolResult(fmt.Sprintf("Entri %s nggak ketemu kak 🔍", id))
 }

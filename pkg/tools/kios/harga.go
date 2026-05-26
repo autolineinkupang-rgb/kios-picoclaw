@@ -53,17 +53,17 @@ func (t *HargaTool) Execute(ctx context.Context, args map[string]any) *tools.Too
 	case "prediksi":
 		return t.prediksi(ctx, args)
 	default:
-		return tools.ErrorResult("Aksi harga tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi harga belum dikenal kak 🤔")
 	}
 }
 
 func (t *HargaTool) cek(ctx context.Context, args map[string]any) *tools.ToolResult {
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Produk nggak ketemu kak 🔍")
 	}
 	return tools.NewToolResult(fmt.Sprintf("%s — jual %s, beli %s.", item.Nama, FormatRupiah(item.HargaJual), FormatRupiah(item.HargaBeli)))
 }
@@ -71,14 +71,14 @@ func (t *HargaTool) cek(ctx context.Context, args map[string]any) *tools.ToolRes
 func (t *HargaTool) update(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
 	hargaJual := argInt(args, "harga_jual")
 	if hargaJual <= 0 {
-		return tools.ErrorResult("harga_jual wajib diisi dan harus > 0.")
+		return tools.ErrorResult("harga_jual-nya wajib diisi dan harus lebih dari 0 ya kak 🙏")
 	}
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Produk nggak ketemu kak 🔍")
 	}
 	lama := item.HargaJual
 	item.HargaJual = hargaJual
@@ -87,7 +87,7 @@ func (t *HargaTool) update(ctx context.Context, args map[string]any, kasir strin
 	}
 	item.LastUpdate = NowWITA().Format("2006-01-02")
 	if err := t.store.SetProduk(ctx, item); err != nil {
-		return tools.ErrorResult("Gagal update harga.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal update harga kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if hargaJual != lama {
 		now := NowWITA()
@@ -103,10 +103,10 @@ func (t *HargaTool) update(ctx context.Context, args map[string]any, kasir strin
 func (t *HargaTool) estimasi(ctx context.Context, args map[string]any) *tools.ToolResult {
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Produk nggak ketemu kak 🔍")
 	}
 	hargaBeli := item.HargaBeli
 	if hb := argIntPtr(args, "harga_beli_baru"); hb != nil && *hb > 0 {
@@ -127,14 +127,14 @@ func (t *HargaTool) estimasi(ctx context.Context, args map[string]any) *tools.To
 func (t *HargaTool) prediksi(ctx context.Context, args map[string]any) *tools.ToolResult {
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Produk nggak ketemu kak 🔍")
 	}
 	hist, err := t.store.GetAllPriceHistory(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca riwayat harga.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca riwayat harga kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	var riwayat []*PriceHistory
 	for _, h := range hist {

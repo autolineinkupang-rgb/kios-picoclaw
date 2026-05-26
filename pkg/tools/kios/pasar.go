@@ -104,7 +104,7 @@ func (t *PasarTool) Execute(ctx context.Context, args map[string]any) *tools.Too
 	case "analisa":
 		return t.analisa(ctx, args)
 	default:
-		return tools.ErrorResult("Aksi pasar tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi pasar belum dikenal kak 🤔")
 	}
 }
 
@@ -112,11 +112,11 @@ func (t *PasarTool) setPasar(ctx context.Context, args map[string]any) *tools.To
 	produk := argStr(args, "produk")
 	harga := argInt(args, "harga")
 	if produk == "" || harga <= 0 {
-		return tools.ErrorResult("Produk dan harga pasar wajib diisi.")
+		return tools.ErrorResult("Produk dan harga pasar-nya diisi dulu ya kak 🙏")
 	}
 	ref, err := t.store.SetMarketRef(ctx, produk, harga)
 	if err != nil {
-		return tools.ErrorResult("Gagal simpan harga pasar.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal simpan harga pasar kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Harga pasar %s tersimpan: rentang %s–%s.",
 		produk, FormatRupiah(ref.Min), FormatRupiah(ref.Max)))
@@ -140,7 +140,7 @@ func matchRef(refs map[string]*MarketRef, nama string) *MarketRef {
 func (t *PasarTool) analisa(ctx context.Context, args map[string]any) *tools.ToolResult {
 	refs, err := t.store.GetAllMarketRef(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca harga pasar.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca harga pasar kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if len(refs) == 0 {
 		return tools.NewToolResult("Belum ada data harga pasar. Set dulu: action set_pasar.")
@@ -155,7 +155,7 @@ func (t *PasarTool) analisa(ctx context.Context, args map[string]any) *tools.Too
 		items, _ = t.store.GetAllProduk(ctx)
 	}
 	if len(items) == 0 {
-		return tools.NewToolResult("Produk tidak ditemukan.")
+		return tools.NewToolResult("Produk nggak ketemu kak 🔍")
 	}
 
 	var b strings.Builder

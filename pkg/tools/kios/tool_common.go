@@ -105,7 +105,7 @@ func resolveRole(ctx context.Context, store *Store) (role string, kasir string, 
 	if id != "" {
 		if u, err := store.GetUser(ctx, id); err == nil && u != nil {
 			if !u.Aktif {
-				return "", "", tools.ErrorResult("Maaf kak, akun kamu sedang nonaktif. Hubungi pemilik kios ya.")
+				return "", "", tools.ErrorResult("Duh, akun kamu lagi nonaktif kak 😔 Coba minta pemilik kios buat aktifin dulu ya.")
 			}
 			nama := u.Nama
 			if nama == "" {
@@ -120,7 +120,7 @@ func resolveRole(ctx context.Context, store *Store) (role string, kasir string, 
 // requireOwner returns a refusal result when role is not owner.
 func requireOwner(role string) *tools.ToolResult {
 	if role != "owner" {
-		return tools.ErrorResult("Maaf kak, hanya pemilik (owner) yang boleh melakukan aksi ini.")
+		return tools.ErrorResult("Maaf ya kak 🙏 aksi ini khusus pemilik (owner). Hubungi pemilik kios kalau perlu.")
 	}
 	return nil
 }
@@ -146,17 +146,17 @@ func findOne(ctx context.Context, store *Store, query string) (*Produk, error) {
 // Returns the transaction, updated product, and remaining stock.
 func performJual(ctx context.Context, store *Store, query string, qty int, metode, kasir string, diskonPerUnit int) (*Transaksi, *Produk, int, error) {
 	if qty <= 0 {
-		return nil, nil, 0, fmt.Errorf("jumlah jual harus lebih dari 0")
+		return nil, nil, 0, fmt.Errorf("jumlahnya harus lebih dari 0 ya kak 🙏")
 	}
 	item, err := findOne(ctx, store, query)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	if item == nil {
-		return nil, nil, 0, fmt.Errorf("produk %q tidak ditemukan", query)
+		return nil, nil, 0, fmt.Errorf("produk \"%s\" nggak ketemu kak 🔍 coba ketik /stok buat lihat daftarnya ya", query)
 	}
 	if item.Stok < qty {
-		return nil, nil, 0, fmt.Errorf("stok %s tidak cukup (tersisa %d)", item.Nama, item.Stok)
+		return nil, nil, 0, fmt.Errorf("yah, stok %s tinggal %d kak 😅 nggak cukup buat jual segitu", item.Nama, item.Stok)
 	}
 	if metode == "" {
 		metode = "tunai"

@@ -58,7 +58,7 @@ func (t *LaporanTool) Execute(ctx context.Context, args map[string]any) *tools.T
 	case "riwayat_harga":
 		return t.riwayatHarga(ctx, argStr(args, "produk"))
 	default:
-		return tools.ErrorResult("Aksi laporan tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi laporan belum dikenal kak 🤔")
 	}
 }
 
@@ -153,7 +153,7 @@ func topProduk(txs []*Transaksi, n int) []string {
 func (t *LaporanTool) ringkas(ctx context.Context, periode, label string) *tools.ToolResult {
 	txs, err := t.txPeriode(ctx, periode)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca transaksi.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	omzet, _, laba := t.hitungLaba(ctx, txs)
 	top := topProduk(txs, 3)
@@ -173,7 +173,7 @@ func (t *LaporanTool) ringkas(ctx context.Context, periode, label string) *tools
 func (t *LaporanTool) laba(ctx context.Context, periode string) *tools.ToolResult {
 	txs, err := t.txPeriode(ctx, periode)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca transaksi.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	omzet, modal, laba := t.hitungLaba(ctx, txs)
 	return tools.NewToolResult(fmt.Sprintf("Laba %s — transaksi %d, omzet %s, modal %s, laba %s.",
@@ -183,7 +183,7 @@ func (t *LaporanTool) laba(ctx context.Context, periode string) *tools.ToolResul
 func (t *LaporanTool) riwayat(ctx context.Context, periode string) *tools.ToolResult {
 	txs, err := t.txPeriode(ctx, periode)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca transaksi.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if len(txs) == 0 {
 		return tools.NewToolResult("Belum ada transaksi pada periode ini.")
@@ -208,7 +208,7 @@ func (t *LaporanTool) terlaris(ctx context.Context, args map[string]any) *tools.
 	}
 	txs, err := t.txPeriode(ctx, periode)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca transaksi.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	type agg struct {
 		nama  string
@@ -244,7 +244,7 @@ func (t *LaporanTool) terlaris(ctx context.Context, args map[string]any) *tools.
 func (t *LaporanTool) riwayatHarga(ctx context.Context, produk string) *tools.ToolResult {
 	hist, err := t.store.GetAllPriceHistory(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca riwayat harga.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca riwayat harga kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	q := strings.ToLower(strings.TrimSpace(produk))
 	var filtered []*PriceHistory

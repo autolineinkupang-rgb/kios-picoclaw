@@ -63,7 +63,7 @@ func (t *PromoTool) Execute(ctx context.Context, args map[string]any) *tools.Too
 		}
 		return t.hapus(ctx, args)
 	default:
-		return tools.ErrorResult("Aksi promo tidak dikenal.")
+		return tools.ErrorResult("Hmm, aksi promo belum dikenal kak 🤔")
 	}
 }
 
@@ -82,14 +82,14 @@ func (t *PromoTool) buat(ctx context.Context, args map[string]any) *tools.ToolRe
 		nilai = float64(argInt(args, "nilai"))
 	}
 	if nilai <= 0 {
-		return tools.ErrorResult("Nilai diskon wajib diisi dan harus > 0.")
+		return tools.ErrorResult("Nilai diskon-nya wajib diisi dan harus lebih dari 0 ya kak 🙏")
 	}
 	item, err := findOne(ctx, t.store, argStr(args, "produk"))
 	if err != nil {
-		return tools.ErrorResult("Gagal cari produk.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal cari produk kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if item == nil {
-		return tools.ErrorResult("Produk tidak ditemukan di stok.")
+		return tools.ErrorResult("Produk nggak ketemu kak 🔍 di stok")
 	}
 	// Deactivate existing promos for the same product.
 	all, _ := t.store.GetAllPromo(ctx)
@@ -101,7 +101,7 @@ func (t *PromoTool) buat(ctx context.Context, args map[string]any) *tools.ToolRe
 	}
 	id, err := t.store.NextPromoID(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal buat id promo.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal buat id promo kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	mulai := argStr(args, "mulai")
 	if mulai == "" {
@@ -113,7 +113,7 @@ func (t *PromoTool) buat(ctx context.Context, args map[string]any) *tools.ToolRe
 		Mulai: mulai, Selesai: argStr(args, "selesai"), Catatan: argStr(args, "catatan"),
 	}
 	if err := t.store.SetPromo(ctx, promo); err != nil {
-		return tools.ErrorResult("Gagal simpan promo.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal simpan promo kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	disc := fmt.Sprintf("%.0f%%", nilai)
 	if tipe == "fixed" {
@@ -126,7 +126,7 @@ func (t *PromoTool) buat(ctx context.Context, args map[string]any) *tools.ToolRe
 func (t *PromoTool) cek(ctx context.Context, args map[string]any) *tools.ToolResult {
 	item, _ := findOne(ctx, t.store, argStr(args, "produk"))
 	if item == nil {
-		return tools.NewToolResult("Tidak ada promo (produk tidak ditemukan).")
+		return tools.NewToolResult("Tidak ada promo (produk nggak ketemu kak 🔍)")
 	}
 	qty := parseQtyDefault(args["qty"], 1)
 	hargaJual := argInt(args, "harga_jual")
@@ -160,7 +160,7 @@ func (t *PromoTool) cek(ctx context.Context, args map[string]any) *tools.ToolRes
 func (t *PromoTool) daftar(ctx context.Context, args map[string]any) *tools.ToolResult {
 	all, err := t.store.GetAllPromo(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca promo.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca promo kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	today := NowWITA().Format("2006-01-02")
 	aktifOnly := argBool(args, "aktif_only")
@@ -190,20 +190,20 @@ func (t *PromoTool) daftar(ctx context.Context, args map[string]any) *tools.Tool
 func (t *PromoTool) hapus(ctx context.Context, args map[string]any) *tools.ToolResult {
 	id := strings.ToUpper(argStr(args, "id"))
 	if id == "" {
-		return tools.ErrorResult("ID promo wajib diisi.")
+		return tools.ErrorResult("ID promo-nya diisi dulu ya kak 🙏")
 	}
 	all, err := t.store.GetAllPromo(ctx)
 	if err != nil {
-		return tools.ErrorResult("Gagal baca promo.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca promo kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	for _, p := range all {
 		if strings.EqualFold(p.ID, id) {
 			p.Aktif = false
 			if err := t.store.SetPromo(ctx, p); err != nil {
-				return tools.ErrorResult("Gagal hapus promo.").WithError(err)
+				return tools.ErrorResult("Aduh, gagal hapus promo kak 😣 Coba lagi sebentar ya.").WithError(err)
 			}
 			return tools.NewToolResult(fmt.Sprintf("Promo %s (%s) dinonaktifkan.", p.ID, p.Produk))
 		}
 	}
-	return tools.NewToolResult(fmt.Sprintf("Promo %s tidak ditemukan.", id))
+	return tools.NewToolResult(fmt.Sprintf("Promo %s nggak ketemu kak 🔍", id))
 }
