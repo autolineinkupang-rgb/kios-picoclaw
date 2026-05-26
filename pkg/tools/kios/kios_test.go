@@ -75,10 +75,59 @@ func TestToolsRegister(t *testing.T) {
 	for _, tool := range AllTools(s) {
 		reg.Register(tool)
 	}
-	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user"} {
+	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user", "kios_supplier", "kios_promo"} {
 		if !reg.HasRegistered(name) {
 			t.Errorf("tool %q not registered (registry: %v)", name, reg.List())
 		}
+	}
+}
+
+func TestSupplierTool(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewSupplierTool(s)
+
+	if res := tool.Execute(ctx, map[string]any{"action": "tambah", "nama": "UD Maju", "kontak": "0812", "produk_utama": "gula"}); res.IsError {
+		t.Fatalf("tambah: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "tambah", "nama": "UD Maju"}); !res.IsError {
+		t.Error("expected duplicate supplier error")
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "daftar"}); !strings.Contains(res.ForLLM, "UD Maju") {
+		t.Errorf("daftar missing UD Maju: %s", res.ForLLM)
+	}
+
+	// Price comparison from purchase history.
+	s.AppendPembelian(ctx, &Pembelian{NamaProduk: "Gula Pasir 1kg", HargaBeli: 13500, Supplier: "UD Maju"})
+	s.AppendPembelian(ctx, &Pembelian{NamaProduk: "Gula Pasir 1kg", HargaBeli: 13000, Supplier: "Toko Beta"})
+	res := tool.Execute(ctx, map[string]any{"action": "banding_harga", "produk": "gula"})
+	if !strings.Contains(res.ForLLM, "termurah") || !strings.Contains(res.ForLLM, "Rp 13.000") {
+		t.Errorf("banding_harga should mark Rp 13.000 cheapest, got: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "hapus", "nama": "UD Maju"}); res.IsError {
+		t.Errorf("hapus: %s", res.ForLLM)
+	}
+}
+
+func TestPromoTool(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+	tool := NewPromoTool(s)
+
+	if res := tool.Execute(ctx, map[string]any{"action": "buat", "produk": "gula", "tipe": "persen", "nilai": float64(10), "min_qty": float64(2)}); res.IsError {
+		t.Fatalf("buat: %s", res.ForLLM)
+	}
+	// qty below min_qty -> no promo.
+	if res := tool.Execute(ctx, map[string]any{"action": "cek", "produk": "gula", "qty": float64(1)}); !strings.Contains(res.ForLLM, "Tidak ada promo") {
+		t.Errorf("qty<min should yield no promo: %s", res.ForLLM)
+	}
+	// qty meets min -> 10%% of 15000 = 1500, final 13500.
+	if res := tool.Execute(ctx, map[string]any{"action": "cek", "produk": "gula", "qty": float64(2)}); !strings.Contains(res.ForLLM, "Rp 13.500") {
+		t.Errorf("expected final price Rp 13.500: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "daftar"}); !strings.Contains(res.ForLLM, "Gula") {
+		t.Errorf("daftar missing promo: %s", res.ForLLM)
 	}
 }
 

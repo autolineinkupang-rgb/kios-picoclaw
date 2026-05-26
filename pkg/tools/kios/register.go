@@ -19,6 +19,12 @@ func NewHargaTool(store *Store) *HargaTool { return &HargaTool{store: store} }
 // NewUserTool builds the user/RBAC management tool.
 func NewUserTool(store *Store) *UserTool { return &UserTool{store: store} }
 
+// NewSupplierTool builds the supplier tool.
+func NewSupplierTool(store *Store) *SupplierTool { return &SupplierTool{store: store} }
+
+// NewPromoTool builds the promo/discount tool.
+func NewPromoTool(store *Store) *PromoTool { return &PromoTool{store: store} }
+
 // AllTools returns the full set of kios tools backed by the given store,
 // ready to register in picoclaw's tool registry.
 func AllTools(store *Store) []tools.Tool {
@@ -28,5 +34,7 @@ func AllTools(store *Store) []tools.Tool {
 		NewLaporanTool(store),
 		NewHargaTool(store),
 		NewUserTool(store),
+		NewSupplierTool(store),
+		NewPromoTool(store),
 	}
 }

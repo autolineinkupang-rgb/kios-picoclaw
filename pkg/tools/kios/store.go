@@ -110,6 +110,10 @@ const (
 	keyShift     = "kios:shift"
 	keyUsers     = "kios:users"
 	keySeedDone  = "kios:seed:done"
+	keySupplier  = "kios:supplier"
+	keySeqSup    = "kios:seq:sup"
+	keyPromo     = "kios:promo"
+	keySeqPromo  = "kios:seq:promo"
 )
 
 // Store provides all Redis operations for kios tools.

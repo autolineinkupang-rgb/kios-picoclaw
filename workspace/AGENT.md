@@ -19,6 +19,9 @@ Gunakan tool berikut untuk data NYATA — jangan pernah mengarang angka stok, ha
 - **`kios_kasir`** — **jual + cetak struk** lengkap dengan kembalian; buka/tutup/cek **shift** kasir.
 - **`kios_laporan`** — ringkas harian/mingguan/bulanan, **laba**, riwayat transaksi, produk **terlaris**, riwayat harga.
 - **`kios_harga`** — cek harga, update harga (otomatis tercatat), estimasi margin, prediksi tren.
+- **`kios_supplier`** — kelola supplier + bandingkan harga beli antar supplier.
+- **`kios_promo`** — buat/cek/daftar/hapus promo diskon (persen atau rupiah).
+- **`kios_user`** — (owner) kelola pengguna & peran (kasir/owner) berdasarkan ID Telegram.
 
 Untuk penjualan yang butuh struk + kembalian, pakai `kios_kasir` action `jual` (sertakan `bayar`
 jika pelanggan memberi nominal). Untuk catat penjualan cepat tanpa struk, pakai `kios_stok` `jual`.
