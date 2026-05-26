@@ -236,6 +236,21 @@ func TestImportSupplierCSV(t *testing.T) {
 	}
 }
 
+func TestUploadAllowedForKasir(t *testing.T) {
+	p, _ := filepath.Abs("../../../templates/produk-template.xlsx")
+	if _, err := os.Stat(p); err != nil {
+		t.Skip("template xlsx not present")
+	}
+	t.Setenv("KIOS_DEFAULT_ROLE", "kasir") // non-owner
+	s := newTestStore(t)
+	tool := NewUploadTool(s)
+	tool.SetMediaStore(&fakeMediaStore{ref: "m", path: p, meta: media.MediaMeta{Filename: "produk.xlsx"}})
+	res := tool.Execute(tools.WithToolMedia(context.Background(), []string{"m"}), map[string]any{})
+	if res.IsError {
+		t.Errorf("kasir (active user) should be allowed to upload, got: %s", res.ForLLM)
+	}
+}
+
 func TestTemplateCommand(t *testing.T) {
 	dir, _ := filepath.Abs("../../../templates")
 	if _, err := os.Stat(filepath.Join(dir, "produk-template.xlsx")); err != nil {

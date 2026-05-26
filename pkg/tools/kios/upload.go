@@ -25,7 +25,7 @@ func (t *UploadTool) Name() string { return "kios_import_upload" }
 func (t *UploadTool) Description() string {
 	return "Import file Excel (.xlsx) atau CSV yang DIUNGGAH pengguna di chat ke data kios " +
 		"(produk atau supplier). Panggil saat pengguna mengirim file lampiran dan minta import/" +
-		"upload daftar. Khusus owner. Tipe (produk/supplier) bisa otomatis dari kolomnya."
+		"upload daftar. Bisa dipakai semua user aktif. Tipe (produk/supplier) auto-deteksi dari kolomnya."
 }
 
 func (t *UploadTool) Parameters() map[string]any {
@@ -42,12 +42,11 @@ func (t *UploadTool) Parameters() map[string]any {
 }
 
 func (t *UploadTool) Execute(ctx context.Context, args map[string]any) *tools.ToolResult {
-	role, _, refusal := resolveRole(ctx, t.store)
-	if refusal != nil {
+	// Any active (whitelisted) user may upload a file to update data; inactive
+	// users are refused by resolveRole. Import is non-destructive (update/create
+	// by name; blank columns don't overwrite).
+	if _, _, refusal := resolveRole(ctx, t.store); refusal != nil {
 		return refusal
-	}
-	if r := requireOwner(role); r != nil {
-		return r
 	}
 	if t.mediaStore == nil {
 		return tools.ErrorResult("Maaf kak, fitur baca file belum siap di server 😣")

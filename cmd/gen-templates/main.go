@@ -27,7 +27,13 @@ var sheets = []sheet{
 			{"Beras Medium 5kg", "sembako", "karung", 20, 55000, 62000, 10, 3, "UD Maju"},
 			{"Gula Pasir 1kg", "sembako", "bungkus", 15, 13500, 15000, 8, 2, "Distributor Kupang"},
 			{"Minyak Goreng 1L", "sembako", "botol", 24, 16000, 18000, 10, 3, "UD Maju"},
+			{"Tepung Terigu 1kg", "sembako", "bungkus", 18, 11000, 13000, 8, 2, "Distributor Kupang"},
 			{"Indomie Goreng", "mie", "pcs", 50, 2800, 3500, 20, 5, "Grosir Baa"},
+			{"Teh Botol 350ml", "minuman", "botol", 36, 3000, 4000, 12, 4, "Grosir Baa"},
+			{"Kopi Sachet", "minuman", "renceng", 30, 9000, 11000, 10, 3, "Grosir Baa"},
+			{"Rokok Surya 16", "rokok", "bungkus", 40, 27000, 29000, 15, 5, "Agen Rokok Rote"},
+			{"Gas LPG 3kg", "gas", "tabung", 10, 18000, 22000, 5, 2, "Pangkalan Gas Baa"},
+			{"Sabun Mandi", "kebutuhan", "pcs", 25, 3500, 5000, 10, 3, "Grosir Baa"},
 		},
 	},
 	{
@@ -37,7 +43,9 @@ var sheets = []sheet{
 		rows: [][]any{
 			{"UD Maju", "0812xxxxxxx", "Baa Rote Ndao", "beras gula minyak", "MOQ 10 karung; lead time 2 hari"},
 			{"Distributor Kupang", "0813xxxxxxx", "Kupang NTT", "sembako", "kirim tiap Senin"},
-			{"Grosir Baa", "0852xxxxxxx", "Pasar Baa", "mie snack", "bisa COD"},
+			{"Grosir Baa", "0852xxxxxxx", "Pasar Baa", "mie minuman snack", "bisa COD"},
+			{"Agen Rokok Rote", "0821xxxxxxx", "Ba'a", "rokok", "harga ikut pita cukai"},
+			{"Pangkalan Gas Baa", "0838xxxxxxx", "Ba'a", "gas LPG 3kg", "ambil sendiri, antri pagi"},
 		},
 	},
 }
