@@ -181,10 +181,10 @@ func TestImportProdukCSV(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "produk.csv")
-	csvData := "nama,kategori,satuan,stok,harga_beli,harga_jual,stok_minimum,stok_kritis,supplier\n" +
-		"Beras Medium 5kg,sembako,karung,20,55000,62000,10,3,UD Maju\n" +
-		"Gula Pasir 1kg,sembako,bungkus,15,13500,15000,8,2,Distributor\n" +
-		",,,,,,,,\n" // blank name -> skipped
+	csvData := "nama,barcode,kategori,satuan,stok,harga_beli,harga_jual,stok_minimum,stok_kritis,supplier\n" +
+		"Beras Medium 5kg,8991234500015,sembako,karung,20,55000,62000,10,3,UD Maju\n" +
+		"Gula Pasir 1kg,,sembako,bungkus,15,13500,15000,8,2,Distributor\n" +
+		",,,,,,,,,\n" // blank name -> skipped
 	if err := os.WriteFile(path, []byte(csvData), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestImportProdukCSV(t *testing.T) {
 			beras = p
 		}
 	}
-	if beras == nil || beras.HargaJual != 62000 || beras.Stok != 20 || beras.Supplier != "UD Maju" {
+	if beras == nil || beras.HargaJual != 62000 || beras.Stok != 20 || beras.Supplier != "UD Maju" || beras.Barcode != "8991234500015" {
 		t.Errorf("beras fields wrong: %+v", beras)
 	}
 	// Re-import updates existing (matched by name), no duplicates.
@@ -723,6 +723,17 @@ func TestParseRupiah(t *testing.T) {
 		if got := parseRupiah(in); got != want {
 			t.Errorf("parseRupiah(%q)=%d want %d", in, got, want)
 		}
+	}
+}
+
+func TestCariByBarcode(t *testing.T) {
+	list := []*Produk{
+		{ID: "002", Nama: "Beras Medium 5kg", Barcode: "8991234500015"},
+		{ID: "003", Nama: "Gula Pasir 1kg"},
+	}
+	got := CariProduk(list, "8991234500015")
+	if len(got) != 1 || got[0].ID != "002" {
+		t.Errorf("find by barcode failed: %v", got)
 	}
 }
 

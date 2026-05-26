@@ -18,6 +18,7 @@ import (
 // Produk represents a product in the shop.
 type Produk struct {
 	ID          string `json:"id"`
+	Barcode     string `json:"barcode"`
 	Nama        string `json:"nama"`
 	Kategori    string `json:"kategori"`
 	Satuan      string `json:"satuan"`
@@ -224,7 +225,7 @@ func CariProduk(list []*Produk, query string) []*Produk {
 	q := strings.ToLower(strings.TrimSpace(query))
 	var results []*Produk
 	for _, p := range list {
-		if p.ID == query {
+		if p.ID == query || (p.Barcode != "" && p.Barcode == strings.TrimSpace(query)) {
 			return []*Produk{p}
 		}
 		namaLower := strings.ToLower(p.Nama)

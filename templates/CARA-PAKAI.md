@@ -18,6 +18,7 @@ Pakai yang `.xlsx` kalau mau diisi di Excel/Google Sheets (lebih rapi). Yang `.c
 | Kolom | Wajib? | Contoh | Keterangan |
 |---|---|---|---|
 | `nama` | ✅ wajib | Beras Medium 5kg | Nama produk. **Kunci pencocokan** — nama sama = produk yang sama. |
+| `barcode` | opsional | 8991234500015 | Kode barcode (buat scan/cari cepat). Boleh dikosongkan. |
 | `kategori` | opsional | sembako | Bebas (sembako, mie, minuman, dll). Kosong → "umum". |
 | `satuan` | opsional | karung | pcs/botol/karung/bungkus. Kosong → "pcs". |
 | `stok` | opsional | 20 | Jumlah stok saat ini (angka). |

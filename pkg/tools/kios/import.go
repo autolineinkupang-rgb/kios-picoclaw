@@ -101,6 +101,9 @@ func ImportProdukRows(ctx context.Context, s *Store, rows []map[string]string) (
 			}
 			p = &Produk{ID: id, Nama: nama, Kategori: "umum", Satuan: "pcs", StokMinimum: 5, StokKritis: 2}
 		}
+		if v := row["barcode"]; v != "" {
+			p.Barcode = v
+		}
 		if v := row["kategori"]; v != "" {
 			p.Kategori = v
 		}

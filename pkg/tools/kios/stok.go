@@ -42,6 +42,7 @@ func (t *StokTool) Parameters() map[string]any {
 			"supplier":     map[string]any{"type": "string"},
 			"auto_create":  map[string]any{"type": "boolean", "description": "buat produk otomatis saat restock bila belum ada"},
 			"nama":         map[string]any{"type": "string", "description": "nama produk (tambah_produk) / nama baru (edit_produk)"},
+			"barcode":      map[string]any{"type": "string", "description": "kode barcode produk (opsional, untuk scan)"},
 			"kategori":     map[string]any{"type": "string"},
 			"satuan":       map[string]any{"type": "string"},
 			"harga_beli":   map[string]any{"type": "integer"},
@@ -139,9 +140,13 @@ func (t *StokTool) cari(ctx context.Context, args map[string]any) *tools.ToolRes
 	if item == nil {
 		return tools.NewToolResult("Hmm, produknya nggak ketemu kak 🔍 Coba ketik /stok buat lihat daftar produk ya.")
 	}
-	return tools.NewToolResult(fmt.Sprintf("[%s] %s — stok %d %s, jual %s, beli %s, supplier %s",
+	msg := fmt.Sprintf("[%s] %s — stok %d %s, jual %s, beli %s, supplier %s",
 		item.ID, item.Nama, item.Stok, item.Satuan,
-		FormatRupiah(item.HargaJual), FormatRupiah(item.HargaBeli), item.Supplier))
+		FormatRupiah(item.HargaJual), FormatRupiah(item.HargaBeli), item.Supplier)
+	if item.Barcode != "" {
+		msg += "\nBarcode: " + item.Barcode
+	}
+	return tools.NewToolResult(msg)
 }
 
 func (t *StokTool) jual(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
@@ -269,7 +274,7 @@ func (t *StokTool) tambahProduk(ctx context.Context, args map[string]any) *tools
 	}
 	exp := argStr(args, "exp_date")
 	p := &Produk{
-		ID: id, Nama: nama, Kategori: kategori, Satuan: satuan,
+		ID: id, Barcode: argStr(args, "barcode"), Nama: nama, Kategori: kategori, Satuan: satuan,
 		Stok: stokAwal, HargaBeli: argInt(args, "harga_beli"), HargaJual: hargaJual,
 		StokMinimum: 5, StokKritis: 2, Supplier: argStr(args, "supplier"),
 		LastUpdate: NowWITA().Format("2006-01-02"), HasExp: exp != "", ExpDate: exp,
@@ -293,6 +298,10 @@ func (t *StokTool) editProduk(ctx context.Context, args map[string]any) *tools.T
 	if v := argStr(args, "nama"); v != "" {
 		item.Nama = v
 		changed = append(changed, "nama")
+	}
+	if v := argStr(args, "barcode"); v != "" {
+		item.Barcode = v
+		changed = append(changed, "barcode")
 	}
 	if v := argStr(args, "kategori"); v != "" {
 		item.Kategori = v
