@@ -1,0 +1,33 @@
+name: Kios
+
+# Fast, focused checks for the kios village-shop tools. pr.yml already runs the
+# full suite on pull requests; this also covers direct pushes to main (the kios
+# fork's normal workflow) so a regression is caught even without a PR.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pkg/tools/kios/**'
+      - '.github/workflows/kios.yml'
+  pull_request:
+    paths:
+      - 'pkg/tools/kios/**'
+
+jobs:
+  test:
+    name: Kios Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build kios package
+        run: go build -tags goolm,stdjson ./pkg/tools/kios/...
+
+      - name: Test kios package
+        run: go test -tags goolm,stdjson ./pkg/tools/kios/...

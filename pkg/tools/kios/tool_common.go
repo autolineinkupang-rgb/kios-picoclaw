@@ -90,7 +90,9 @@ func argItems(args map[string]any) []map[string]any {
 
 // defaultRole is used for whitelisted callers who are not registered in
 // kios:users. Defaults to "owner" so a fresh deploy is fully usable; set
-// KIOS_DEFAULT_ROLE=kasir to lock down destructive actions by default.
+// KIOS_DEFAULT_ROLE=kasir to lock down destructive actions by default. To do
+// that safely, also list the owner's Telegram ID in KIOS_OWNER_IDS so they
+// stay owner and can't be locked out (see isBootstrapOwner).
 func defaultRole() string {
 	if r := strings.TrimSpace(os.Getenv("KIOS_DEFAULT_ROLE")); r != "" {
 		return r
@@ -98,10 +100,34 @@ func defaultRole() string {
 	return "owner"
 }
 
+// isBootstrapOwner reports whether id is in KIOS_OWNER_IDS (comma-separated
+// Telegram IDs). These callers are always owner, regardless of KIOS_DEFAULT_ROLE
+// or their kios:users record — this prevents an owner lockout when the default
+// role is tightened to kasir on a fresh deploy.
+func isBootstrapOwner(id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return false
+	}
+	for _, part := range strings.Split(os.Getenv("KIOS_OWNER_IDS"), ",") {
+		if strings.TrimSpace(part) == id {
+			return true
+		}
+	}
+	return false
+}
+
 // resolveRole determines the caller's role from the tool context + kios:users.
 // Returns a refusal result (non-nil) when the caller is a known-but-inactive user.
 func resolveRole(ctx context.Context, store *Store) (role string, kasir string, refusal *tools.ToolResult) {
 	id := toolshared.ToolChatID(ctx)
+	if isBootstrapOwner(id) {
+		nama := "owner"
+		if u, err := store.GetUser(ctx, id); err == nil && u != nil && u.Nama != "" {
+			nama = u.Nama
+		}
+		return "owner", nama, nil
+	}
 	if id != "" {
 		if u, err := store.GetUser(ctx, id); err == nil && u != nil {
 			if !u.Aktif {

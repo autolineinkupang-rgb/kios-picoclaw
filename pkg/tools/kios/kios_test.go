@@ -16,6 +16,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/cron"
 	"github.com/sipeed/picoclaw/pkg/media"
 	tools "github.com/sipeed/picoclaw/pkg/tools"
+	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
 )
 
 // fakeMediaStore maps a single ref to a local file for upload tests.
@@ -923,6 +924,37 @@ func TestRestoreBackupReplaces(t *testing.T) {
 	prods, _ := dst.GetAllProduk(ctx)
 	if len(prods) != 1 || prods[0].ID != "002" {
 		t.Errorf("restore should replace old data, got %+v", prods)
+	}
+}
+
+func TestBootstrapOwner(t *testing.T) {
+	t.Setenv("KIOS_DEFAULT_ROLE", "kasir")
+	t.Setenv("KIOS_OWNER_IDS", "111, 222")
+	s := newTestStore(t)
+
+	// Listed ID is owner even with default kasir and no user record.
+	ctxOwner := toolshared.WithToolContext(context.Background(), "telegram", "111")
+	if role, _, refusal := resolveRole(ctxOwner, s); refusal != nil || role != "owner" {
+		t.Errorf("bootstrap owner should be owner, got role=%q refusal=%v", role, refusal)
+	}
+
+	// Bootstrap owner overrides an inactive/kasir record (no lockout), and the
+	// display name comes from the record when present.
+	if err := s.SetUser(ctxOwner, &UserKios{Phone: "111", Nama: "Ruflo", Role: "kasir", Aktif: false}); err != nil {
+		t.Fatal(err)
+	}
+	role, nama, refusal := resolveRole(ctxOwner, s)
+	if refusal != nil || role != "owner" {
+		t.Errorf("bootstrap owner must override inactive record, got role=%q refusal=%v", role, refusal)
+	}
+	if nama != "Ruflo" {
+		t.Errorf("bootstrap owner name should come from record, got %q", nama)
+	}
+
+	// A non-listed caller falls back to the (tightened) default role.
+	ctxOther := toolshared.WithToolContext(context.Background(), "telegram", "999")
+	if role, _, _ := resolveRole(ctxOther, s); role != "kasir" {
+		t.Errorf("non-listed id should default to kasir, got %q", role)
 	}
 }
 
