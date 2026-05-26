@@ -127,8 +127,9 @@ func findOne(ctx context.Context, store *Store, query string) (*Produk, error) {
 }
 
 // performJual executes a sale: validates, decrements stock, records the
-// transaction. Returns the transaction, updated product, and remaining stock.
-func performJual(ctx context.Context, store *Store, query string, qty int, metode, kasir string) (*Transaksi, *Produk, int, error) {
+// transaction at the effective unit price (list price minus diskonPerUnit).
+// Returns the transaction, updated product, and remaining stock.
+func performJual(ctx context.Context, store *Store, query string, qty int, metode, kasir string, diskonPerUnit int) (*Transaksi, *Produk, int, error) {
 	if qty <= 0 {
 		return nil, nil, 0, fmt.Errorf("jumlah jual harus lebih dari 0")
 	}
@@ -145,6 +146,14 @@ func performJual(ctx context.Context, store *Store, query string, qty int, metod
 	if metode == "" {
 		metode = "tunai"
 	}
+	hargaEfektif := item.HargaJual - diskonPerUnit
+	if hargaEfektif < 0 {
+		hargaEfektif = 0
+	}
+	catatan := ""
+	if diskonPerUnit > 0 {
+		catatan = fmt.Sprintf("diskon %s/unit", FormatRupiah(diskonPerUnit))
+	}
 	now := NowWITA()
 	item.Stok -= qty
 	item.LastUpdate = now.Format("2006-01-02")
@@ -158,13 +167,41 @@ func performJual(ctx context.Context, store *Store, query string, qty int, metod
 		NamaProduk:  item.Nama,
 		Kategori:    item.Kategori,
 		Qty:         qty,
-		HargaSatuan: item.HargaJual,
-		Total:       qty * item.HargaJual,
+		HargaSatuan: hargaEfektif,
+		Total:       qty * hargaEfektif,
 		MetodeBayar: metode,
 		Kasir:       kasir,
+		Catatan:     catatan,
 	}
 	if _, err := store.AppendTransaksi(ctx, tx); err != nil {
 		return nil, nil, 0, err
 	}
 	return tx, item, item.Stok, nil
+}
+
+// activePromoDiskon returns the per-unit discount from the active promo for a
+// product at the given qty/list price, or 0 with empty id when none applies.
+func activePromoDiskon(ctx context.Context, store *Store, produkID string, qty, hargaJual int) (int, string) {
+	if produkID == "" {
+		return 0, ""
+	}
+	today := NowWITA().Format("2006-01-02")
+	all, err := store.GetAllPromo(ctx)
+	if err != nil {
+		return 0, ""
+	}
+	for _, p := range all {
+		if p.ProdukID != produkID || !promoAktif(p, today) || qty < p.MinQty {
+			continue
+		}
+		diskon := int(p.Nilai)
+		if p.Tipe == "persen" {
+			diskon = int(float64(hargaJual) * p.Nilai / 100)
+		}
+		if diskon > hargaJual {
+			diskon = hargaJual
+		}
+		return diskon, p.ID
+	}
+	return 0, ""
 }

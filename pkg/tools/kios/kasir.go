@@ -62,16 +62,23 @@ func (t *KasirTool) Execute(ctx context.Context, args map[string]any) *tools.Too
 func (t *KasirTool) jual(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
 	qty := argInt(args, "qty")
 	bayarPtr := argIntPtr(args, "bayar")
-	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), qty, argStr(args, "metode"), kasir)
+
+	// Apply an active promo automatically (before recording the sale).
+	diskon, promoID := 0, ""
+	if pre, _ := findOne(ctx, t.store, argStr(args, "produk")); pre != nil {
+		diskon, promoID = activePromoDiskon(ctx, t.store, pre.ID, qty, pre.HargaJual)
+	}
+
+	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), qty, argStr(args, "metode"), kasir, diskon)
 	if err != nil {
 		return tools.ErrorResult(err.Error())
 	}
 	if bayarPtr != nil && *bayarPtr < tx.Total {
 		// Sale already recorded; warn about underpayment but keep the receipt.
 		kurang := tx.Total - *bayarPtr
-		return tools.UserResult(fmt.Sprintf("%s\n\n⚠️ Uang kurang %s kak!", t.struk(tx, item, bayarPtr), FormatRupiah(kurang)))
+		return tools.UserResult(fmt.Sprintf("%s\n\n⚠️ Uang kurang %s kak!", t.struk(tx, item, bayarPtr, promoID), FormatRupiah(kurang)))
 	}
-	out := t.struk(tx, item, bayarPtr)
+	out := t.struk(tx, item, bayarPtr, promoID)
 	if sisa <= 0 {
 		out += fmt.Sprintf("\n⚠️ %s HABIS!", item.Nama)
 	} else if sisa <= item.StokKritis {
@@ -80,12 +87,17 @@ func (t *KasirTool) jual(ctx context.Context, args map[string]any, kasir string)
 	return tools.UserResult(out)
 }
 
-func (t *KasirTool) struk(tx *Transaksi, item *Produk, bayar *int) string {
+func (t *KasirTool) struk(tx *Transaksi, item *Produk, bayar *int, promoID string) string {
 	div := strings.Repeat("━", 30)
+	subtotal := tx.Qty * item.HargaJual
+	diskonTotal := subtotal - tx.Total
 	var b strings.Builder
 	fmt.Fprintf(&b, "🧾 *STRUK KIOS CERDAS*\n📍 %s\n%s\n", lokasiKios, div)
-	fmt.Fprintf(&b, "%s x%d\n%s\n", item.Nama, tx.Qty, div)
-	fmt.Fprintf(&b, "Total: %s\n", FormatRupiah(tx.Total))
+	fmt.Fprintf(&b, "%s x%d  %s\n", item.Nama, tx.Qty, FormatRupiah(subtotal))
+	if diskonTotal > 0 {
+		fmt.Fprintf(&b, "Promo %s: -%s\n", promoID, FormatRupiah(diskonTotal))
+	}
+	fmt.Fprintf(&b, "%s\nTotal: %s\n", div, FormatRupiah(tx.Total))
 	if bayar != nil && *bayar >= tx.Total {
 		fmt.Fprintf(&b, "Bayar: %s\nKembalian: %s\n", FormatRupiah(*bayar), FormatRupiah(*bayar-tx.Total))
 	}

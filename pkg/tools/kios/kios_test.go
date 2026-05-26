@@ -131,6 +131,29 @@ func TestPromoTool(t *testing.T) {
 	}
 }
 
+func TestKasirPromoApplied(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+	NewPromoTool(s).Execute(ctx, map[string]any{"action": "buat", "produk": "gula", "tipe": "persen", "nilai": float64(10), "min_qty": float64(2)})
+
+	res := NewKasirTool(s).Execute(ctx, map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(30000)})
+	if res.IsError {
+		t.Fatalf("kasir jual: %s", res.ForLLM)
+	}
+	// subtotal 30.000, promo 10%%/unit (3.000 total) -> total 27.000, kembalian 3.000
+	for _, want := range []string{"Promo", "Total: Rp 27.000", "Kembalian: Rp 3.000"} {
+		if !strings.Contains(res.ForUser, want) {
+			t.Errorf("struk missing %q, got: %s", want, res.ForUser)
+		}
+	}
+	// Recorded transaction reflects the discounted total.
+	txs, _ := s.GetAllTransaksi(ctx)
+	if len(txs) != 1 || txs[0].Total != 27000 {
+		t.Errorf("recorded tx total should be 27000, got %+v", txs)
+	}
+}
+
 func TestUserTool(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -271,7 +294,7 @@ func TestPerformJual(t *testing.T) {
 	ctx := context.Background()
 	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
 
-	tx, item, sisa, err := performJual(ctx, s, "beras", 2, "tunai", "ken")
+	tx, item, sisa, err := performJual(ctx, s, "beras", 2, "tunai", "ken", 0)
 	if err != nil {
 		t.Fatalf("performJual: %v", err)
 	}
@@ -290,11 +313,11 @@ func TestPerformJual(t *testing.T) {
 		t.Errorf("persisted stok=%d want 8", got.Stok)
 	}
 	// Insufficient stock
-	if _, _, _, err := performJual(ctx, s, "beras", 999, "tunai", "ken"); err == nil {
+	if _, _, _, err := performJual(ctx, s, "beras", 999, "tunai", "ken", 0); err == nil {
 		t.Error("expected error for insufficient stock")
 	}
 	// Non-positive qty
-	if _, _, _, err := performJual(ctx, s, "beras", 0, "tunai", "ken"); err == nil {
+	if _, _, _, err := performJual(ctx, s, "beras", 0, "tunai", "ken", 0); err == nil {
 		t.Error("expected error for qty<=0")
 	}
 }

@@ -126,7 +126,7 @@ func (t *StokTool) cari(ctx context.Context, args map[string]any) *tools.ToolRes
 }
 
 func (t *StokTool) jual(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
-	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), argInt(args, "qty"), argStr(args, "metode"), kasir)
+	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), argInt(args, "qty"), argStr(args, "metode"), kasir, 0)
 	if err != nil {
 		return tools.ErrorResult(err.Error())
 	}
