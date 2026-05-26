@@ -64,13 +64,21 @@ func NewAgentLoop(
 		workerPoolSize = 1
 	}
 
+	// Kios store — shared by kios tools and slash-commands. Enabled when
+	// UPSTASH_REDIS_URL is set. Created once so tools + commands reuse it.
+	kiosStore := newKiosStoreIfEnabled()
+	cmdDefs := commands.BuiltinDefinitions()
+	if kiosStore != nil {
+		cmdDefs = append(cmdDefs, kios.Commands(kiosStore)...)
+	}
+
 	al := &AgentLoop{
 		bus:               msgBus,
 		cfg:               cfg,
 		registry:          registry,
 		state:             stateManager,
 		fallback:          fallbackChain,
-		cmdRegistry:       commands.NewRegistry(commands.BuiltinDefinitions()),
+		cmdRegistry:       commands.NewRegistry(cmdDefs),
 		evolution:         bridge,
 		steering:          newSteeringQueue(parseSteeringMode(cfg.Agents.Defaults.SteeringMode)),
 		workerSem:         make(chan struct{}, workerPoolSize),
@@ -100,9 +108,26 @@ func NewAgentLoop(
 	al.contextManager = al.resolveContextManager()
 
 	// Register shared tools to all agents (now that al is created)
-	registerSharedTools(al, cfg, msgBus, registry, provider)
+	registerSharedTools(al, cfg, msgBus, registry, provider, kiosStore)
 
 	return al
+}
+
+// newKiosStoreIfEnabled builds the kios Redis store when UPSTASH_REDIS_URL is
+// set, running the idempotent legacy-data seed. Returns nil when disabled.
+func newKiosStoreIfEnabled() *kios.Store {
+	if os.Getenv("UPSTASH_REDIS_URL") == "" {
+		return nil
+	}
+	st, err := kios.NewStore()
+	if err != nil {
+		logger.WarnCF("kios", "kios disabled", map[string]any{"error": err.Error()})
+		return nil
+	}
+	if err := kios.SeedFromOldData(context.Background(), st); err != nil {
+		logger.WarnCF("kios", "kios seed failed", map[string]any{"error": err.Error()})
+	}
+	return st
 }
 
 func registerSharedTools(
@@ -111,6 +136,7 @@ func registerSharedTools(
 	msgBus interfaces.MessageBus,
 	registry *AgentRegistry,
 	provider providers.LLMProvider,
+	kiosStore *kios.Store,
 ) {
 	allowReadPaths := buildAllowReadPatterns(cfg)
 	var ttsProvider tts.TTSProvider
@@ -121,17 +147,10 @@ func registerSharedTools(
 		}
 	}
 
-	// Kios village-shop tools — enabled when UPSTASH_REDIS_URL is set.
+	// Kios village-shop tools (store created once in the constructor).
 	var kiosTools []tools.Tool
-	if os.Getenv("UPSTASH_REDIS_URL") != "" {
-		if kiosStore, err := kios.NewStore(); err != nil {
-			logger.WarnCF("kios", "kios tools disabled", map[string]any{"error": err.Error()})
-		} else {
-			if err := kios.SeedFromOldData(context.Background(), kiosStore); err != nil {
-				logger.WarnCF("kios", "kios seed failed", map[string]any{"error": err.Error()})
-			}
-			kiosTools = kios.AllTools(kiosStore)
-		}
+	if kiosStore != nil {
+		kiosTools = kios.AllTools(kiosStore)
 	}
 
 	for _, agentID := range registry.ListAgentIDs() {

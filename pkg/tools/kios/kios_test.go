@@ -8,8 +8,42 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/sipeed/picoclaw/pkg/commands"
 	tools "github.com/sipeed/picoclaw/pkg/tools"
 )
+
+func TestSlashCommands(t *testing.T) {
+	s := newTestStore(t)
+	seedProduct(t, s, "002", "Beras Medium 5kg", 4, 55000, 62000, 3)
+
+	byName := map[string]commands.Definition{}
+	for _, d := range Commands(s) {
+		byName[d.Name] = d
+	}
+	for _, n := range []string{"stok", "menipis", "laporan", "harga"} {
+		if _, ok := byName[n]; !ok {
+			t.Fatalf("slash-command /%s missing", n)
+		}
+	}
+
+	run := func(name, text string) string {
+		var out string
+		req := commands.Request{Text: text, Reply: func(s string) error { out = s; return nil }}
+		if err := byName[name].Handler(context.Background(), req, nil); err != nil {
+			t.Fatalf("/%s handler error: %v", name, err)
+		}
+		return out
+	}
+	if got := run("stok", "/stok"); !strings.Contains(got, "Beras") {
+		t.Errorf("/stok should list Beras, got: %s", got)
+	}
+	if got := run("harga", "/harga beras"); !strings.Contains(got, "62.000") {
+		t.Errorf("/harga beras should show price, got: %s", got)
+	}
+	if got := run("menipis", "/menipis"); !strings.Contains(got, "Beras") {
+		t.Errorf("/menipis should flag Beras (stok 4 <= min 5), got: %s", got)
+	}
+}
 
 func TestToolsRegister(t *testing.T) {
 	s := newTestStore(t)
