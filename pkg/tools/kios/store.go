@@ -116,6 +116,12 @@ const (
 	keySeqPromo  = "kios:seq:promo"
 	keyPustaka   = "kios:pustaka"
 	keySeqPus    = "kios:seq:pus"
+	keyPasarRef  = "kios:pasar:ref"
+	keyLearnPat  = "kios:learn:patterns"
+	keyLearnAls  = "kios:learn:aliases"
+	keyLearnShc  = "kios:learn:shortcuts"
+	keyLearnHab  = "kios:learn:habits"
+	keyLearnUnk  = "kios:learn:unknowns"
 )
 
 // Store provides all Redis operations for kios tools.

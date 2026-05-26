@@ -28,6 +28,12 @@ func NewPromoTool(store *Store) *PromoTool { return &PromoTool{store: store} }
 // NewPustakaTool builds the knowledge-base tool.
 func NewPustakaTool(store *Store) *PustakaTool { return &PustakaTool{store: store} }
 
+// NewPasarTool builds the market-intelligence tool.
+func NewPasarTool(store *Store) *PasarTool { return &PasarTool{store: store} }
+
+// NewBelajarTool builds the learning-memory tool.
+func NewBelajarTool(store *Store) *BelajarTool { return &BelajarTool{store: store} }
+
 // AllTools returns the full set of kios tools backed by the given store,
 // ready to register in picoclaw's tool registry.
 func AllTools(store *Store) []tools.Tool {
@@ -40,5 +46,7 @@ func AllTools(store *Store) []tools.Tool {
 		NewSupplierTool(store),
 		NewPromoTool(store),
 		NewPustakaTool(store),
+		NewPasarTool(store),
+		NewBelajarTool(store),
 	}
 }

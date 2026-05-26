@@ -75,10 +75,51 @@ func TestToolsRegister(t *testing.T) {
 	for _, tool := range AllTools(s) {
 		reg.Register(tool)
 	}
-	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user", "kios_supplier", "kios_promo", "kios_pustaka"} {
+	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user", "kios_supplier", "kios_promo", "kios_pustaka", "kios_pasar", "kios_belajar"} {
 		if !reg.HasRegistered(name) {
 			t.Errorf("tool %q not registered (registry: %v)", name, reg.List())
 		}
+	}
+}
+
+func TestPasarTool(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+	tool := NewPasarTool(s)
+
+	tool.Execute(ctx, map[string]any{"action": "set_pasar", "produk": "Gula Pasir 1kg", "harga": float64(20000)})
+	tool.Execute(ctx, map[string]any{"action": "set_pasar", "produk": "Gula Pasir 1kg", "harga": float64(22000)})
+	res := tool.Execute(ctx, map[string]any{"action": "analisa", "produk": "gula"})
+	if !strings.Contains(res.ForLLM, "terlalu murah") {
+		t.Errorf("our 15000 vs market 20-22k should be 'terlalu murah', got: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "sumber"}); !strings.Contains(res.ForLLM, "Badan Pangan") {
+		t.Errorf("sumber should list monitoring sources, got: %s", res.ForLLM)
+	}
+}
+
+func TestBelajarTool(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewBelajarTool(s)
+
+	tool.Execute(ctx, map[string]any{"action": "alias_set", "alias": "im", "target": "Indomie Goreng"})
+	if res := tool.Execute(ctx, map[string]any{"action": "alias_get", "alias": "im"}); !strings.Contains(res.ForLLM, "Indomie") {
+		t.Errorf("alias_get should resolve to Indomie, got: %s", res.ForLLM)
+	}
+	tool.Execute(ctx, map[string]any{"action": "shortcut_set", "nama": "paket hemat", "items": "beras, gula, minyak"})
+	if res := tool.Execute(ctx, map[string]any{"action": "shortcut_get", "nama": "paket hemat"}); !strings.Contains(res.ForLLM, "minyak") {
+		t.Errorf("shortcut_get should list items, got: %s", res.ForLLM)
+	}
+	tool.Execute(ctx, map[string]any{"action": "habit_track", "tipe": "sale", "value": "Beras"})
+	tool.Execute(ctx, map[string]any{"action": "habit_track", "tipe": "sale", "value": "Beras"})
+	if res := tool.Execute(ctx, map[string]any{"action": "habit"}); !strings.Contains(res.ForLLM, "Beras") {
+		t.Errorf("habit summary should mention Beras, got: %s", res.ForLLM)
+	}
+	tool.Execute(ctx, map[string]any{"action": "unknown_add", "cmd": "xyzcmd"})
+	if res := tool.Execute(ctx, map[string]any{"action": "unknown_list"}); !strings.Contains(res.ForLLM, "xyzcmd") {
+		t.Errorf("unknown_list should include xyzcmd, got: %s", res.ForLLM)
 	}
 }
 
