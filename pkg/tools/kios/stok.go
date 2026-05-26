@@ -27,8 +27,13 @@ func (t *StokTool) Parameters() map[string]any {
 			"action": map[string]any{
 				"type": "string",
 				"enum": []string{"cek", "cari", "jual", "tambah", "tambah_produk", "edit_produk",
-					"hapus", "set_stok", "update_exp", "batalkan_tx", "stok_menipis"},
+					"tambah_massal", "edit_massal", "hapus", "set_stok", "update_exp", "batalkan_tx", "stok_menipis"},
 				"description": "Aksi yang dijalankan.",
+			},
+			"items": map[string]any{
+				"type":        "array",
+				"description": "daftar item untuk tambah_massal/edit_massal (tiap item berisi field yang sama seperti tambah/edit_produk)",
+				"items":       map[string]any{"type": "object"},
 			},
 			"produk":       map[string]any{"type": "string", "description": "id atau nama produk"},
 			"qty":          map[string]any{"type": "integer", "description": "jumlah (jual/restock)"},
@@ -76,6 +81,13 @@ func (t *StokTool) Execute(ctx context.Context, args map[string]any) *tools.Tool
 			return r
 		}
 		return t.editProduk(ctx, args)
+	case "tambah_massal":
+		return t.tambahMassal(ctx, args, kasir)
+	case "edit_massal":
+		if r := requireOwner(role); r != nil {
+			return r
+		}
+		return t.editMassal(ctx, args)
 	case "hapus":
 		if r := requireOwner(role); r != nil {
 			return r
@@ -318,6 +330,43 @@ func (t *StokTool) editProduk(ctx context.Context, args map[string]any) *tools.T
 		return tools.ErrorResult("Gagal simpan perubahan.").WithError(err)
 	}
 	return tools.NewToolResult(fmt.Sprintf("Produk %s ([%s]) diperbarui: %s.", item.Nama, item.ID, strings.Join(changed, ", ")))
+}
+
+func (t *StokTool) tambahMassal(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
+	items := argItems(args)
+	if len(items) == 0 {
+		return tools.ErrorResult("items wajib diisi (daftar produk + qty [+ harga]).")
+	}
+	var b strings.Builder
+	ok := 0
+	for _, it := range items {
+		if _, has := it["auto_create"]; !has {
+			it["auto_create"] = true // bulk restock auto-creates unknown products by default
+		}
+		res := t.tambah(ctx, it, kasir)
+		fmt.Fprintf(&b, "- %s\n", res.ForLLM)
+		if !res.IsError {
+			ok++
+		}
+	}
+	return tools.NewToolResult(fmt.Sprintf("Tambah massal: %d/%d berhasil.\n%s", ok, len(items), b.String()))
+}
+
+func (t *StokTool) editMassal(ctx context.Context, args map[string]any) *tools.ToolResult {
+	items := argItems(args)
+	if len(items) == 0 {
+		return tools.ErrorResult("items wajib diisi (tiap item: produk + field yang diubah).")
+	}
+	var b strings.Builder
+	ok := 0
+	for _, it := range items {
+		res := t.editProduk(ctx, it)
+		fmt.Fprintf(&b, "- %s\n", res.ForLLM)
+		if !res.IsError {
+			ok++
+		}
+	}
+	return tools.NewToolResult(fmt.Sprintf("Edit massal: %d/%d berhasil.\n%s", ok, len(items), b.String()))
 }
 
 func (t *StokTool) hapus(ctx context.Context, args map[string]any) *tools.ToolResult {

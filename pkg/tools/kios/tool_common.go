@@ -73,6 +73,21 @@ func argBool(args map[string]any, key string) bool {
 	return false
 }
 
+// argItems reads an "items" argument as a list of objects (for bulk actions).
+func argItems(args map[string]any) []map[string]any {
+	raw, ok := args["items"].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(raw))
+	for _, r := range raw {
+		if m, ok := r.(map[string]any); ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 // defaultRole is used for whitelisted callers who are not registered in
 // kios:users. Defaults to "owner" so a fresh deploy is fully usable; set
 // KIOS_DEFAULT_ROLE=kasir to lock down destructive actions by default.

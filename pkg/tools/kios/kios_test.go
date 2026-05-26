@@ -44,7 +44,7 @@ func TestSlashCommands(t *testing.T) {
 	for _, d := range Commands(s) {
 		byName[d.Name] = d
 	}
-	for _, n := range []string{"stok", "menipis", "laporan", "harga", "jual", "shift", "promo", "pasar", "produk", "suplier"} {
+	for _, n := range []string{"stok", "menipis", "laporan", "harga", "jual", "jualmassal", "shift", "promo", "pasar", "produk", "suplier"} {
 		if _, ok := byName[n]; !ok {
 			t.Fatalf("slash-command /%s missing", n)
 		}
@@ -272,6 +272,76 @@ func TestSupplierTool(t *testing.T) {
 	}
 	if res := tool.Execute(ctx, map[string]any{"action": "hapus", "nama": "UD Maju"}); res.IsError {
 		t.Errorf("hapus: %s", res.ForLLM)
+	}
+}
+
+func TestJualMassal(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+
+	res := NewKasirTool(s).Execute(ctx, map[string]any{
+		"action": "jual_massal",
+		"items": []any{
+			map[string]any{"produk": "beras", "qty": float64(1)},
+			map[string]any{"produk": "gula", "qty": float64(2)},
+		},
+		"bayar": float64(100000),
+	})
+	if res.IsError {
+		t.Fatalf("jual_massal: %s", res.ForLLM)
+	}
+	// 62000 + 2*15000 = 92000; kembalian 8000
+	if !strings.Contains(res.ForUser, "Total: Rp 92.000") || !strings.Contains(res.ForUser, "Kembalian: Rp 8.000") {
+		t.Errorf("combined struk wrong: %s", res.ForUser)
+	}
+	if it, _ := s.GetProduk(ctx, "003"); it.Stok != 8 {
+		t.Errorf("gula stock should be 8 after selling 2, got %d", it.Stok)
+	}
+}
+
+func TestTambahMassalAndEditMassal(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewStokTool(s)
+
+	// Bulk add (auto-create by default).
+	res := tool.Execute(ctx, map[string]any{
+		"action": "tambah_massal",
+		"items": []any{
+			map[string]any{"produk": "Indomie Goreng", "qty": float64(20), "harga": float64(2800)},
+			map[string]any{"produk": "Teh Botol", "qty": float64(12), "harga": float64(3000)},
+		},
+	})
+	if res.IsError || !strings.Contains(res.ForLLM, "2/2 berhasil") {
+		t.Fatalf("tambah_massal: %s", res.ForLLM)
+	}
+	all, _ := s.GetAllProduk(ctx)
+	if len(all) != 2 {
+		t.Fatalf("expected 2 products created, got %d", len(all))
+	}
+
+	// Bulk edit categories.
+	res = tool.Execute(ctx, map[string]any{
+		"action": "edit_massal",
+		"items": []any{
+			map[string]any{"produk": "Indomie", "kategori": "mie"},
+			map[string]any{"produk": "Teh", "kategori": "minuman"},
+		},
+	})
+	if res.IsError || !strings.Contains(res.ForLLM, "2/2 berhasil") {
+		t.Fatalf("edit_massal: %s", res.ForLLM)
+	}
+}
+
+func TestParseMassalItems(t *testing.T) {
+	items := parseMassalItems("beras medium 2, gula 3, minyak")
+	if len(items) != 2 {
+		t.Fatalf("expected 2 valid items (minyak has no qty), got %d: %+v", len(items), items)
+	}
+	if items[0]["produk"] != "beras medium" || items[0]["qty"].(float64) != 2 {
+		t.Errorf("first item wrong: %+v", items[0])
 	}
 }
 

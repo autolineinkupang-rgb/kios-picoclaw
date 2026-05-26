@@ -25,11 +25,22 @@ func (t *KasirTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type":        "string",
-				"enum":        []string{"jual", "buka_shift", "tutup_shift", "status_shift"},
+				"enum":        []string{"jual", "jual_massal", "buka_shift", "tutup_shift", "status_shift"},
 				"description": "Aksi kasir.",
 			},
-			"produk":      map[string]any{"type": "string"},
-			"qty":         map[string]any{"type": "integer"},
+			"produk": map[string]any{"type": "string"},
+			"qty":    map[string]any{"type": "integer"},
+			"items": map[string]any{
+				"type":        "array",
+				"description": "daftar item untuk jual_massal",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"produk": map[string]any{"type": "string"},
+						"qty":    map[string]any{"type": "integer"},
+					},
+				},
+			},
 			"metode":      map[string]any{"type": "string", "enum": []string{"tunai", "transfer", "qris"}},
 			"bayar":       map[string]any{"type": "integer", "description": "nominal uang yang dibayar pelanggan"},
 			"saldo_awal":  map[string]any{"type": "integer", "description": "modal kas saat buka shift"},
@@ -48,6 +59,8 @@ func (t *KasirTool) Execute(ctx context.Context, args map[string]any) *tools.Too
 	switch argStr(args, "action") {
 	case "jual":
 		return t.jual(ctx, args, kasir)
+	case "jual_massal":
+		return t.jualMassal(ctx, args, kasir)
 	case "buka_shift":
 		return t.bukaShift(ctx, args, kasir)
 	case "tutup_shift":
@@ -83,6 +96,48 @@ func (t *KasirTool) jual(ctx context.Context, args map[string]any, kasir string)
 		out += fmt.Sprintf("\n⚠️ %s HABIS!", item.Nama)
 	} else if sisa <= item.StokKritis {
 		out += fmt.Sprintf("\n⚠️ Stok %s menipis (sisa %d).", item.Nama, sisa)
+	}
+	return tools.UserResult(out)
+}
+
+func (t *KasirTool) jualMassal(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
+	items := argItems(args)
+	if len(items) == 0 {
+		return tools.ErrorResult("items wajib diisi (daftar produk + qty).")
+	}
+	metode := argStr(args, "metode")
+	div := strings.Repeat("━", 30)
+	var b strings.Builder
+	fmt.Fprintf(&b, "🧾 *STRUK KIOS CERDAS*\n📍 %s\n%s\n", lokasiKios, div)
+	grand := 0
+	var errs []string
+	for _, it := range items {
+		produk := argStr(it, "produk")
+		qty := argInt(it, "qty")
+		diskon := 0
+		if pre, _ := findOne(ctx, t.store, produk); pre != nil {
+			diskon, _ = activePromoDiskon(ctx, t.store, pre.ID, qty, pre.HargaJual)
+		}
+		tx, item, _, err := performJual(ctx, t.store, produk, qty, metode, kasir, diskon)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %s", produk, err.Error()))
+			continue
+		}
+		sub := tx.Qty * item.HargaJual
+		fmt.Fprintf(&b, "%s x%d  %s\n", item.Nama, tx.Qty, FormatRupiah(sub))
+		if d := sub - tx.Total; d > 0 {
+			fmt.Fprintf(&b, "  promo -%s\n", FormatRupiah(d))
+		}
+		grand += tx.Total
+	}
+	fmt.Fprintf(&b, "%s\nTotal: %s\n", div, FormatRupiah(grand))
+	if bayar := argIntPtr(args, "bayar"); bayar != nil && *bayar >= grand {
+		fmt.Fprintf(&b, "Bayar: %s\nKembalian: %s\n", FormatRupiah(*bayar), FormatRupiah(*bayar-grand))
+	}
+	fmt.Fprintf(&b, "%s\n%s WITA\nTerima kasih! 🙏", div, NowWITA().Format("02/01/2006 15:04"))
+	out := b.String()
+	if len(errs) > 0 {
+		out += "\n⚠️ Gagal: " + strings.Join(errs, "; ")
 	}
 	return tools.UserResult(out)
 }

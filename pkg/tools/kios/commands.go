@@ -115,6 +115,23 @@ func Commands(store *Store) []commands.Definition {
 			},
 		},
 		{
+			Name:        "jualmassal",
+			Description: "Jual beberapa barang sekaligus (tanpa AI)",
+			Usage:       "/jualmassal <produk> <jml>, <produk> <jml>",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				items := parseMassalItems(argAfter(req.Text))
+				if len(items) == 0 {
+					return reply(req, "Pakai: /jualmassal <produk> <jml>, <produk> <jml>. Contoh: /jualmassal beras 2, gula 3")
+				}
+				res := kasir.Execute(withSender(ctx, req), map[string]any{"action": "jual_massal", "items": items})
+				out := res.ForUser
+				if out == "" {
+					out = res.ForLLM
+				}
+				return reply(req, out)
+			},
+		},
+		{
 			Name:        "produk",
 			Description: "Lihat daftar produk / cari detail (tanpa AI)",
 			Usage:       "/produk [nama]",
@@ -157,6 +174,27 @@ func parseJualArgs(text string) (produk string, qty int, ok bool) {
 		return "", 0, false
 	}
 	return strings.Join(parts[1:len(parts)-1], " "), n, true
+}
+
+// parseMassalItems parses "produk jml, produk jml, ..." into [{produk, qty}].
+// Each comma-separated entry's last token is the quantity.
+func parseMassalItems(text string) []map[string]any {
+	var items []map[string]any
+	for _, part := range strings.Split(text, ",") {
+		fields := strings.Fields(strings.TrimSpace(part))
+		if len(fields) < 2 {
+			continue
+		}
+		n, err := strconv.Atoi(fields[len(fields)-1])
+		if err != nil || n <= 0 {
+			continue
+		}
+		items = append(items, map[string]any{
+			"produk": strings.Join(fields[:len(fields)-1], " "),
+			"qty":    float64(n),
+		})
+	}
+	return items
 }
 
 // argAfter returns everything after the first whitespace-separated token
