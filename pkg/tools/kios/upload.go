@@ -34,7 +34,7 @@ func (t *UploadTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"tipe": map[string]any{
 				"type":        "string",
-				"enum":        []string{"produk", "supplier"},
+				"enum":        []string{"produk", "supplier", "pustaka"},
 				"description": "jenis data dalam file (opsional; auto-deteksi dari kolom bila kosong)",
 			},
 		},
@@ -75,6 +75,8 @@ func (t *UploadTool) Execute(ctx context.Context, args map[string]any) *tools.To
 	case "supplier", "suplier":
 		res, err = ImportSupplierRows(ctx, t.store, rows)
 		tipe = "supplier"
+	case "pustaka":
+		res, err = ImportPustakaRows(ctx, t.store, rows)
 	default:
 		res, err = ImportProdukRows(ctx, t.store, rows)
 		tipe = "produk"
@@ -109,14 +111,20 @@ func (t *UploadTool) findUploadedTable(refs []string) (path, filename string) {
 	return "", ""
 }
 
-// detectTipe guesses produk vs supplier from a row's column keys.
+// detectTipe guesses produk / supplier / pustaka from a row's column keys.
 func detectTipe(row map[string]string) string {
+	_, hasJudul := row["judul"]
+	_, hasURL := row["url"]
+	_, hasJual := row["harga_jual"]
+	_, hasStok := row["stok"]
+	_, hasKontak := row["kontak"]
 	if _, ok := row["produk_utama"]; ok {
 		return "supplier"
 	}
-	_, hasJual := row["harga_jual"]
-	_, hasStok := row["stok"]
-	if _, ok := row["kontak"]; ok && !hasJual && !hasStok {
+	if (hasJudul || hasURL) && !hasJual && !hasStok && !hasKontak {
+		return "pustaka"
+	}
+	if hasKontak && !hasJual && !hasStok {
 		return "supplier"
 	}
 	return "produk"

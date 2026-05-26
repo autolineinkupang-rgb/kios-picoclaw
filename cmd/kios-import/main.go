@@ -48,8 +48,10 @@ func main() {
 		res, err = kios.ImportProdukRows(ctx, store, rows)
 	case "supplier", "suplier":
 		res, err = kios.ImportSupplierRows(ctx, store, rows)
+	case "pustaka":
+		res, err = kios.ImportPustakaRows(ctx, store, rows)
 	default:
-		fmt.Fprintln(os.Stderr, "FATAL: tipe harus 'produk' atau 'supplier'")
+		fmt.Fprintln(os.Stderr, "FATAL: tipe harus 'produk', 'supplier', atau 'pustaka'")
 		os.Exit(1)
 	}
 	if err != nil {

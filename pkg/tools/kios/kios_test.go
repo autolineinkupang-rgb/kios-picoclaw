@@ -219,6 +219,46 @@ func TestImportProdukCSV(t *testing.T) {
 	}
 }
 
+func TestImportPustakaRows(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	rows := []map[string]string{
+		{"judul": "Panel Harga", "info": "harga harian", "url": "https://panelharga.badanpangan.go.id", "kategori": "harga"},
+		{"judul": "Sumber Jahat", "url": "http://1.2.3.4/malware?exec=1"}, // unsafe -> skipped
+		{"judul": "Catatan tanpa URL", "info": "info lokal"},              // ok, no url
+		{"info": "tanpa judul tanpa url"},                                 // skipped
+	}
+	res, err := ImportPustakaRows(ctx, s, rows)
+	if err != nil {
+		t.Fatalf("import pustaka: %v", err)
+	}
+	if res.Created != 2 || res.Skipped != 2 {
+		t.Errorf("expected 2 created / 2 skipped, got %+v", res)
+	}
+	all, _ := s.GetAllPustaka(ctx)
+	if len(all) != 2 {
+		t.Errorf("expected 2 stored entries (unsafe rejected), got %d", len(all))
+	}
+}
+
+func TestImportCuratedSources(t *testing.T) {
+	p, _ := filepath.Abs("../../../templates/pustaka-sumber.csv")
+	if _, err := os.Stat(p); err != nil {
+		t.Skip("curated sources file not present")
+	}
+	s := newTestStore(t)
+	res, err := ImportPustakaCSV(context.Background(), s, p)
+	if err != nil {
+		t.Fatalf("import curated: %v", err)
+	}
+	if res.Skipped != 0 {
+		t.Errorf("curated sources must all pass safety, but %d were skipped", res.Skipped)
+	}
+	if res.Created < 8 {
+		t.Errorf("expected >=8 curated sources imported, got %d", res.Created)
+	}
+}
+
 func TestImportSupplierCSV(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

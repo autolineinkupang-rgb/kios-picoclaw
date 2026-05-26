@@ -142,6 +142,98 @@ func ImportSupplierCSV(ctx context.Context, s *Store, path string) (ImportResult
 	return ImportSupplierRows(ctx, s, rows)
 }
 
+// ImportPustakaCSV loads knowledge-base entries from a CSV (headers: judul,
+// info, url, kategori). Unsafe URLs (SkorAman < 60) are skipped.
+func ImportPustakaCSV(ctx context.Context, s *Store, path string) (ImportResult, error) {
+	rows, err := readCSVRows(path)
+	if err != nil {
+		return ImportResult{}, err
+	}
+	return ImportPustakaRows(ctx, s, rows)
+}
+
+// ImportPustakaRows imports knowledge-base rows. Entries are matched by URL
+// (or judul when no URL): existing updated, new created. URLs failing the
+// malware-safety check are skipped.
+func ImportPustakaRows(ctx context.Context, s *Store, rows []map[string]string) (ImportResult, error) {
+	var res ImportResult
+	all, err := s.GetAllPustaka(ctx)
+	if err != nil {
+		return res, err
+	}
+	byKey := make(map[string]*Pustaka, len(all)*2)
+	for _, p := range all {
+		if p.URL != "" {
+			byKey["u:"+strings.ToLower(p.URL)] = p
+		}
+		if p.Judul != "" {
+			byKey["j:"+strings.ToLower(p.Judul)] = p
+		}
+	}
+	now := NowWITA().Format("2006-01-02 15:04")
+	for _, row := range rows {
+		judul := strings.TrimSpace(row["judul"])
+		info := strings.TrimSpace(row["info"])
+		url := strings.TrimSpace(row["url"])
+		if judul == "" && url == "" {
+			res.Skipped++
+			continue
+		}
+		skor := 0
+		if url != "" {
+			sf := SkorAman(url)
+			if !sf.Aman {
+				res.Skipped++ // reject unsafe source
+				continue
+			}
+			skor = sf.Skor
+		}
+		var p *Pustaka
+		if url != "" {
+			p = byKey["u:"+strings.ToLower(url)]
+		}
+		if p == nil && judul != "" {
+			p = byKey["j:"+strings.ToLower(judul)]
+		}
+		isNew := p == nil
+		if isNew {
+			id, err := s.NextPustakaID(ctx)
+			if err != nil {
+				return res, err
+			}
+			p = &Pustaka{ID: id, Ditambahkan: now}
+		}
+		if judul != "" {
+			p.Judul = judul
+		}
+		if info != "" {
+			p.Info = info
+		}
+		if url != "" {
+			p.URL = url
+			p.Skor = skor
+		}
+		if v := row["kategori"]; v != "" {
+			p.Kategori = v
+		}
+		if err := s.SetPustaka(ctx, p); err != nil {
+			return res, err
+		}
+		if isNew {
+			if url != "" {
+				byKey["u:"+strings.ToLower(url)] = p
+			}
+			if judul != "" {
+				byKey["j:"+strings.ToLower(judul)] = p
+			}
+			res.Created++
+		} else {
+			res.Updated++
+		}
+	}
+	return res, nil
+}
+
 // ImportSupplierRows imports already-parsed supplier rows.
 func ImportSupplierRows(ctx context.Context, s *Store, rows []map[string]string) (ImportResult, error) {
 	var res ImportResult
