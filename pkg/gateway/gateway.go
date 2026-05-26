@@ -51,6 +51,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/state"
 	"github.com/sipeed/picoclaw/pkg/tools"
+	kios "github.com/sipeed/picoclaw/pkg/tools/kios"
 )
 
 const (
@@ -809,11 +810,27 @@ func setupCronTool(
 		agentLoop.RegisterTool(cronTool)
 	}
 
-	if cronTool != nil {
-		cronService.SetOnJob(func(job *cron.CronJob) (string, error) {
-			result := cronTool.ExecuteJob(context.Background(), job)
-			return result, nil
-		})
+	cronService.SetOnJob(func(job *cron.CronJob) (string, error) {
+		// Kios daily report runs deterministically (no LLM) so it survives
+		// LLM rate limits, then pushes straight to the configured chat.
+		if job.Name == kios.DailyReportJobName {
+			store, err := kios.NewStore()
+			if err != nil {
+				return "", err
+			}
+			text := kios.DailyReportText(context.Background(), store)
+			agentLoop.PublishResponseIfNeeded(context.Background(), job.Payload.Channel, job.Payload.To, "kios-cron", text)
+			return text, nil
+		}
+		if cronTool != nil {
+			return cronTool.ExecuteJob(context.Background(), job), nil
+		}
+		return "", nil
+	})
+
+	// Auto-register the daily report job when KIOS_REPORT_CHAT is configured.
+	if err := kios.EnsureDailyReportJob(cronService); err != nil {
+		logger.WarnCF("kios", "failed to register daily report job", map[string]any{"error": err.Error()})
 	}
 
 	return cronService, nil

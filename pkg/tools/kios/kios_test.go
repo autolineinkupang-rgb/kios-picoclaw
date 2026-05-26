@@ -11,6 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/sipeed/picoclaw/pkg/commands"
+	"github.com/sipeed/picoclaw/pkg/cron"
 	tools "github.com/sipeed/picoclaw/pkg/tools"
 )
 
@@ -108,6 +109,51 @@ func TestUserTool(t *testing.T) {
 	}
 	if u, _ := s.GetUser(ctx, "555"); u.Aktif {
 		t.Errorf("user should be inactive after nonaktif")
+	}
+}
+
+func TestDailyReportText(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	NewStokTool(s).Execute(ctx, map[string]any{"action": "jual", "produk": "beras", "qty": float64(2)})
+
+	text := DailyReportText(ctx, s)
+	if !strings.Contains(text, "Laporan") {
+		t.Errorf("report should contain a heading, got: %s", text)
+	}
+	if !strings.Contains(text, "Rp 124.000") {
+		t.Errorf("report should reflect omzet Rp 124.000, got: %s", text)
+	}
+}
+
+func TestEnsureDailyReportJob(t *testing.T) {
+	tmp := t.TempDir()
+	mk := func() *cron.CronService { return cron.NewCronService(filepath.Join(tmp, "jobs.json"), nil) }
+
+	// Not configured -> no job.
+	cs := mk()
+	if err := EnsureDailyReportJob(cs); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(cs.ListJobs(true)); n != 0 {
+		t.Fatalf("expected 0 jobs when KIOS_REPORT_CHAT unset, got %d", n)
+	}
+
+	// Configured -> exactly one job, idempotent across calls.
+	t.Setenv("KIOS_REPORT_CHAT", "123456")
+	cs = mk()
+	for i := 0; i < 2; i++ {
+		if err := EnsureDailyReportJob(cs); err != nil {
+			t.Fatal(err)
+		}
+	}
+	jobs := cs.ListJobs(true)
+	if len(jobs) != 1 || jobs[0].Name != DailyReportJobName {
+		t.Fatalf("expected exactly one %q job, got %+v", DailyReportJobName, jobs)
+	}
+	if jobs[0].Payload.To != "123456" || jobs[0].Payload.Channel != "telegram" {
+		t.Errorf("job payload target wrong: %+v", jobs[0].Payload)
 	}
 }
 
