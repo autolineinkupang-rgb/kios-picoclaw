@@ -13,6 +13,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/commands"
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/picoclaw/pkg/media"
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
 
@@ -357,6 +358,39 @@ func (al *AgentLoop) buildCommandsRuntime(
 				MessageCount:     len(history),
 			}
 		}
+	}
+
+	rt.SendFile = func(fctx context.Context, channel, chatID, path, filename string) error {
+		if al.mediaStore == nil {
+			return fmt.Errorf("media store unavailable")
+		}
+		ref, err := al.mediaStore.Store(path, media.MediaMeta{
+			Filename:      filename,
+			Source:        "command:file",
+			CleanupPolicy: media.CleanupPolicyForgetOnly,
+		}, fmt.Sprintf("cmd:%s:%s", channel, chatID))
+		if err != nil {
+			return err
+		}
+		var inbound *bus.InboundContext
+		var replyTo string
+		if opts != nil {
+			inbound = opts.Dispatch.InboundContext
+			replyTo = opts.Dispatch.ReplyToMessageID()
+		}
+		msg := bus.OutboundMediaMessage{
+			Channel: channel,
+			ChatID:  chatID,
+			Context: outboundContextFromInbound(inbound, channel, chatID, replyTo),
+			Parts:   []bus.MediaPart{{Type: "file", Ref: ref, Filename: filename}},
+		}
+		if al.channelManager != nil && channel != "" {
+			return al.channelManager.SendMedia(fctx, msg)
+		}
+		if al.bus != nil {
+			return al.bus.PublishOutboundMedia(fctx, msg)
+		}
+		return fmt.Errorf("no delivery channel")
 	}
 	return rt
 }

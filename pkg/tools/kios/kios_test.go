@@ -117,7 +117,7 @@ func TestSlashCommands(t *testing.T) {
 	for _, d := range Commands(s) {
 		byName[d.Name] = d
 	}
-	for _, n := range []string{"stok", "menipis", "laporan", "harga", "jual", "jualmassal", "shift", "promo", "pasar", "produk", "suplier"} {
+	for _, n := range []string{"stok", "menipis", "laporan", "harga", "jual", "jualmassal", "shift", "promo", "pasar", "produk", "suplier", "template"} {
 		if _, ok := byName[n]; !ok {
 			t.Fatalf("slash-command /%s missing", n)
 		}
@@ -233,6 +233,42 @@ func TestImportSupplierCSV(t *testing.T) {
 	all, _ := s.GetAllSupplier(ctx)
 	if sup := CariSupplier(all, "UD Maju"); sup == nil || sup.Kontak != "0812" {
 		t.Errorf("supplier not imported correctly: %+v", sup)
+	}
+}
+
+func TestTemplateCommand(t *testing.T) {
+	dir, _ := filepath.Abs("../../../templates")
+	if _, err := os.Stat(filepath.Join(dir, "produk-template.xlsx")); err != nil {
+		t.Skip("template files not present")
+	}
+	t.Setenv("KIOS_TEMPLATE_DIR", dir)
+	s := newTestStore(t)
+	var def commands.Definition
+	for _, d := range Commands(s) {
+		if d.Name == "template" {
+			def = d
+		}
+	}
+	if def.Handler == nil {
+		t.Fatal("/template command missing")
+	}
+	var sent []string
+	rt := &commands.Runtime{
+		SendFile: func(_ context.Context, _, _, _, name string) error {
+			sent = append(sent, name)
+			return nil
+		},
+	}
+	var replyText string
+	req := commands.Request{Channel: "telegram", ChatID: "1", Reply: func(s string) error { replyText = s; return nil }}
+	if err := def.Handler(context.Background(), req, rt); err != nil {
+		t.Fatalf("/template: %v", err)
+	}
+	if len(sent) < 2 {
+		t.Errorf("expected 2 template files sent, got %v", sent)
+	}
+	if !strings.Contains(replyText, "Template terkirim") {
+		t.Errorf("unexpected reply: %s", replyText)
 	}
 }
 

@@ -2,12 +2,24 @@ package kios
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/commands"
 	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
 )
+
+// templateDir returns the directory holding the downloadable templates,
+// from $KIOS_TEMPLATE_DIR (default "templates" for local dev; the Docker image
+// sets it to /app/templates).
+func templateDir() string {
+	if d := strings.TrimSpace(os.Getenv("KIOS_TEMPLATE_DIR")); d != "" {
+		return d
+	}
+	return "templates"
+}
 
 // Commands returns deterministic Telegram slash-commands backed by the kios
 // store. They call the tools' logic directly and reply without invoking the
@@ -129,6 +141,32 @@ func Commands(store *Store) []commands.Definition {
 					out = res.ForLLM
 				}
 				return reply(req, out)
+			},
+		},
+		{
+			Name:        "template",
+			Description: "Kirim file template produk & supplier (Excel) untuk diisi",
+			Handler: func(ctx context.Context, req commands.Request, rt *commands.Runtime) error {
+				if rt == nil || rt.SendFile == nil {
+					return reply(req, "Maaf kak, fitur kirim file belum tersedia di sini.")
+				}
+				dir := templateDir()
+				files := []string{"produk-template.xlsx", "supplier-template.xlsx"}
+				sent := 0
+				for _, name := range files {
+					path := filepath.Join(dir, name)
+					if _, err := os.Stat(path); err != nil {
+						continue
+					}
+					if err := rt.SendFile(ctx, req.Channel, req.ChatID, path, name); err == nil {
+						sent++
+					}
+				}
+				if sent == 0 {
+					return reply(req, "Maaf kak, file template tidak ditemukan di server 😔")
+				}
+				return reply(req, "📎 Template terkirim ya kak! Buka di Excel/Google Sheets, isi datanya, "+
+					"lalu kirim balik file-nya ke chat ini — nanti aku import otomatis. 🙏")
 			},
 		},
 		{

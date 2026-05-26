@@ -13,10 +13,12 @@ FROM alpine:3.23
 RUN apk add --no-cache ca-certificates tzdata curl
 ENV PICOCLAW_HOME=/app/.picoclaw
 ENV TZ=Asia/Makassar
+ENV KIOS_TEMPLATE_DIR=/app/templates
 WORKDIR /app
 
 COPY --from=builder /src/build/picoclaw-linux-amd64 /usr/local/bin/picoclaw
 COPY workspace /app/workspace
+COPY templates /app/templates
 COPY deploy/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

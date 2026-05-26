@@ -62,4 +62,7 @@ type Runtime struct {
 	ClearHistory       func() error
 	ReloadConfig       func() error
 	StopActiveTurn     func() (StopResult, error)
+	// SendFile delivers a local file to the given channel/chat as an attachment.
+	// Nil when the runtime has no media-capable channel.
+	SendFile func(ctx context.Context, channel, chatID, path, filename string) error
 }
