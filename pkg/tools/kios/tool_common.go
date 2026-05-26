@@ -176,6 +176,8 @@ func performJual(ctx context.Context, store *Store, query string, qty int, metod
 	if _, err := store.AppendTransaksi(ctx, tx); err != nil {
 		return nil, nil, 0, err
 	}
+	// Automatic learning: record the sale habit (peak hour + top product).
+	_ = store.TrackHabit(ctx, "sale", item.Nama)
 	return tx, item, item.Stok, nil
 }
 

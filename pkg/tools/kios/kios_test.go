@@ -82,6 +82,26 @@ func TestToolsRegister(t *testing.T) {
 	}
 }
 
+func TestAutoHabitTracking(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+
+	// A sale auto-records the habit — no explicit habit_track call.
+	if res := NewStokTool(s).Execute(ctx, map[string]any{"action": "jual", "produk": "beras", "qty": float64(1)}); res.IsError {
+		t.Fatalf("jual: %s", res.ForLLM)
+	}
+	if res := NewBelajarTool(s).Execute(ctx, map[string]any{"action": "habit"}); !strings.Contains(res.ForLLM, "Beras") {
+		t.Errorf("sale should auto-populate habit, got: %s", res.ForLLM)
+	}
+
+	// A report request is auto-tracked too.
+	NewLaporanTool(s).Execute(ctx, map[string]any{"action": "ringkas"})
+	if len(s.GetHabits(ctx).ReportTimes) == 0 {
+		t.Error("report request should be auto-tracked")
+	}
+}
+
 func TestPasarTool(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

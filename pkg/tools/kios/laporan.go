@@ -40,6 +40,8 @@ func (t *LaporanTool) Execute(ctx context.Context, args map[string]any) *tools.T
 	if _, _, refusal := resolveRole(ctx, t.store); refusal != nil {
 		return refusal
 	}
+	// Automatic learning: note when reports are requested (builds report-time habit).
+	_ = t.store.TrackHabit(ctx, "report_request", "")
 	switch argStr(args, "action") {
 	case "ringkas":
 		return t.ringkas(ctx, "hari_ini", "Harian")
