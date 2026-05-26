@@ -822,6 +822,24 @@ func setupCronTool(
 			agentLoop.PublishResponseIfNeeded(context.Background(), job.Payload.Channel, job.Payload.To, "kios-cron", text)
 			return text, nil
 		}
+		// Kios daily backup exports all data to JSON and sends it as a file,
+		// also deterministic so it survives LLM rate limits.
+		if job.Name == kios.DailyBackupJobName {
+			store, err := kios.NewStore()
+			if err != nil {
+				return "", err
+			}
+			path, filename, ringkas, err := kios.WriteBackupFile(context.Background(), store)
+			if err != nil {
+				return "", err
+			}
+			if err := agentLoop.SendFileToChat(context.Background(), job.Payload.Channel, job.Payload.To, path, filename); err != nil {
+				return "", err
+			}
+			agentLoop.PublishResponseIfNeeded(context.Background(), job.Payload.Channel, job.Payload.To, "kios-cron",
+				"🗄️ Backup harian otomatis terkirim: "+ringkas+".")
+			return "backup terkirim: " + filename, nil
+		}
 		if cronTool != nil {
 			return cronTool.ExecuteJob(context.Background(), job), nil
 		}
@@ -831,6 +849,11 @@ func setupCronTool(
 	// Auto-register the daily report job when KIOS_REPORT_CHAT is configured.
 	if err := kios.EnsureDailyReportJob(cronService); err != nil {
 		logger.WarnCF("kios", "failed to register daily report job", map[string]any{"error": err.Error()})
+	}
+
+	// Auto-register the daily backup job when KIOS_BACKUP_CHAT is configured.
+	if err := kios.EnsureDailyBackupJob(cronService); err != nil {
+		logger.WarnCF("kios", "failed to register daily backup job", map[string]any{"error": err.Error()})
 	}
 
 	return cronService, nil

@@ -170,6 +170,32 @@ func Commands(store *Store) []commands.Definition {
 			},
 		},
 		{
+			Name:        "backup",
+			Description: "Export semua data kios jadi file JSON (khusus owner)",
+			Handler: func(ctx context.Context, req commands.Request, rt *commands.Runtime) error {
+				ctx = withSender(ctx, req)
+				role, _, refusal := resolveRole(ctx, store)
+				if refusal != nil {
+					return reply(req, refusal.ForLLM)
+				}
+				if r := requireOwner(role); r != nil {
+					return reply(req, r.ForLLM)
+				}
+				if rt == nil || rt.SendFile == nil {
+					return reply(req, "Maaf kak, fitur kirim file belum tersedia di sini.")
+				}
+				path, filename, ringkas, err := WriteBackupFile(ctx, store)
+				if err != nil {
+					return reply(req, "Aduh, gagal bikin backup kak 😣 Coba lagi sebentar ya.")
+				}
+				if err := rt.SendFile(ctx, req.Channel, req.ChatID, path, filename); err != nil {
+					return reply(req, "Backup-nya jadi tapi gagal terkirim kak 😔 Coba lagi ya.")
+				}
+				return reply(req, "✅ Backup terkirim kak! Isi: "+ringkas+".\n"+
+					"Simpan file JSON ini baik-baik ya — kalau data kios hilang, bisa dipulihkan dari sini. 🙏")
+			},
+		},
+		{
 			Name:        "produk",
 			Description: "Lihat daftar produk / cari detail (tanpa AI)",
 			Usage:       "/produk [nama]",

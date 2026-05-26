@@ -12,10 +12,41 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/picoclaw/pkg/media"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
+
+// SendFileToChat delivers a local file as an attachment to the given
+// channel/chat outside of any request context (e.g. from a cron job). It
+// mirrors the command runtime's SendFile but builds a fresh outbound context.
+func (al *AgentLoop) SendFileToChat(ctx context.Context, channel, chatID, path, filename string) error {
+	if al.mediaStore == nil {
+		return fmt.Errorf("media store unavailable")
+	}
+	ref, err := al.mediaStore.Store(path, media.MediaMeta{
+		Filename:      filename,
+		Source:        "cron:file",
+		CleanupPolicy: media.CleanupPolicyForgetOnly,
+	}, fmt.Sprintf("cron:%s:%s", channel, chatID))
+	if err != nil {
+		return err
+	}
+	msg := bus.OutboundMediaMessage{
+		Channel: channel,
+		ChatID:  chatID,
+		Context: bus.NewOutboundContext(channel, chatID, ""),
+		Parts:   []bus.MediaPart{{Type: "file", Ref: ref, Filename: filename}},
+	}
+	if al.channelManager != nil && channel != "" {
+		return al.channelManager.SendMedia(ctx, msg)
+	}
+	if al.bus != nil {
+		return al.bus.PublishOutboundMedia(ctx, msg)
+	}
+	return fmt.Errorf("no delivery channel")
+}
 
 func (al *AgentLoop) maybePublishError(ctx context.Context, channel, chatID, sessionKey string, err error) bool {
 	if errors.Is(err, context.Canceled) {

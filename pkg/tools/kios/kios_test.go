@@ -2,6 +2,7 @@ package kios
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -718,6 +719,118 @@ func TestEnsureDailyReportJob(t *testing.T) {
 		t.Fatalf("expected exactly one %q job, got %+v", DailyReportJobName, jobs)
 	}
 	if jobs[0].Payload.To != "123456" || jobs[0].Payload.Channel != "telegram" {
+		t.Errorf("job payload target wrong: %+v", jobs[0].Payload)
+	}
+}
+
+func TestBuildBackup(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	NewStokTool(s).Execute(ctx, map[string]any{"action": "jual", "produk": "beras", "qty": float64(2)})
+	if err := s.SetSupplier(ctx, &Supplier{ID: "SUP-001", Nama: "Toko Grosir"}); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := BuildBackup(ctx, s)
+	if err != nil {
+		t.Fatalf("BuildBackup: %v", err)
+	}
+	if len(b.Produk) != 1 {
+		t.Errorf("expected 1 produk, got %d", len(b.Produk))
+	}
+	if len(b.Transaksi) != 1 {
+		t.Errorf("expected 1 transaksi, got %d", len(b.Transaksi))
+	}
+	if len(b.Supplier) != 1 {
+		t.Errorf("expected 1 supplier, got %d", len(b.Supplier))
+	}
+	if b.Versi == "" || b.Dibuat == "" {
+		t.Errorf("backup missing versi/dibuat: %+v", b)
+	}
+	if !strings.Contains(b.Ringkas(), "1 produk") {
+		t.Errorf("ringkas should mention produk count, got: %s", b.Ringkas())
+	}
+}
+
+func TestWriteBackupFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KIOS_BACKUP_DIR", dir)
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+
+	path, filename, ringkas, err := WriteBackupFile(ctx, s)
+	if err != nil {
+		t.Fatalf("WriteBackupFile: %v", err)
+	}
+	if !strings.HasPrefix(filename, "kios-backup-") || !strings.HasSuffix(filename, ".json") {
+		t.Errorf("unexpected filename: %s", filename)
+	}
+	if filepath.Dir(path) != dir {
+		t.Errorf("file not written to backup dir: %s", path)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read backup file: %v", err)
+	}
+	var decoded BackupData
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("backup file is not valid JSON: %v", err)
+	}
+	if len(decoded.Produk) != 1 {
+		t.Errorf("decoded backup should have 1 produk, got %d", len(decoded.Produk))
+	}
+	if !strings.Contains(ringkas, "1 produk") {
+		t.Errorf("ringkas wrong: %s", ringkas)
+	}
+}
+
+func TestPruneBackups(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < backupKeep+5; i++ {
+		name := fmt.Sprintf("kios-backup-2026-05-%02d-1200.json", i+1)
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pruneBackups(dir, backupKeep)
+	left, _ := filepath.Glob(filepath.Join(dir, "kios-backup-*.json"))
+	if len(left) != backupKeep {
+		t.Fatalf("expected %d files after prune, got %d", backupKeep, len(left))
+	}
+	// Oldest must be gone, newest kept.
+	for _, p := range left {
+		if strings.Contains(p, "2026-05-01-") {
+			t.Errorf("oldest backup should have been pruned: %s", p)
+		}
+	}
+}
+
+func TestEnsureDailyBackupJob(t *testing.T) {
+	tmp := t.TempDir()
+	mk := func() *cron.CronService { return cron.NewCronService(filepath.Join(tmp, "jobs.json"), nil) }
+
+	cs := mk()
+	if err := EnsureDailyBackupJob(cs); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(cs.ListJobs(true)); n != 0 {
+		t.Fatalf("expected 0 jobs when KIOS_BACKUP_CHAT unset, got %d", n)
+	}
+
+	t.Setenv("KIOS_BACKUP_CHAT", "999888")
+	cs = mk()
+	for i := 0; i < 2; i++ {
+		if err := EnsureDailyBackupJob(cs); err != nil {
+			t.Fatal(err)
+		}
+	}
+	jobs := cs.ListJobs(true)
+	if len(jobs) != 1 || jobs[0].Name != DailyBackupJobName {
+		t.Fatalf("expected exactly one %q job, got %+v", DailyBackupJobName, jobs)
+	}
+	if jobs[0].Payload.To != "999888" || jobs[0].Payload.Channel != "telegram" {
 		t.Errorf("job payload target wrong: %+v", jobs[0].Payload)
 	}
 }
