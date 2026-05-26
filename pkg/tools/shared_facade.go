@@ -61,6 +61,14 @@ func WithToolSessionContext(
 	return toolshared.WithToolSessionContext(ctx, agentID, sessionKey, scope)
 }
 
+func WithToolMedia(ctx context.Context, refs []string) context.Context {
+	return toolshared.WithToolMedia(ctx, refs)
+}
+
+func ToolMedia(ctx context.Context) []string {
+	return toolshared.ToolMedia(ctx)
+}
+
 func ToolChannel(ctx context.Context) string {
 	return toolshared.ToolChannel(ctx)
 }

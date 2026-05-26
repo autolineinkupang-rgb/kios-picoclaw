@@ -2,6 +2,7 @@ package kios
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,8 +13,80 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/commands"
 	"github.com/sipeed/picoclaw/pkg/cron"
+	"github.com/sipeed/picoclaw/pkg/media"
 	tools "github.com/sipeed/picoclaw/pkg/tools"
 )
+
+// fakeMediaStore maps a single ref to a local file for upload tests.
+type fakeMediaStore struct {
+	ref  string
+	path string
+	meta media.MediaMeta
+}
+
+func (f *fakeMediaStore) Store(string, media.MediaMeta, string) (string, error) { return f.ref, nil }
+func (f *fakeMediaStore) Resolve(ref string) (string, error) {
+	if ref == f.ref {
+		return f.path, nil
+	}
+	return "", fmt.Errorf("not found")
+}
+func (f *fakeMediaStore) ResolveWithMeta(ref string) (string, media.MediaMeta, error) {
+	if ref == f.ref {
+		return f.path, f.meta, nil
+	}
+	return "", media.MediaMeta{}, fmt.Errorf("not found")
+}
+func (f *fakeMediaStore) ReleaseAll(string) error { return nil }
+
+func TestReadTableFileXLSX(t *testing.T) {
+	p, _ := filepath.Abs("../../../templates/produk-template.xlsx")
+	if _, err := os.Stat(p); err != nil {
+		t.Skip("template xlsx not present")
+	}
+	rows, err := ReadTableFile(p)
+	if err != nil {
+		t.Fatalf("read xlsx: %v", err)
+	}
+	if len(rows) < 4 {
+		t.Fatalf("expected >=4 rows, got %d", len(rows))
+	}
+	if rows[0]["nama"] == "" || rows[0]["harga_jual"] == "" {
+		t.Errorf("xlsx headers/values not parsed: %+v", rows[0])
+	}
+}
+
+func TestUploadTool(t *testing.T) {
+	p, _ := filepath.Abs("../../../templates/produk-template.xlsx")
+	if _, err := os.Stat(p); err != nil {
+		t.Skip("template xlsx not present")
+	}
+	s := newTestStore(t)
+	tool := NewUploadTool(s)
+	tool.SetMediaStore(&fakeMediaStore{
+		ref:  "media://x",
+		path: p,
+		meta: media.MediaMeta{Filename: "daftar-produk.xlsx", ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+	})
+	ctx := tools.WithToolMedia(context.Background(), []string{"media://x"})
+	res := tool.Execute(ctx, map[string]any{}) // tipe auto-detected
+	if res.IsError {
+		t.Fatalf("upload import: %s", res.ForLLM)
+	}
+	if !strings.Contains(res.ForUser, "Dibuat") {
+		t.Errorf("expected import summary, got: %s", res.ForUser)
+	}
+	all, _ := s.GetAllProduk(context.Background())
+	if len(all) < 4 {
+		t.Errorf("expected >=4 products imported from xlsx, got %d", len(all))
+	}
+
+	// No uploaded file -> friendly hint, not an error.
+	res2 := tool.Execute(tools.WithToolMedia(context.Background(), nil), map[string]any{})
+	if res2.IsError || !strings.Contains(res2.ForLLM, "unggah") {
+		t.Errorf("expected upload hint when no file, got: %s (err=%v)", res2.ForLLM, res2.IsError)
+	}
+}
 
 func TestSeedFromOldData(t *testing.T) {
 	dir := "/home/kevinman/kios-openclaw/data"
@@ -190,7 +263,7 @@ func TestToolsRegister(t *testing.T) {
 	for _, tool := range AllTools(s) {
 		reg.Register(tool)
 	}
-	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user", "kios_supplier", "kios_promo", "kios_pustaka", "kios_pasar", "kios_belajar"} {
+	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user", "kios_supplier", "kios_promo", "kios_pustaka", "kios_pasar", "kios_belajar", "kios_import_upload"} {
 		if !reg.HasRegistered(name) {
 			t.Errorf("tool %q not registered (registry: %v)", name, reg.List())
 		}

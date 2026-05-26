@@ -34,6 +34,9 @@ func NewPasarTool(store *Store) *PasarTool { return &PasarTool{store: store} }
 // NewBelajarTool builds the learning-memory tool.
 func NewBelajarTool(store *Store) *BelajarTool { return &BelajarTool{store: store} }
 
+// NewUploadTool builds the chat-file (Excel/CSV) import tool.
+func NewUploadTool(store *Store) *UploadTool { return &UploadTool{store: store} }
+
 // AllTools returns the full set of kios tools backed by the given store,
 // ready to register in picoclaw's tool registry.
 func AllTools(store *Store) []tools.Tool {
@@ -48,5 +51,6 @@ func AllTools(store *Store) []tools.Tool {
 		NewPustakaTool(store),
 		NewPasarTool(store),
 		NewBelajarTool(store),
+		NewUploadTool(store),
 	}
 }

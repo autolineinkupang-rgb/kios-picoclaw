@@ -50,6 +50,7 @@ var (
 	ctxKeyAgentID          = &toolCtxKey{"agentID"}
 	ctxKeySessionKey       = &toolCtxKey{"sessionKey"}
 	ctxKeySessionScope     = &toolCtxKey{"sessionScope"}
+	ctxKeyMedia            = &toolCtxKey{"media"}
 )
 
 // WithToolContext returns a child context carrying channel and chatID.
@@ -128,6 +129,18 @@ func ToolSessionKey(ctx context.Context) string {
 func ToolSessionScope(ctx context.Context) *session.SessionScope {
 	scope, _ := ctx.Value(ctxKeySessionScope).(*session.SessionScope)
 	return session.CloneScope(scope)
+}
+
+// WithToolMedia returns a child context carrying the inbound message's media
+// refs (e.g. uploaded documents), so tools can resolve and read them.
+func WithToolMedia(ctx context.Context, refs []string) context.Context {
+	return context.WithValue(ctx, ctxKeyMedia, append([]string(nil), refs...))
+}
+
+// ToolMedia extracts the inbound media refs from ctx, or nil if unset.
+func ToolMedia(ctx context.Context) []string {
+	v, _ := ctx.Value(ctxKeyMedia).([]string)
+	return v
 }
 
 // AsyncCallback is a function type that async tools use to notify completion.

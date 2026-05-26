@@ -11,52 +11,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
-
-	"github.com/xuri/excelize/v2"
 
 	"github.com/sipeed/picoclaw/pkg/tools/kios"
 )
 
-// readXLSXRows reads the first sheet of an .xlsx into header→value maps,
-// mirroring the CSV reader. Headers (first row) are lowercased + trimmed.
-func readXLSXRows(path string) ([]map[string]string, error) {
-	f, err := excelize.OpenFile(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	sheets := f.GetSheetList()
-	if len(sheets) == 0 {
-		return nil, fmt.Errorf("file excel kosong")
-	}
-	recs, err := f.GetRows(sheets[0])
-	if err != nil {
-		return nil, err
-	}
-	if len(recs) < 2 {
-		return nil, nil
-	}
-	headers := make([]string, len(recs[0]))
-	for i, h := range recs[0] {
-		headers[i] = strings.ToLower(strings.TrimSpace(h))
-	}
-	out := make([]map[string]string, 0, len(recs)-1)
-	for _, rec := range recs[1:] {
-		m := make(map[string]string, len(headers))
-		for i, v := range rec {
-			if i < len(headers) {
-				m[headers[i]] = strings.TrimSpace(v)
-			}
-		}
-		out = append(out, m)
-	}
-	return out, nil
-}
-
 func main() {
 	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, "Pakai: kios-import <produk|supplier> <file.csv>")
+		fmt.Fprintln(os.Stderr, "Pakai: kios-import <produk|supplier> <file.xlsx|file.csv>")
 		os.Exit(1)
 	}
 	typ, path := os.Args[1], os.Args[2]
@@ -75,29 +36,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	isXLSX := strings.HasSuffix(strings.ToLower(path), ".xlsx")
-	var rows []map[string]string
-	if isXLSX {
-		if rows, err = readXLSXRows(path); err != nil {
-			fmt.Fprintf(os.Stderr, "FATAL: gagal baca excel: %v\n", err)
-			os.Exit(1)
-		}
+	rows, err := kios.ReadTableFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FATAL: gagal baca file: %v\n", err)
+		os.Exit(1)
 	}
 
 	var res kios.ImportResult
 	switch typ {
 	case "produk":
-		if isXLSX {
-			res, err = kios.ImportProdukRows(ctx, store, rows)
-		} else {
-			res, err = kios.ImportProdukCSV(ctx, store, path)
-		}
+		res, err = kios.ImportProdukRows(ctx, store, rows)
 	case "supplier", "suplier":
-		if isXLSX {
-			res, err = kios.ImportSupplierRows(ctx, store, rows)
-		} else {
-			res, err = kios.ImportSupplierCSV(ctx, store, path)
-		}
+		res, err = kios.ImportSupplierRows(ctx, store, rows)
 	default:
 		fmt.Fprintln(os.Stderr, "FATAL: tipe harus 'produk' atau 'supplier'")
 		os.Exit(1)

@@ -572,6 +572,7 @@ toolLoop:
 			ts.sessionKey,
 			ts.opts.Dispatch.SessionScope,
 		)
+		execCtx = tools.WithToolMedia(execCtx, ts.media)
 		toolResult := ts.agent.Tools.ExecuteWithContext(
 			execCtx,
 			toolName,
