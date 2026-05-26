@@ -44,7 +44,7 @@ func TestSlashCommands(t *testing.T) {
 	for _, d := range Commands(s) {
 		byName[d.Name] = d
 	}
-	for _, n := range []string{"stok", "menipis", "laporan", "harga"} {
+	for _, n := range []string{"stok", "menipis", "laporan", "harga", "jual", "shift", "promo", "pasar"} {
 		if _, ok := byName[n]; !ok {
 			t.Fatalf("slash-command /%s missing", n)
 		}
@@ -66,6 +66,35 @@ func TestSlashCommands(t *testing.T) {
 	}
 	if got := run("menipis", "/menipis"); !strings.Contains(got, "Beras") {
 		t.Errorf("/menipis should flag Beras (stok 4 <= min 5), got: %s", got)
+	}
+	// /jual validation: missing qty -> usage hint.
+	if got := run("jual", "/jual beras"); !strings.Contains(got, "Pakai: /jual") {
+		t.Errorf("/jual without qty should show usage, got: %s", got)
+	}
+	// /jual functional: sells and returns a receipt.
+	if got := run("jual", "/jual beras 2"); !strings.Contains(got, "STRUK") {
+		t.Errorf("/jual beras 2 should return a struk, got: %s", got)
+	}
+}
+
+func TestParseJualArgs(t *testing.T) {
+	cases := []struct {
+		text   string
+		produk string
+		qty    int
+		ok     bool
+	}{
+		{"/jual beras 2", "beras", 2, true},
+		{"/jual beras medium 5kg 3", "beras medium 5kg", 3, true},
+		{"/jual beras", "", 0, false},
+		{"/jual beras abc", "", 0, false},
+		{"/jual beras 0", "", 0, false},
+	}
+	for _, c := range cases {
+		p, q, ok := parseJualArgs(c.text)
+		if ok != c.ok || (ok && (p != c.produk || q != c.qty)) {
+			t.Errorf("parseJualArgs(%q)=(%q,%d,%v) want (%q,%d,%v)", c.text, p, q, ok, c.produk, c.qty, c.ok)
+		}
 	}
 }
 
