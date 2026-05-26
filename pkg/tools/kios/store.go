@@ -393,13 +393,31 @@ func (s *Store) GetUser(ctx context.Context, phone string) (*UserKios, error) {
 	return &u, nil
 }
 
-// SetUser stores a user record.
+// SetUser stores a user record (keyed by u.Phone, which holds the user's
+// channel identifier — e.g. the Telegram user ID).
 func (s *Store) SetUser(ctx context.Context, u *UserKios) error {
 	b, err := json.Marshal(u)
 	if err != nil {
 		return err
 	}
 	return s.rdb.HSet(ctx, keyUsers, u.Phone, string(b)).Err()
+}
+
+// GetAllUsers returns all registered users.
+func (s *Store) GetAllUsers(ctx context.Context) ([]*UserKios, error) {
+	m, err := s.rdb.HGetAll(ctx, keyUsers).Result()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*UserKios, 0, len(m))
+	for _, v := range m {
+		var u UserKios
+		if err := json.Unmarshal([]byte(v), &u); err != nil {
+			continue
+		}
+		result = append(result, &u)
+	}
+	return result, nil
 }
 
 // --- Seed ---

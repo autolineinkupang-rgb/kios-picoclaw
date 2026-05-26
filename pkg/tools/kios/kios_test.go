@@ -51,10 +51,49 @@ func TestToolsRegister(t *testing.T) {
 	for _, tool := range AllTools(s) {
 		reg.Register(tool)
 	}
-	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga"} {
+	for _, name := range []string{"kios_stok", "kios_kasir", "kios_laporan", "kios_harga", "kios_user"} {
 		if !reg.HasRegistered(name) {
 			t.Errorf("tool %q not registered (registry: %v)", name, reg.List())
 		}
+	}
+}
+
+func TestUserTool(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewUserTool(s)
+
+	// Default role is owner, so management works.
+	if res := tool.Execute(ctx, map[string]any{"action": "tambah", "id": "555", "nama": "Ken", "role": "kasir"}); res.IsError {
+		t.Fatalf("tambah error: %s", res.ForLLM)
+	}
+	u, _ := s.GetUser(ctx, "555")
+	if u == nil || u.Role != "kasir" || !u.Aktif {
+		t.Fatalf("user 555 not stored correctly: %+v", u)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "list"}); !strings.Contains(res.ForLLM, "Ken") {
+		t.Errorf("list should include Ken, got: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "set_role", "id": "555", "role": "owner"}); res.IsError {
+		t.Errorf("set_role error: %s", res.ForLLM)
+	}
+	if u, _ := s.GetUser(ctx, "555"); u.Role != "owner" {
+		t.Errorf("role not updated to owner: %+v", u)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "nonaktif", "id": "555"}); res.IsError {
+		t.Errorf("nonaktif error: %s", res.ForLLM)
+	}
+	if u, _ := s.GetUser(ctx, "555"); u.Aktif {
+		t.Errorf("user should be inactive after nonaktif")
+	}
+}
+
+func TestUserToolOwnerOnly(t *testing.T) {
+	t.Setenv("KIOS_DEFAULT_ROLE", "kasir")
+	s := newTestStore(t)
+	res := NewUserTool(s).Execute(context.Background(), map[string]any{"action": "list"})
+	if !res.IsError || !strings.Contains(res.ForLLM, "owner") {
+		t.Errorf("kasir must be refused on kios_user, got: %s (err=%v)", res.ForLLM, res.IsError)
 	}
 }
 
