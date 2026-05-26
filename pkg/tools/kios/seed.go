@@ -50,9 +50,9 @@ func SeedFromOldData(ctx context.Context, s *Store) error {
 	if err := seedPriceHistory(ctx, s); err != nil {
 		logger.WarnCF("kios-seed", "price_history seed failed", map[string]any{"error": err.Error()})
 	}
-	if err := seedUsers(ctx, s); err != nil {
-		logger.WarnCF("kios-seed", "users seed failed", map[string]any{"error": err.Error()})
-	}
+	// NOTE: legacy users.json is keyed by phone number (Signal-era) and is NOT
+	// imported — the Telegram bot identifies users by Telegram ID. Register
+	// users via the kios_user tool instead. This also keeps PII out of Redis.
 
 	if err := s.MarkSeedDone(ctx); err != nil {
 		return fmt.Errorf("mark seed done: %w", err)
@@ -242,40 +242,6 @@ func seedPriceHistory(ctx context.Context, s *Store) error {
 		s.rdb.RPush(ctx, keyPriceHist, string(b))
 	}
 	syncSeq(ctx, s, keySeqPhg, "PHG-", rows)
-	return nil
-}
-
-func seedUsers(ctx context.Context, s *Store) error {
-	f, err := os.Open(filepath.Join(seedDir(), "users.json"))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var raw map[string]struct {
-		Phone       string `json:"phone"`
-		Nama        string `json:"nama"`
-		Role        string `json:"role"`
-		Aktif       bool   `json:"aktif"`
-		Ditambahkan string `json:"ditambahkan"`
-	}
-	if err := json.NewDecoder(f).Decode(&raw); err != nil {
-		return err
-	}
-	for phone, u := range raw {
-		user := &UserKios{
-			Phone:       phone,
-			Nama:        u.Nama,
-			Role:        u.Role,
-			Aktif:       u.Aktif,
-			Ditambahkan: u.Ditambahkan,
-		}
-		if err := s.SetUser(ctx, user); err != nil {
-			logger.WarnCF("kios-seed", "user set failed", map[string]any{
-				"phone": phone, "error": err.Error(),
-			})
-		}
-	}
 	return nil
 }
 

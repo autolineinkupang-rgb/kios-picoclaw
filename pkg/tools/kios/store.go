@@ -436,6 +436,11 @@ func (s *Store) MarkSeedDone(ctx context.Context) error {
 	return s.rdb.Set(ctx, keySeedDone, "1", 0).Err()
 }
 
+// ResetSeed clears the one-time seed flag so a seed can run again.
+func (s *Store) ResetSeed(ctx context.Context) error {
+	return s.rdb.Del(ctx, keySeedDone).Err()
+}
+
 // --- Helpers ---
 
 // NowWITA returns current time in WITA (UTC+8).

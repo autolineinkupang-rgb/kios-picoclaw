@@ -2,6 +2,8 @@ package kios
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,6 +13,27 @@ import (
 	"github.com/sipeed/picoclaw/pkg/commands"
 	tools "github.com/sipeed/picoclaw/pkg/tools"
 )
+
+func TestSeedFromOldData(t *testing.T) {
+	dir := "/home/kevinman/kios-openclaw/data"
+	if _, err := os.Stat(filepath.Join(dir, "stok.csv")); err != nil {
+		t.Skip("legacy data not present; skipping seed integration test")
+	}
+	t.Setenv("KIOS_SEED_DIR", dir)
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := SeedFromOldData(ctx, s); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	produk, _ := s.GetAllProduk(ctx)
+	if len(produk) == 0 {
+		t.Error("expected products to be seeded from legacy stok.csv")
+	}
+	// Idempotent: second run is a no-op (seed:done set).
+	if err := SeedFromOldData(ctx, s); err != nil {
+		t.Fatalf("second seed: %v", err)
+	}
+}
 
 func TestSlashCommands(t *testing.T) {
 	s := newTestStore(t)

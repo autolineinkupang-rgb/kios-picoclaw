@@ -46,12 +46,22 @@ dioperasikan lewat Telegram. Panduan ini memakai **Dockerfile** di root repo.
   - "laporan hari ini" → ringkasan + laba
 - User di luar whitelist tidak akan direspons (gate `allow_from`).
 
-## 6. (Opsional) Migrasi data lama
-Data baru mulai kosong (Redis). Untuk impor CSV lama sekali jalan:
-1. Sertakan folder berisi `stok.csv, transaksi.csv, pembelian.csv, price-history.csv, users.json`
-   ke image, atau mount volume.
-2. Set `KIOS_SEED_DIR=/path/ke/data` → saat start, data diimpor sekali (idempotent via `kios:seed:done`).
-3. Setelah berhasil, hapus `KIOS_SEED_DIR` agar tidak dicek tiap boot.
+## 6. (Opsional) Migrasi data lama → jalankan SENDIRI di lokal
+Data baru mulai kosong (Redis). Impor stok/transaksi/harga lama pakai seeder bawaan.
+**Jalankan di komputermu sendiri** supaya URL Upstash (rahasia) tidak bocor ke repo/chat:
+
+```bash
+cd ~/kios-picoclaw
+UPSTASH_REDIS_URL='rediss://...PUNYAMU...' \
+KIOS_SEED_DIR=/home/kevinman/kios-openclaw/data \
+~/sdk/go/bin/go run ./cmd/kios-seed
+```
+
+- Mengimpor `stok.csv, transaksi.csv, pembelian.csv, price-history.csv` (idempotent — sekali jalan;
+  pakai `KIOS_SEED_FORCE=1` untuk paksa ulang).
+- **`users.json` TIDAK diimpor** (ber-key nomor HP era Signal, tak cocok dengan ID Telegram, lagipula PII).
+  Daftarkan pengguna lewat tool `kios_user` (owner: "tambah kasir <id telegram> nama <nama>").
+- Setelah selesai, cek di Telegram: kirim `/stok` → produk lama muncul.
 
 ## Catatan RBAC
 - `allow_from` = gerbang utama (hanya id terdaftar yang bisa pakai bot).
