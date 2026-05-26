@@ -37,6 +37,9 @@ func NewBelajarTool(store *Store) *BelajarTool { return &BelajarTool{store: stor
 // NewUploadTool builds the chat-file (Excel/CSV) import tool.
 func NewUploadTool(store *Store) *UploadTool { return &UploadTool{store: store} }
 
+// NewRestoreTool builds the backup-JSON restore tool.
+func NewRestoreTool(store *Store) *RestoreTool { return &RestoreTool{store: store} }
+
 // AllTools returns the full set of kios tools backed by the given store,
 // ready to register in picoclaw's tool registry.
 func AllTools(store *Store) []tools.Tool {
@@ -52,5 +55,6 @@ func AllTools(store *Store) []tools.Tool {
 		NewPasarTool(store),
 		NewBelajarTool(store),
 		NewUploadTool(store),
+		NewRestoreTool(store),
 	}
 }

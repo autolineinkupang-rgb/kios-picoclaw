@@ -835,6 +835,97 @@ func TestEnsureDailyBackupJob(t *testing.T) {
 	}
 }
 
+func TestParseBackup(t *testing.T) {
+	if _, err := ParseBackup([]byte("{not json")); err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+	if _, err := ParseBackup([]byte(`{"produk":[]}`)); err == nil {
+		t.Error("expected error when versi missing")
+	}
+	b, err := ParseBackup([]byte(`{"versi":"1.0","produk":[]}`))
+	if err != nil || b.Versi != "1.0" {
+		t.Errorf("valid backup should parse, got b=%+v err=%v", b, err)
+	}
+}
+
+func TestHasAnyData(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if has, err := s.HasAnyData(ctx); err != nil || has {
+		t.Fatalf("fresh store should have no data, has=%v err=%v", has, err)
+	}
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	if has, err := s.HasAnyData(ctx); err != nil || !has {
+		t.Fatalf("seeded store should report data, has=%v err=%v", has, err)
+	}
+}
+
+func TestRestoreBackupRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	src := newTestStore(t)
+	seedProduct(t, src, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	if _, err := src.AppendTransaksi(ctx, &Transaksi{NamaProduk: "Beras", Qty: 2, Total: 124000}); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.SetSupplier(ctx, &Supplier{ID: "SUP-003", Nama: "Toko Grosir"}); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := BuildBackup(ctx, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dst := newTestStore(t)
+	if err := dst.RestoreBackup(ctx, data); err != nil {
+		t.Fatalf("RestoreBackup: %v", err)
+	}
+
+	prods, _ := dst.GetAllProduk(ctx)
+	if len(prods) != 1 || prods[0].ID != "002" {
+		t.Errorf("produk not restored: %+v", prods)
+	}
+	trx, _ := dst.GetAllTransaksi(ctx)
+	if len(trx) != 1 || trx[0].ID != "TRX-0001" {
+		t.Errorf("transaksi not restored with original ID: %+v", trx)
+	}
+	sup, _ := dst.GetAllSupplier(ctx)
+	if len(sup) != 1 || sup[0].ID != "SUP-003" {
+		t.Errorf("supplier not restored: %+v", sup)
+	}
+
+	// Sequence counters must continue past restored IDs (no collision).
+	newTrxID, err := dst.AppendTransaksi(ctx, &Transaksi{NamaProduk: "Gula", Qty: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newTrxID != "TRX-0002" {
+		t.Errorf("next transaksi ID should be TRX-0002, got %s", newTrxID)
+	}
+	newSupID, err := dst.NextSupplierID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newSupID != "SUP-004" {
+		t.Errorf("next supplier ID should be SUP-004, got %s", newSupID)
+	}
+}
+
+func TestRestoreBackupReplaces(t *testing.T) {
+	ctx := context.Background()
+	dst := newTestStore(t)
+	seedProduct(t, dst, "099", "Produk Lama", 5, 1000, 2000, 1)
+
+	data := &BackupData{Versi: "1.0", Produk: []*Produk{{ID: "002", Nama: "Produk Baru", Stok: 7}}}
+	if err := dst.RestoreBackup(ctx, data); err != nil {
+		t.Fatal(err)
+	}
+	prods, _ := dst.GetAllProduk(ctx)
+	if len(prods) != 1 || prods[0].ID != "002" {
+		t.Errorf("restore should replace old data, got %+v", prods)
+	}
+}
+
 func TestUserToolOwnerOnly(t *testing.T) {
 	t.Setenv("KIOS_DEFAULT_ROLE", "kasir")
 	s := newTestStore(t)

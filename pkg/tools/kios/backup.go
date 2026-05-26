@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/cron"
@@ -150,4 +151,245 @@ func EnsureDailyBackupJob(cs *cron.CronService) error {
 		chat,
 	)
 	return err
+}
+
+// ParseBackup decodes a backup JSON document, validating that it is a kios
+// snapshot (has a versi field).
+func ParseBackup(raw []byte) (*BackupData, error) {
+	var b BackupData
+	if err := json.Unmarshal(raw, &b); err != nil {
+		return nil, fmt.Errorf("file bukan JSON yang valid: %w", err)
+	}
+	if b.Versi == "" {
+		return nil, fmt.Errorf("file ini bukan backup kios (tidak ada field \"versi\")")
+	}
+	return &b, nil
+}
+
+// HasAnyData reports whether any core dataset currently holds records. Used to
+// guard the destructive restore so existing data isn't clobbered by accident.
+func (s *Store) HasAnyData(ctx context.Context) (bool, error) {
+	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers} {
+		n, err := s.rdb.HLen(ctx, k).Result()
+		if err != nil {
+			return false, err
+		}
+		if n > 0 {
+			return true, nil
+		}
+	}
+	for _, k := range []string{keyTransaksi, keyPembelian, keyPriceHist} {
+		n, err := s.rdb.LLen(ctx, k).Result()
+		if err != nil {
+			return false, err
+		}
+		if n > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// RestoreBackup replaces ALL kios data with the snapshot's contents: it clears
+// existing keys, reloads records preserving their original IDs, and fixes the
+// sequence counters so newly generated IDs won't collide with restored ones.
+// Destructive — callers must confirm with the owner first.
+func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	keys := []string{
+		keyProduk, keyTransaksi, keySeqTrx, keyPembelian, keySeqPem,
+		keyPriceHist, keySeqPhg, keyShift, keyUsers,
+		keySupplier, keySeqSup, keyPromo, keySeqPromo, keyPustaka, keySeqPus,
+	}
+	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
+		return err
+	}
+
+	hsetAll := func(key string, items []hashItem) error {
+		for _, it := range items {
+			raw, err := json.Marshal(it.val)
+			if err != nil {
+				return err
+			}
+			if err := s.rdb.HSet(ctx, key, it.field, string(raw)).Err(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	rpushAll := func(key string, vals []any) error {
+		for _, v := range vals {
+			raw, err := json.Marshal(v)
+			if err != nil {
+				return err
+			}
+			if err := s.rdb.RPush(ctx, key, string(raw)).Err(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if err := hsetAll(keyProduk, hashItemsProduk(b.Produk)); err != nil {
+		return err
+	}
+	if err := hsetAll(keySupplier, hashItemsSupplier(b.Supplier)); err != nil {
+		return err
+	}
+	if err := hsetAll(keyPromo, hashItemsPromo(b.Promo)); err != nil {
+		return err
+	}
+	if err := hsetAll(keyPustaka, hashItemsPustaka(b.Pustaka)); err != nil {
+		return err
+	}
+	if err := hsetAll(keyUsers, hashItemsUser(b.Users)); err != nil {
+		return err
+	}
+	if err := rpushAll(keyTransaksi, anySlice(b.Transaksi)); err != nil {
+		return err
+	}
+	if err := rpushAll(keyPembelian, anySlice(b.Pembelian)); err != nil {
+		return err
+	}
+	if err := rpushAll(keyPriceHist, anySlice(b.PriceHistory)); err != nil {
+		return err
+	}
+	if b.Shift != nil {
+		raw, err := json.Marshal(b.Shift)
+		if err != nil {
+			return err
+		}
+		if err := s.rdb.Set(ctx, keyShift, string(raw), 0).Err(); err != nil {
+			return err
+		}
+	}
+
+	setSeq := func(key string, max int64) error {
+		if max <= 0 {
+			return nil
+		}
+		return s.rdb.Set(ctx, key, strconv.FormatInt(max, 10), 0).Err()
+	}
+	for key, ids := range map[string][]string{
+		keySeqTrx:   idsTransaksi(b.Transaksi),
+		keySeqPem:   idsPembelian(b.Pembelian),
+		keySeqPhg:   idsPriceHist(b.PriceHistory),
+		keySeqSup:   idsSupplier(b.Supplier),
+		keySeqPromo: idsPromo(b.Promo),
+		keySeqPus:   idsPustaka(b.Pustaka),
+	} {
+		if err := setSeq(key, maxNumericSuffix(ids)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type hashItem struct {
+	field string
+	val   any
+}
+
+func hashItemsProduk(xs []*Produk) []hashItem {
+	out := make([]hashItem, len(xs))
+	for i, x := range xs {
+		out[i] = hashItem{field: x.ID, val: x}
+	}
+	return out
+}
+func hashItemsSupplier(xs []*Supplier) []hashItem {
+	out := make([]hashItem, len(xs))
+	for i, x := range xs {
+		out[i] = hashItem{field: x.ID, val: x}
+	}
+	return out
+}
+func hashItemsPromo(xs []*Promo) []hashItem {
+	out := make([]hashItem, len(xs))
+	for i, x := range xs {
+		out[i] = hashItem{field: x.ID, val: x}
+	}
+	return out
+}
+func hashItemsPustaka(xs []*Pustaka) []hashItem {
+	out := make([]hashItem, len(xs))
+	for i, x := range xs {
+		out[i] = hashItem{field: x.ID, val: x}
+	}
+	return out
+}
+func hashItemsUser(xs []*UserKios) []hashItem {
+	out := make([]hashItem, len(xs))
+	for i, x := range xs {
+		out[i] = hashItem{field: x.Phone, val: x}
+	}
+	return out
+}
+
+func anySlice[T any](xs []T) []any {
+	out := make([]any, len(xs))
+	for i, x := range xs {
+		out[i] = x
+	}
+	return out
+}
+
+func idsTransaksi(xs []*Transaksi) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+func idsPembelian(xs []*Pembelian) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+func idsPriceHist(xs []*PriceHistory) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+func idsSupplier(xs []*Supplier) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+func idsPromo(xs []*Promo) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+func idsPustaka(xs []*Pustaka) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+
+// maxNumericSuffix returns the largest integer trailing an "PREFIX-NNN" id.
+func maxNumericSuffix(ids []string) int64 {
+	var max int64
+	for _, s := range ids {
+		i := strings.LastIndex(s, "-")
+		if i < 0 {
+			continue
+		}
+		if n, err := strconv.ParseInt(s[i+1:], 10, 64); err == nil && n > max {
+			max = n
+		}
+	}
+	return max
 }
