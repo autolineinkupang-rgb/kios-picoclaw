@@ -74,3 +74,8 @@ web/backend/dist/*
 docker/data
 
 .omc/
+
+# stray CLI build artifacts (use go run / build/)
+/kios-seed
+/kios-import
+/gen-templates

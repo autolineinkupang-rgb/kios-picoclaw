@@ -63,18 +63,24 @@ KIOS_SEED_DIR=/home/kevinman/kios-openclaw/data \
   Daftarkan pengguna lewat tool `kios_user` (owner: "tambah kasir <id telegram> nama <nama>").
 - Setelah selesai, cek di Telegram: kirim `/stok` → produk lama muncul.
 
-## Isi data massal lewat form CSV (Excel/Sheets)
+## Isi data massal lewat form Excel (.xlsx) atau CSV
 Mau isi banyak produk/supplier sekaligus? Pakai template di folder `templates/`:
-1. Buka `templates/produk-template.csv` (atau `supplier-template.csv`) di **Excel / Google Sheets**.
-2. Isi barisnya (hapus contoh), lalu **Save As / Download → CSV**.
-3. Import ke Redis (jalankan di komputermu, URL tetap lokal):
+- **`templates/produk-template.xlsx`** & **`templates/supplier-template.xlsx`** — file Excel asli (header tebal, contoh baris)
+- atau versi **`.csv`** kalau lebih suka teks polos
+
+Langkah:
+1. Buka template `.xlsx` di **Excel / Google Sheets**, isi barisnya (hapus contoh).
+2. Import langsung ke Redis (jalankan di komputermu, URL tetap lokal) — bisa `.xlsx` ATAU `.csv`:
    ```bash
    cd ~/kios-picoclaw
-   UPSTASH_REDIS_URL='rediss://...PUNYAMU...' ~/sdk/go/bin/go run ./cmd/kios-import produk daftar-produk.csv
-   UPSTASH_REDIS_URL='rediss://...PUNYAMU...' ~/sdk/go/bin/go run ./cmd/kios-import supplier daftar-supplier.csv
+   UPSTASH_REDIS_URL='rediss://...PUNYAMU...' ~/sdk/go/bin/go run ./cmd/kios-import produk daftar-produk.xlsx
+   UPSTASH_REDIS_URL='rediss://...PUNYAMU...' ~/sdk/go/bin/go run ./cmd/kios-import supplier daftar-supplier.xlsx
    ```
    Baris dicocokkan dengan **nama**: yang sudah ada di-update, yang baru dibuat (id otomatis).
    Kolom kosong tidak menimpa nilai lama. Output: "Dibuat: X | Diupdate: Y | Dilewati: Z".
+
+> Regenerasi template Excel: `~/sdk/go/bin/go run ./cmd/gen-templates`. Library Excel (excelize)
+> hanya dipakai tool lokal ini, TIDAK masuk ke binary bot.
 
 ## Catatan RBAC
 - `allow_from` = gerbang utama (hanya id terdaftar yang bisa pakai bot).

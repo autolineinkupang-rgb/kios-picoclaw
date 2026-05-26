@@ -66,11 +66,17 @@ func csvInt(s string, def int) int {
 // are matched by exact name (case-insensitive): existing ones are updated,
 // new ones created with an auto id.
 func ImportProdukCSV(ctx context.Context, s *Store, path string) (ImportResult, error) {
-	var res ImportResult
 	rows, err := readCSVRows(path)
 	if err != nil {
-		return res, err
+		return ImportResult{}, err
 	}
+	return ImportProdukRows(ctx, s, rows)
+}
+
+// ImportProdukRows imports already-parsed rows (header→value maps). Used by
+// both the CSV and XLSX import paths.
+func ImportProdukRows(ctx context.Context, s *Store, rows []map[string]string) (ImportResult, error) {
+	var res ImportResult
 	all, err := s.GetAllProduk(ctx)
 	if err != nil {
 		return res, err
@@ -126,11 +132,16 @@ func ImportProdukCSV(ctx context.Context, s *Store, path string) (ImportResult, 
 // ImportSupplierCSV loads suppliers from a CSV (headers: nama, kontak, alamat,
 // produk_utama, catatan). Matched by exact name (case-insensitive).
 func ImportSupplierCSV(ctx context.Context, s *Store, path string) (ImportResult, error) {
-	var res ImportResult
 	rows, err := readCSVRows(path)
 	if err != nil {
-		return res, err
+		return ImportResult{}, err
 	}
+	return ImportSupplierRows(ctx, s, rows)
+}
+
+// ImportSupplierRows imports already-parsed supplier rows.
+func ImportSupplierRows(ctx context.Context, s *Store, rows []map[string]string) (ImportResult, error) {
+	var res ImportResult
 	all, err := s.GetAllSupplier(ctx)
 	if err != nil {
 		return res, err
