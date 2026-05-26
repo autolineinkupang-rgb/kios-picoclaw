@@ -19,6 +19,7 @@ func Commands(store *Store) []commands.Definition {
 	kasir := NewKasirTool(store)
 	promo := NewPromoTool(store)
 	pasar := NewPasarTool(store)
+	supplier := NewSupplierTool(store)
 
 	reply := func(req commands.Request, text string) error {
 		if strings.TrimSpace(text) == "" {
@@ -111,6 +112,33 @@ func Commands(store *Store) []commands.Definition {
 					args["produk"] = arg
 				}
 				return reply(req, pasar.Execute(ctx, args).ForLLM)
+			},
+		},
+		{
+			Name:        "produk",
+			Description: "Lihat daftar produk / cari detail (tanpa AI)",
+			Usage:       "/produk [nama]",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				if arg := argAfter(req.Text); arg != "" {
+					return reply(req, stok.Execute(ctx, map[string]any{"action": "cari", "produk": arg}).ForLLM)
+				}
+				return reply(req, stok.Execute(ctx, map[string]any{"action": "cek"}).ForLLM)
+			},
+		},
+		{
+			Name:        "suplier",
+			Description: "Lihat/cari supplier; banding harga antar supplier (tanpa AI)",
+			Usage:       "/suplier [nama | banding <produk>]",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				ctx = withSender(ctx, req)
+				arg := argAfter(req.Text)
+				if arg == "" {
+					return reply(req, supplier.Execute(ctx, map[string]any{"action": "daftar"}).ForLLM)
+				}
+				if rest, ok := strings.CutPrefix(strings.ToLower(arg), "banding "); ok {
+					return reply(req, supplier.Execute(ctx, map[string]any{"action": "banding_harga", "produk": strings.TrimSpace(rest)}).ForLLM)
+				}
+				return reply(req, supplier.Execute(ctx, map[string]any{"action": "cari", "nama": arg}).ForLLM)
 			},
 		},
 	}

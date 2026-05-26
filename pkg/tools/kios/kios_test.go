@@ -44,7 +44,7 @@ func TestSlashCommands(t *testing.T) {
 	for _, d := range Commands(s) {
 		byName[d.Name] = d
 	}
-	for _, n := range []string{"stok", "menipis", "laporan", "harga", "jual", "shift", "promo", "pasar"} {
+	for _, n := range []string{"stok", "menipis", "laporan", "harga", "jual", "shift", "promo", "pasar", "produk", "suplier"} {
 		if _, ok := byName[n]; !ok {
 			t.Fatalf("slash-command /%s missing", n)
 		}
@@ -74,6 +74,19 @@ func TestSlashCommands(t *testing.T) {
 	// /jual functional: sells and returns a receipt.
 	if got := run("jual", "/jual beras 2"); !strings.Contains(got, "STRUK") {
 		t.Errorf("/jual beras 2 should return a struk, got: %s", got)
+	}
+	// /produk lists products.
+	if got := run("produk", "/produk"); !strings.Contains(got, "Beras") {
+		t.Errorf("/produk should list Beras, got: %s", got)
+	}
+	// /suplier: add a supplier first, then list + comparison subcommand.
+	NewSupplierTool(s).Execute(context.Background(), map[string]any{"action": "tambah", "nama": "UD Maju", "kontak": "0812"})
+	s.AppendPembelian(context.Background(), &Pembelian{NamaProduk: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "UD Maju"})
+	if got := run("suplier", "/suplier"); !strings.Contains(got, "UD Maju") {
+		t.Errorf("/suplier should list UD Maju, got: %s", got)
+	}
+	if got := run("suplier", "/suplier banding beras"); !strings.Contains(got, "termurah") {
+		t.Errorf("/suplier banding should compare prices, got: %s", got)
 	}
 }
 
