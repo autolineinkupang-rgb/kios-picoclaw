@@ -69,7 +69,10 @@ func NewAgentLoop(
 	kiosStore := newKiosStoreIfEnabled()
 	cmdDefs := commands.BuiltinDefinitions()
 	if kiosStore != nil {
-		cmdDefs = append(cmdDefs, kios.Commands(kiosStore)...)
+		kiosCmds := kios.Commands(kiosStore)
+		cmdDefs = append(cmdDefs, kiosCmds...)
+		// Advertise kios slash-commands in channel menus (e.g. Telegram "/").
+		commands.SetExtraDefinitions(kiosCmds)
 	}
 
 	al := &AgentLoop{

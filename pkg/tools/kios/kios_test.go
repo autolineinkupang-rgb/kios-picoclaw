@@ -77,6 +77,20 @@ func TestSlashCommands(t *testing.T) {
 	}
 }
 
+func TestMenuDefinitionsIncludesKios(t *testing.T) {
+	s := newTestStore(t)
+	commands.SetExtraDefinitions(Commands(s))
+	names := map[string]bool{}
+	for _, d := range commands.MenuDefinitions() {
+		names[d.Name] = true
+	}
+	for _, n := range []string{"help", "stok", "jual", "pasar"} { // builtin + kios
+		if !names[n] {
+			t.Errorf("MenuDefinitions missing /%s", n)
+		}
+	}
+}
+
 func TestParseJualArgs(t *testing.T) {
 	cases := []struct {
 		text   string

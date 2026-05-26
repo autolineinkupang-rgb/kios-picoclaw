@@ -175,7 +175,7 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		"username": c.bot.Username(),
 	})
 
-	c.startCommandRegistration(c.ctx, commands.BuiltinDefinitions())
+	c.startCommandRegistration(c.ctx, commands.MenuDefinitions())
 
 	go func() {
 		if err = bh.Start(); err != nil {
