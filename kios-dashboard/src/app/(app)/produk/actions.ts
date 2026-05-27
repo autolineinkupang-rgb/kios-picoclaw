@@ -39,8 +39,11 @@ function sanitize(input: ProdukInput): ActionResult | null {
     return { ok: false, error: "Harga tidak boleh minus." };
   if (input.stok < 0) return { ok: false, error: "Stok tidak boleh minus." };
   const img = input.image_url?.trim() ?? "";
-  if (img && !/^https?:\/\/.+/i.test(img)) {
-    return { ok: false, error: "URL gambar harus diawali http:// atau https://." };
+  if (img && !/^(https?:\/\/|data:image\/)/i.test(img)) {
+    return { ok: false, error: "Gambar harus berupa URL (http/https) atau hasil unggahan." };
+  }
+  if (img.length > 600_000) {
+    return { ok: false, error: "Gambar terlalu besar. Coba foto yang lebih kecil ya." };
   }
   return null;
 }
@@ -72,7 +75,7 @@ export async function createProdukAction(input: ProdukInput): Promise<ActionResu
     last_update: todayWITA(),
     has_exp: exp !== "",
     exp_date: exp,
-    image_url: input.image_url?.trim().slice(0, 500) ?? "",
+    image_url: input.image_url?.trim() ?? "",
   };
   await setProduk(p);
   revalidatePath("/produk");
@@ -106,7 +109,7 @@ export async function updateProdukAction(input: ProdukInput): Promise<ActionResu
     last_update: todayWITA(),
     has_exp: exp !== "",
     exp_date: exp,
-    image_url: input.image_url?.trim().slice(0, 500) ?? "",
+    image_url: input.image_url?.trim() ?? "",
   };
   await setProduk(p);
   revalidatePath("/produk");

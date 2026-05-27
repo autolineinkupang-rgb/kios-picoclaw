@@ -22,7 +22,7 @@ import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { buildOrderWa, waLink } from "@/lib/wa";
+import { buildOrderWa, buildQrisDinamisWa, waLink } from "@/lib/wa";
 import type { PublicProduk } from "@/lib/types";
 
 interface CartLine {
@@ -411,6 +411,33 @@ export function StorefrontView() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         Scan QR di atas untuk bayar, lalu kirim pesanan & tunjukkan bukti ke kasir.
                       </p>
+                      {waNumber && (
+                        <>
+                          <div className="my-3 flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="h-px flex-1 bg-border" />
+                            atau
+                            <span className="h-px flex-1 bg-border" />
+                          </div>
+                          <a
+                            href={waLink(
+                              waNumber,
+                              buildQrisDinamisWa(
+                                cart.map((l) => ({ nama: l.nama, qty: l.qty, subtotal: l.qty * l.harga })),
+                                total,
+                              ),
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1ebe5b]"
+                          >
+                            <MessageCircle className="size-4" />
+                            Chat kasir untuk QR dinamis
+                          </a>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Kasir online akan mengirim QR sesuai total belanjamu.
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

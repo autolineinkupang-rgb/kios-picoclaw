@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { CheckCircle2, Loader2, TriangleAlert, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { fileToCompressedDataUrl } from "@/lib/image-upload";
 import type { KiosConfig } from "@/lib/types";
 import { saveConfigAction, type ActionResult } from "@/app/(app)/pengaturan/actions";
 
@@ -51,7 +52,25 @@ function Toggle({
 export function PengaturanForm({ config }: { config: KiosConfig }) {
   const [cfg, setCfg] = useState<KiosConfig>(config);
   const [toast, setToast] = useState<ActionResult | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [pending, start] = useTransition();
+  const qrisFileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickQris(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file, { maxDim: 800, quality: 0.85 });
+      setCfg((c) => ({ ...c, qris_image_url: dataUrl }));
+    } catch (err) {
+      setToast({ ok: false, error: err instanceof Error ? err.message : "Gagal memproses gambar." });
+      window.setTimeout(() => setToast(null), 4000);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function save() {
     start(async () => {
@@ -142,19 +161,49 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
             />
           </div>
           <div className="space-y-1.5 py-3">
-            <Label htmlFor="qris_image_url">URL gambar QR (QRIS statis)</Label>
+            <Label htmlFor="qris_image_url">Gambar QR (QRIS statis)</Label>
+            <input
+              ref={qrisFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onPickQris}
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => qrisFileRef.current?.click()}
+                disabled={!cfg.qris_enabled || uploading}
+              >
+                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                {cfg.qris_image_url ? "Ganti gambar QR" : "Unggah gambar QR"}
+              </Button>
+              {cfg.qris_image_url && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!cfg.qris_enabled}
+                  onClick={() => setCfg({ ...cfg, qris_image_url: "" })}
+                >
+                  Hapus
+                </Button>
+              )}
+            </div>
             <Input
               id="qris_image_url"
-              value={cfg.qris_image_url}
+              value={cfg.qris_image_url.startsWith("data:") ? "" : cfg.qris_image_url}
               onChange={(e) => setCfg({ ...cfg, qris_image_url: e.target.value })}
-              placeholder="https://…/qris.png"
+              placeholder="atau tempel URL gambar QR…"
               className="font-mono"
               inputMode="url"
-              disabled={!cfg.qris_enabled}
+              disabled={!cfg.qris_enabled || cfg.qris_image_url.startsWith("data:")}
             />
             <p className="text-xs text-muted-foreground">
-              Foto/unggah QR statis dari bank/e-wallet kamu ke layanan gambar, lalu tempel
-              tautannya di sini. Pembeli akan memindainya untuk membayar.
+              Unggah foto QR statis dari bank/e-wallet kamu (otomatis dikecilkan) atau tempel
+              tautannya. Pembeli akan memindainya untuk membayar.
             </p>
             {cfg.qris_enabled && cfg.qris_image_url && (
               // eslint-disable-next-line @next/next/no-img-element

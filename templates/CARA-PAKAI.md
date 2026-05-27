@@ -27,6 +27,7 @@ Pakai yang `.xlsx` kalau mau diisi di Excel/Google Sheets (lebih rapi). Yang `.c
 | `stok_minimum` | opsional | 10 | Batas stok mulai diingatkan. Kosong → 5. |
 | `stok_kritis` | opsional | 3 | Batas stok kritis/hampir habis. Kosong → 2. |
 | `supplier` | opsional | UD Maju | Nama pemasok. |
+| `gambar` | opsional | https://contoh.com/beras.jpg | URL gambar produk untuk tampil di toko pembeli. Boleh dikosongkan. |
 
 ### Supplier — arti tiap kolom
 | Kolom | Wajib? | Contoh |

@@ -53,6 +53,25 @@ export function buildStrukWa(p: Pesanan, qris: QrisLite): string {
   return msg;
 }
 
+/**
+ * Message the buyer sends to the online cashier to request a *dynamic* QRIS QR
+ * (amount baked in) for their current cart. Used from the storefront checkout
+ * when QRIS is selected, as an alternative to scanning the static QR.
+ */
+export function buildQrisDinamisWa(
+  lines: { nama: string; qty: number; subtotal: number }[],
+  total: number,
+): string {
+  const items = lines
+    .map((l) => `• ${l.nama} x${l.qty} — ${formatRupiah(l.subtotal)}`)
+    .join("\n");
+  return (
+    "Halo kak kasir *Kios Cerdas*! 👋 Saya mau bayar pakai *QRIS* untuk pesanan:\n\n" +
+    `${items}\nTotal: *${formatRupiah(total)}*\n\n` +
+    "Boleh minta QR dinamisnya (sesuai total) ya kak? 🙏"
+  );
+}
+
 export interface OrderWaInput {
   id: string;
   total: number;

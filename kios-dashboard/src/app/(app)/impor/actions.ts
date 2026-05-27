@@ -44,6 +44,7 @@ const F = {
   stok_kritis: ["stok_kritis", "kritis", "critical"],
   supplier: ["supplier", "pemasok"],
   barcode: ["barcode", "kode"],
+  image_url: ["gambar", "image", "image_url", "foto", "url_gambar"],
 };
 
 interface Indexed {
@@ -122,6 +123,8 @@ export async function importProdukAction(rows: TableRow[]): Promise<ImportResult
       if (sup) p.supplier = sup;
       const bc = pick(row, F.barcode);
       if (bc) p.barcode = bc;
+      const img = pick(row, F.image_url);
+      if (img) p.image_url = img.trim();
       const hb = toInt(pick(row, F.harga_beli));
       if (hb !== undefined && hb >= 0) p.harga_beli = hb;
       const hj = toInt(pick(row, F.harga_jual));
@@ -159,7 +162,7 @@ export async function importProdukAction(rows: TableRow[]): Promise<ImportResult
         last_update: todayWITA(),
         has_exp: false,
         exp_date: "",
-        image_url: "",
+        image_url: pick(row, F.image_url)?.trim() ?? "",
       };
       await setProduk(p);
       idx.byId.set(id, p);

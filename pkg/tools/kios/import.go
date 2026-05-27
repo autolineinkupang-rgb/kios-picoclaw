@@ -61,6 +61,16 @@ func csvInt(s string, def int) int {
 	return v
 }
 
+// firstNonEmpty returns the first non-empty value among the given row keys.
+func firstNonEmpty(row map[string]string, keys ...string) string {
+	for _, k := range keys {
+		if v := strings.TrimSpace(row[k]); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // ImportProdukCSV loads products from a CSV (headers: nama, kategori, satuan,
 // stok, harga_beli, harga_jual, stok_minimum, stok_kritis, supplier). Products
 // are matched by exact name (case-insensitive): existing ones are updated,
@@ -112,6 +122,9 @@ func ImportProdukRows(ctx context.Context, s *Store, rows []map[string]string) (
 		}
 		if v := row["supplier"]; v != "" {
 			p.Supplier = v
+		}
+		if v := firstNonEmpty(row, "gambar", "image", "image_url", "foto", "url_gambar"); v != "" {
+			p.ImageURL = strings.TrimSpace(v)
 		}
 		p.Stok = csvInt(row["stok"], p.Stok)
 		p.HargaBeli = csvInt(row["harga_beli"], p.HargaBeli)

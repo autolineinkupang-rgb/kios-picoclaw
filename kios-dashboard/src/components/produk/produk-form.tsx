@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { fileToCompressedDataUrl } from "@/lib/image-upload";
 import {
   createProdukAction,
   updateProdukAction,
@@ -58,11 +59,28 @@ export function ProdukForm({
 }) {
   const [form, setForm] = useState<ProdukInput>(produk ? fromProduk(produk) : emptyForm());
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
   const isEdit = Boolean(produk);
 
   function set<K extends keyof ProdukInput>(key: K, value: ProdukInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      set("image_url", await fileToCompressedDataUrl(file, { maxDim: 600, quality: 0.72 }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memproses gambar.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function numField(key: keyof ProdukInput, label: string, hint?: string) {
@@ -184,27 +202,58 @@ export function ProdukForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="image_url">URL Gambar Produk</Label>
+        <Label htmlFor="image_url">Gambar Produk</Label>
         <div className="flex items-start gap-3">
-          <Input
-            id="image_url"
-            value={form.image_url}
-            onChange={(e) => set("image_url", e.target.value)}
-            placeholder="https://…/produk.jpg"
-            inputMode="url"
-            className="font-mono"
-          />
-          {form.image_url.trim() && (
+          {form.image_url.trim() ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={form.image_url}
               alt="Pratinjau"
               className="size-16 shrink-0 rounded-lg border object-cover"
             />
+          ) : (
+            <div className="flex size-16 shrink-0 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground">
+              <Upload className="size-5" />
+            </div>
           )}
+          <div className="flex-1 space-y-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onPickImage}
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                {form.image_url.trim() ? "Ganti gambar" : "Unggah gambar"}
+              </Button>
+              {form.image_url.trim() && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => set("image_url", "")}>
+                  Hapus
+                </Button>
+              )}
+            </div>
+            <Input
+              id="image_url"
+              value={form.image_url.startsWith("data:") ? "" : form.image_url}
+              onChange={(e) => set("image_url", e.target.value)}
+              placeholder="atau tempel URL gambar…"
+              inputMode="url"
+              className="font-mono"
+              disabled={form.image_url.startsWith("data:")}
+            />
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Tempel tautan gambar produk agar tampil menarik di toko pembeli. Kosongkan bila tidak ada.
+          Unggah foto dari HP (otomatis dikecilkan) atau tempel tautan gambar. Kosongkan bila tidak ada.
         </p>
       </div>
 
