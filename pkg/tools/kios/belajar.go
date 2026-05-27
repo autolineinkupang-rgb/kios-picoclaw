@@ -167,29 +167,91 @@ func (t *BelajarTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type": "string",
-				"enum": []string{"alias_set", "alias_get", "shortcut_set", "shortcut_get", "shortcut_list",
-					"habit_track", "habit", "pattern_save", "pattern_get", "unknown_add", "unknown_list", "unknown_resolve"},
-				"description": "Aksi belajar.",
+				"enum": []string{
+					"alias_set", "alias_get", "shortcut_set", "shortcut_get", "shortcut_list",
+					"habit_track", "habit", "pattern_save", "pattern_get",
+					"unknown_add", "unknown_list", "unknown_resolve",
+					"config_get", "config_set",
+				},
+				"description": "Aksi belajar. config_get/config_set khusus owner.",
 			},
-			"alias":  map[string]any{"type": "string"},
-			"target": map[string]any{"type": "string"},
-			"nama":   map[string]any{"type": "string", "description": "nama shortcut"},
-			"items":  map[string]any{"type": "string", "description": "isi shortcut, pisah koma"},
-			"tipe":   map[string]any{"type": "string", "enum": []string{"sale", "report_request"}},
-			"value":  map[string]any{"type": "string"},
-			"input":  map[string]any{"type": "string"},
-			"intent": map[string]any{"type": "string"},
-			"cmd":    map[string]any{"type": "string"},
+			"alias":       map[string]any{"type": "string"},
+			"target":      map[string]any{"type": "string"},
+			"nama":        map[string]any{"type": "string", "description": "nama shortcut"},
+			"items":       map[string]any{"type": "string", "description": "isi shortcut, pisah koma"},
+			"tipe":        map[string]any{"type": "string", "enum": []string{"sale", "report_request"}},
+			"value":       map[string]any{"type": "string"},
+			"input":       map[string]any{"type": "string"},
+			"intent":      map[string]any{"type": "string"},
+			"cmd":         map[string]any{"type": "string"},
+			"auto_learn":  map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) belajar otomatis."},
+			"learn_model": map[string]any{"type": "string", "description": "Nama model AI untuk tugas pembelajaran (mis. 'claude', 'groq', 'gemini'). Kosong = ikuti routing default."},
 		},
 		"required": []string{"action"},
 	}
 }
 
 func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.ToolResult {
-	if _, _, refusal := resolveRole(ctx, t.store); refusal != nil {
+	_, role, refusal := resolveRole(ctx, t.store)
+	if refusal != nil {
 		return refusal
 	}
+
 	switch argStr(args, "action") {
+	case "config_get":
+		cfg := t.store.GetConfig(ctx)
+		status := "AKTIF"
+		if !cfg.AutoLearnEnabled {
+			status = "NONAKTIF"
+		}
+		modelInfo := "ikuti routing default"
+		if cfg.LearnModel != "" {
+			modelInfo = cfg.LearnModel
+		}
+		return tools.NewToolResult(fmt.Sprintf(
+			"Konfigurasi Belajar Kios:\n"+
+				"- Belajar otomatis: %s\n"+
+				"- Model AI untuk pembelajaran: %s",
+			status, modelInfo,
+		))
+
+	case "config_set":
+		if role != "owner" {
+			return tools.ErrorResult("Pengaturan belajar hanya bisa diubah oleh owner kak 🔒")
+		}
+		cfg := t.store.GetConfig(ctx)
+		changed := false
+
+		if v := argStr(args, "auto_learn"); v != "" {
+			cfg.AutoLearnEnabled = v == "true"
+			changed = true
+		}
+		if v := argStr(args, "learn_model"); v != "" {
+			cfg.LearnModel = strings.TrimSpace(v)
+			changed = true
+		}
+		if !changed {
+			return tools.ErrorResult("Isi auto_learn (true/false) atau learn_model ya kak 🙏")
+		}
+		if err := t.store.SaveConfig(ctx, cfg); err != nil {
+			return tools.ErrorResult(fmt.Sprintf("Gagal simpan konfigurasi: %v", err))
+		}
+
+		status := "AKTIF"
+		if !cfg.AutoLearnEnabled {
+			status = "NONAKTIF"
+		}
+		modelInfo := "ikuti routing default"
+		if cfg.LearnModel != "" {
+			modelInfo = cfg.LearnModel
+		}
+		return tools.NewToolResult(fmt.Sprintf(
+			"Konfigurasi belajar diperbarui:\n"+
+				"- Belajar otomatis: %s\n"+
+				"- Model AI untuk pembelajaran: %s",
+			status, modelInfo,
+		))
+
 	case "alias_set":
 		if argStr(args, "alias") == "" || argStr(args, "target") == "" {
 			return tools.ErrorResult("alias dan target-nya diisi dulu ya kak 🙏")
@@ -228,6 +290,9 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 		}
 		return tools.NewToolResult(b.String())
 	case "habit_track":
+		if !t.store.IsAutoLearnEnabled(ctx) {
+			return tools.SilentResult("belajar otomatis nonaktif, habit dilewati")
+		}
 		t.store.TrackHabit(ctx, argStr(args, "tipe"), argStr(args, "value"))
 		return tools.SilentResult("habit dicatat")
 	case "habit":

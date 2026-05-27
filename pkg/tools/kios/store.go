@@ -123,7 +123,43 @@ const (
 	keyLearnShc  = "kios:learn:shortcuts"
 	keyLearnHab  = "kios:learn:habits"
 	keyLearnUnk  = "kios:learn:unknowns"
+	keyKiosConfig = "kios:config"
 )
+
+// KiosConfig menyimpan preferensi konfigurasi kios yang dapat diubah oleh owner.
+type KiosConfig struct {
+	// AutoLearnEnabled mengaktifkan/menonaktifkan fitur belajar otomatis.
+	// Default true — alias, shortcut, pola, dan kebiasaan dicatat otomatis dari interaksi.
+	AutoLearnEnabled bool `json:"auto_learn_enabled"`
+	// LearnModel adalah nama model AI yang dipilih owner untuk tugas pelatihan dan pembelajaran.
+	// Kosong berarti ikuti routing default.
+	LearnModel string `json:"learn_model"`
+}
+
+// GetConfig membaca konfigurasi kios dari Redis.
+// Jika belum ada, mengembalikan default (AutoLearnEnabled: true).
+func (s *Store) GetConfig(ctx context.Context) KiosConfig {
+	v, err := s.rdb.Get(ctx, keyKiosConfig).Result()
+	if err != nil {
+		return KiosConfig{AutoLearnEnabled: true}
+	}
+	var cfg KiosConfig
+	if json.Unmarshal([]byte(v), &cfg) != nil {
+		return KiosConfig{AutoLearnEnabled: true}
+	}
+	return cfg
+}
+
+// SaveConfig menyimpan konfigurasi kios ke Redis.
+func (s *Store) SaveConfig(ctx context.Context, cfg KiosConfig) error {
+	b, _ := json.Marshal(cfg)
+	return s.rdb.Set(ctx, keyKiosConfig, string(b), 0).Err()
+}
+
+// IsAutoLearnEnabled mengembalikan apakah fitur belajar otomatis aktif.
+func (s *Store) IsAutoLearnEnabled(ctx context.Context) bool {
+	return s.GetConfig(ctx).AutoLearnEnabled
+}
 
 // Store provides all Redis operations for kios tools.
 type Store struct {
