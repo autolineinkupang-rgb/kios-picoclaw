@@ -4,8 +4,10 @@ package kios
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -125,7 +127,11 @@ const (
 	keyLearnUnk      = "kios:learn:unknowns"
 	keyKiosConfig    = "kios:config"
 	keyNotifLastDate = "kios:notif:last_date"
+	keyLoginPrefix   = "kios:login:" // one-time dashboard login codes
 )
+
+// loginCodeTTL is how long a /login code stays valid.
+const loginCodeTTL = 5 * time.Minute
 
 // KiosConfig menyimpan preferensi konfigurasi kios yang dapat diubah oleh owner.
 type KiosConfig struct {
@@ -172,6 +178,26 @@ func (s *Store) SaveConfig(ctx context.Context, cfg KiosConfig) error {
 // IsAutoLearnEnabled mengembalikan apakah fitur belajar otomatis aktif.
 func (s *Store) IsAutoLearnEnabled(ctx context.Context) bool {
 	return s.GetConfig(ctx).AutoLearnEnabled
+}
+
+// --- Login dashboard ---
+
+// CreateLoginCode membuat kode masuk dashboard sekali pakai, terikat pada ID
+// channel (Telegram) pengguna, disimpan di Redis dengan TTL singkat. Dashboard
+// web memverifikasi kode ini lalu menukarnya dengan sesi. Mengembalikan kode
+// 6 digit.
+func (s *Store) CreateLoginCode(ctx context.Context, id, nama string) (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
+	}
+	code := fmt.Sprintf("%06d", n.Int64())
+	rec := map[string]string{"id": id, "nama": nama}
+	b, _ := json.Marshal(rec)
+	if err := s.rdb.Set(ctx, keyLoginPrefix+code, string(b), loginCodeTTL).Err(); err != nil {
+		return "", err
+	}
+	return code, nil
 }
 
 // Store provides all Redis operations for kios tools.

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Store, TriangleAlert } from "lucide-react";
 import { getSession } from "@/lib/auth";
+import { CodeLoginForm } from "@/components/code-login-form";
 import { TelegramLoginButton } from "@/components/telegram-login-button";
 
 export const metadata: Metadata = { title: "Masuk" };
@@ -9,18 +10,21 @@ export const metadata: Metadata = { title: "Masuk" };
 const ERRORS: Record<string, string> = {
   invalid: "Verifikasi login Telegram gagal. Silakan coba lagi.",
   forbidden: "Akun Telegram kamu belum punya akses ke dashboard. Hubungi pemilik kios.",
-  config: "Konfigurasi server belum lengkap (token bot / secret). Hubungi admin.",
+  config: "Konfigurasi server belum lengkap. Hubungi admin.",
+  code_format: "Kode harus 6 angka.",
+  code_invalid: "Kode salah atau sudah kedaluwarsa. Minta kode baru lewat /login di bot.",
+  too_many: "Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.",
 };
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; code?: string }>;
 }) {
   const session = await getSession();
   if (session) redirect("/dashboard");
 
-  const { error, next } = await searchParams;
+  const { error, next, code } = await searchParams;
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
   const errMsg = error ? ERRORS[error] ?? "Terjadi kendala saat login." : null;
 
@@ -44,9 +48,7 @@ export default async function LoginPage({
           <span className="text-lg font-semibold">Kios Cerdas</span>
         </div>
         <div className="relative space-y-4">
-          <h1 className="text-3xl font-bold leading-tight">
-            Kelola kios dari mana saja.
-          </h1>
+          <h1 className="text-3xl font-bold leading-tight">Kelola kios dari mana saja.</h1>
           <p className="max-w-md text-primary-foreground/80">
             Pantau stok, penjualan, dan laba kios secara real-time. Data tersambung
             langsung dengan bot Telegram kios kamu.
@@ -59,7 +61,7 @@ export default async function LoginPage({
 
       {/* Login panel */}
       <section className="flex flex-col items-center justify-center bg-background p-6 sm:p-12">
-        <div className="w-full max-w-sm space-y-8">
+        <div className="w-full max-w-sm space-y-6">
           <div className="space-y-2 text-center lg:hidden">
             <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-accent text-accent-foreground">
               <Store className="size-6" aria-hidden />
@@ -70,7 +72,8 @@ export default async function LoginPage({
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold tracking-tight">Masuk Dashboard</h2>
             <p className="text-sm text-muted-foreground">
-              Gunakan akun Telegram yang sama dengan bot kios untuk masuk.
+              Buka bot Telegram kios, ketik <code className="font-mono">/login</code>, lalu
+              masukkan kode 6 digit yang diberikan bot.
             </p>
           </div>
 
@@ -85,12 +88,23 @@ export default async function LoginPage({
           )}
 
           <div className="rounded-xl border bg-card p-6">
-            <TelegramLoginButton botUsername={botUsername} next={next} />
+            <CodeLoginForm next={next} initialCode={code} botUsername={botUsername} />
+          </div>
+
+          {/* Secondary: Telegram Login Widget */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              atau
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <TelegramLoginButton botUsername={botUsername} next={next} />
+            </div>
           </div>
 
           <p className="text-center text-xs text-muted-foreground">
-            Hanya pemilik dan kasir terdaftar yang dapat masuk. Akses diatur lewat
-            daftar owner &amp; data pengguna kios.
+            Hanya pemilik dan kasir terdaftar yang dapat masuk.
           </p>
         </div>
       </section>

@@ -2,6 +2,7 @@ package kios
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -271,6 +272,22 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 			},
 		},
 		{
+			Name:        "login",
+			Description: "Dapatkan kode untuk masuk ke Dashboard web",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				ctx = withSender(ctx, req)
+				_, nama, refusal := resolveRole(ctx, store)
+				if refusal != nil {
+					return reply(req, refusal.ForLLM)
+				}
+				code, err := store.CreateLoginCode(ctx, req.SenderID, nama)
+				if err != nil {
+					return reply(req, "Aduh, gagal bikin kode masuk kak 😣 Coba lagi sebentar ya.")
+				}
+				return reply(req, loginMessage(code))
+			},
+		},
+		{
 			Name:        "notif",
 			Description: "Cek & kirim notif stok menipis sekarang (khusus owner)",
 			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
@@ -325,6 +342,19 @@ func parseMassalItems(text string) []map[string]any {
 		})
 	}
 	return items
+}
+
+// loginMessage builds the /login reply: the one-time code plus, when
+// $KIOS_DASHBOARD_URL is set, a tap-to-login link with the code prefilled.
+func loginMessage(code string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "🔐 Kode masuk Dashboard kamu:\n\n*%s*\n\n", code)
+	b.WriteString("Masukkan kode ini di halaman login dashboard. Berlaku 5 menit & sekali pakai ya kak.")
+	if url := strings.TrimSpace(os.Getenv("KIOS_DASHBOARD_URL")); url != "" {
+		link := strings.TrimRight(url, "/") + "/login?code=" + code
+		fmt.Fprintf(&b, "\n\nAtau buka langsung dari HP: %s", link)
+	}
+	return b.String()
 }
 
 // argAfter returns everything after the first whitespace-separated token

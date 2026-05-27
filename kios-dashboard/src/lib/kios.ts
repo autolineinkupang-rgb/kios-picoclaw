@@ -99,3 +99,27 @@ export async function getAllUsers(): Promise<UserKios[]> {
   if (!map) return [];
   return normalizeList<UserKios>(Object.values(map));
 }
+
+// ── Login dashboard (kode dari /login bot) ──────────────────────────────────
+
+/**
+ * Look up and consume a one-time login code written by the bot's /login
+ * command (key kios:login:<code>). Deletes it on read so it can't be reused.
+ */
+export async function consumeLoginCode(
+  code: string,
+): Promise<{ id: string; nama: string } | null> {
+  const key = `kios:login:${code}`;
+  const rec = normalize<{ id: string; nama: string }>(await redis().get<unknown>(key));
+  if (!rec || !rec.id) return null;
+  await redis().del(key);
+  return rec;
+}
+
+/** Increment a per-IP attempt counter (5-min window). Returns the new count. */
+export async function bumpLoginAttempts(ip: string): Promise<number> {
+  const key = `kios:login:attempts:${ip}`;
+  const n = await redis().incr(key);
+  if (n === 1) await redis().expire(key, 300);
+  return n;
+}
