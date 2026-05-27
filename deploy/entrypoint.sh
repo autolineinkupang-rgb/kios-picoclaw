@@ -49,6 +49,30 @@ fi
 
 FALLBACKS="[${FALLBACK_MODELS}]"
 
+# 3-tier model routing:
+#   simple (score < 0.15)        → Gemini  (light)
+#   medium (0.15 <= score < 0.50)→ Claude  (medium)
+#   complex (score >= 0.50)      → Groq    (primary/heavy)
+# Routing is enabled only when both Gemini and Claude keys are present.
+ROUTING_ENABLED="false"
+ROUTING_LIGHT=""
+ROUTING_MEDIUM=""
+if [ -n "$GEMINI_API_KEY" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
+    ROUTING_ENABLED="true"
+    ROUTING_LIGHT="gemini-flash"
+    ROUTING_MEDIUM="claude"
+elif [ -n "$ANTHROPIC_API_KEY" ]; then
+    # Only Claude available: simple → Claude, complex → Groq (no light tier)
+    ROUTING_ENABLED="true"
+    ROUTING_LIGHT="claude"
+    ROUTING_MEDIUM=""
+elif [ -n "$GEMINI_API_KEY" ]; then
+    # Only Gemini available: simple → Gemini, rest → Groq (no medium tier)
+    ROUTING_ENABLED="true"
+    ROUTING_LIGHT="gemini-flash"
+    ROUTING_MEDIUM=""
+fi
+
 cat > "$CONFIG" <<EOF
 {
   "version": 3,
@@ -60,7 +84,14 @@ cat > "$CONFIG" <<EOF
       "model_fallbacks": $FALLBACKS,
       "max_tokens": 4096,
       "max_tool_iterations": 12,
-      "temperature": 0.5
+      "temperature": 0.5,
+      "routing": {
+        "enabled": $ROUTING_ENABLED,
+        "light_model": "$ROUTING_LIGHT",
+        "medium_model": "$ROUTING_MEDIUM",
+        "threshold": 0.15,
+        "heavy_threshold": 0.50
+      }
     }
   },
   "model_list": [

@@ -12,6 +12,7 @@ import (
 	runtimeevents "github.com/sipeed/picoclaw/pkg/events"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
+	"github.com/sipeed/picoclaw/pkg/routing"
 )
 
 func (al *AgentLoop) runTurn(ctx context.Context, ts *turnState, pipeline *Pipeline) (turnResult, error) {
@@ -312,25 +313,42 @@ func (al *AgentLoop) selectCandidates(
 		return agent.Candidates, resolvedCandidateModel(agent.Candidates, agent.Model), false
 	}
 
-	_, usedLight, score := agent.Router.SelectModel(userMsg, history, agent.Model)
-	if !usedLight {
+	_, tier, score := agent.Router.SelectModel(userMsg, history, agent.Model)
+	switch tier {
+	case routing.TierLight:
+		logger.InfoCF("agent", "Model routing: light model selected",
+			map[string]any{
+				"agent_id":    agent.ID,
+				"light_model": agent.Router.LightModel(),
+				"score":       score,
+				"threshold":   agent.Router.Threshold(),
+			})
+		return agent.LightCandidates, resolvedCandidateModel(agent.LightCandidates, agent.Router.LightModel()), true
+
+	case routing.TierMedium:
+		if len(agent.MediumCandidates) > 0 {
+			logger.InfoCF("agent", "Model routing: medium model selected",
+				map[string]any{
+					"agent_id":        agent.ID,
+					"medium_model":    agent.Router.MediumModel(),
+					"score":           score,
+					"threshold":       agent.Router.Threshold(),
+					"heavy_threshold": agent.Router.HeavyThreshold(),
+				})
+			return agent.MediumCandidates, resolvedCandidateModel(agent.MediumCandidates, agent.Router.MediumModel()), false
+		}
+		// Medium model not resolved — fall through to primary.
+		fallthrough
+
+	default: // TierPrimary
 		logger.DebugCF("agent", "Model routing: primary model selected",
 			map[string]any{
-				"agent_id":  agent.ID,
-				"score":     score,
-				"threshold": agent.Router.Threshold(),
+				"agent_id":        agent.ID,
+				"score":           score,
+				"heavy_threshold": agent.Router.HeavyThreshold(),
 			})
 		return agent.Candidates, resolvedCandidateModel(agent.Candidates, agent.Model), false
 	}
-
-	logger.InfoCF("agent", "Model routing: light model selected",
-		map[string]any{
-			"agent_id":    agent.ID,
-			"light_model": agent.Router.LightModel(),
-			"score":       score,
-			"threshold":   agent.Router.Threshold(),
-		})
-	return agent.LightCandidates, resolvedCandidateModel(agent.LightCandidates, agent.Router.LightModel()), true
 }
 
 func (al *AgentLoop) resolveContextManager() ContextManager {

@@ -45,16 +45,20 @@ type AgentInstance struct {
 	MCPServerAllowlist        map[string]struct{}
 	Candidates                []providers.FallbackCandidate
 
-	// Router is non-nil when model routing is configured and the light model
-	// was successfully resolved. It scores each incoming message and decides
-	// whether to route to LightCandidates or stay with Candidates.
+	// Router is non-nil when model routing is configured and at least the light
+	// model was successfully resolved. It scores each incoming message and
+	// selects the appropriate tier (light / medium / primary).
 	Router *routing.Router
-	// LightCandidates holds the resolved provider candidates for the light model.
-	// Pre-computed at agent creation to avoid repeated model_list lookups at runtime.
+	// LightCandidates holds the resolved provider candidates for the light model
+	// (simple requests). Pre-computed at agent creation.
 	LightCandidates []providers.FallbackCandidate
-	// LightProvider is the concrete provider instance for the configured light model.
-	// It is only used when routing selects the light tier for a turn.
+	// LightProvider is the concrete provider instance for the light model.
 	LightProvider providers.LLMProvider
+	// MediumCandidates holds the resolved provider candidates for the medium model
+	// (intermediate requests). Pre-computed at agent creation.
+	MediumCandidates []providers.FallbackCandidate
+	// MediumProvider is the concrete provider instance for the medium model.
+	MediumProvider providers.LLMProvider
 	// CandidateProviders maps "provider/model" keys to per-candidate LLMProvider
 	// instances. This allows each fallback model to use its own api_base and api_key
 	// from model_list, instead of inheriting the primary model's provider config.
@@ -203,38 +207,63 @@ func NewAgentInstance(
 	candidateProviders := make(map[string]providers.LLMProvider)
 	populateCandidateProvidersFromNames(cfg, workspace, fallbacks, candidateProviders)
 
-	// Model routing setup: pre-resolve light model candidates at creation time
-	// to avoid repeated model_list lookups on every incoming message.
+	// Model routing setup: pre-resolve light and medium model candidates at
+	// creation time to avoid repeated model_list lookups on every incoming message.
 	var router *routing.Router
 	var lightCandidates []providers.FallbackCandidate
 	var lightProvider providers.LLMProvider
+	var mediumCandidates []providers.FallbackCandidate
+	var mediumProvider providers.LLMProvider
 	if rc := defaults.Routing; rc != nil && rc.Enabled && rc.LightModel != "" {
-		resolved := resolveModelCandidates(cfg, defaults.Provider, rc.LightModel, nil)
-		if len(resolved) > 0 {
+		resolvedLight := resolveModelCandidates(cfg, defaults.Provider, rc.LightModel, nil)
+		if len(resolvedLight) > 0 {
 			lightModelCfg, err := resolvedModelConfig(cfg, rc.LightModel, workspace)
 			if err != nil {
-				logger.WarnCF(
-					"agent",
-					"Routing light model config invalid; routing disabled",
-					map[string]any{
-						"light_model": rc.LightModel,
-						"agent_id":    agentID,
-						"error":       err.Error(),
-					},
-				)
+				logger.WarnCF("agent", "Routing light model config invalid; routing disabled",
+					map[string]any{"light_model": rc.LightModel, "agent_id": agentID, "error": err.Error()})
 			} else {
 				lp, _, err := providers.CreateProviderFromConfig(lightModelCfg)
 				if err != nil {
 					logger.WarnCF("agent", "Routing light model provider init failed; routing disabled",
 						map[string]any{"light_model": rc.LightModel, "agent_id": agentID, "error": err.Error()})
 				} else {
-					router = routing.New(routing.RouterConfig{
-						LightModel: rc.LightModel,
-						Threshold:  rc.Threshold,
-					})
-					lightCandidates = resolved
+					lightCandidates = resolvedLight
 					lightProvider = lp
 					populateCandidateProvidersFromNames(cfg, workspace, []string{rc.LightModel}, candidateProviders)
+
+					routerCfg := routing.RouterConfig{
+						LightModel:     rc.LightModel,
+						Threshold:      rc.Threshold,
+						HeavyThreshold: rc.HeavyThreshold,
+					}
+
+					// Resolve medium model when configured.
+					if rc.MediumModel != "" {
+						resolvedMedium := resolveModelCandidates(cfg, defaults.Provider, rc.MediumModel, nil)
+						if len(resolvedMedium) > 0 {
+							mediumModelCfg, err := resolvedModelConfig(cfg, rc.MediumModel, workspace)
+							if err != nil {
+								logger.WarnCF("agent", "Routing medium model config invalid; medium tier disabled",
+									map[string]any{"medium_model": rc.MediumModel, "agent_id": agentID, "error": err.Error()})
+							} else {
+								mp, _, err := providers.CreateProviderFromConfig(mediumModelCfg)
+								if err != nil {
+									logger.WarnCF("agent", "Routing medium model provider init failed; medium tier disabled",
+										map[string]any{"medium_model": rc.MediumModel, "agent_id": agentID, "error": err.Error()})
+								} else {
+									mediumCandidates = resolvedMedium
+									mediumProvider = mp
+									routerCfg.MediumModel = rc.MediumModel
+									populateCandidateProvidersFromNames(cfg, workspace, []string{rc.MediumModel}, candidateProviders)
+								}
+							}
+						} else {
+							logger.WarnCF("agent", "Routing medium model not found; medium tier disabled",
+								map[string]any{"medium_model": rc.MediumModel, "agent_id": agentID})
+						}
+					}
+
+					router = routing.New(routerCfg)
 				}
 			}
 		} else {
@@ -269,6 +298,8 @@ func NewAgentInstance(
 		Router:                    router,
 		LightCandidates:           lightCandidates,
 		LightProvider:             lightProvider,
+		MediumCandidates:          mediumCandidates,
+		MediumProvider:            mediumProvider,
 		CandidateProviders:        candidateProviders,
 	}
 }
