@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/mymmrac/telego"
+	"github.com/mymmrac/telego/telegoapi"
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
 
@@ -380,12 +381,27 @@ func (c *TelegramChannel) sendChunk(
 
 	pMsg, err := c.bot.SendMessage(ctx, tgMsg)
 	if err != nil {
-		logParseFailed(err, params.useMarkdownV2)
+		// Rate limit (429): jangan coba fallback, biarkan manager retry setelah jeda.
+		if isTelegramRateLimitErr(err) {
+			logger.WarnCF("telegram", "Bot terkena rate limit Telegram, menunggu jeda sebelum retry",
+				map[string]any{
+					"chat_id":     params.chatID,
+					"retry_after": extractTelegramRetryAfter(err),
+				})
+			return "", fmt.Errorf("telegram send: %w", channels.ErrRateLimit)
+		}
 
+		// Error format (400): coba kirim ulang tanpa formatting.
+		logParseFailed(err, params.useMarkdownV2)
 		tgMsg.Text = params.mdFallback
 		tgMsg.ParseMode = ""
 		pMsg, err = c.bot.SendMessage(ctx, tgMsg)
 		if err != nil {
+			if isTelegramRateLimitErr(err) {
+				return "", fmt.Errorf("telegram send fallback: %w", channels.ErrRateLimit)
+			}
+			// Plain text pun gagal — coba kirim notifikasi singkat ke user.
+			c.trySendFriendlyError(ctx, params.chatID, params.threadID, err)
 			return "", fmt.Errorf("telegram send: %w", channels.ErrTemporary)
 		}
 	}
@@ -463,6 +479,16 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
 		// it as success to prevent the Manager from sending a duplicate message.
 		if strings.Contains(err.Error(), "message is not modified") {
 			return nil
+		}
+
+		// Rate limit (429) saat edit: swallow — pesan final akan dikirim via SendMessage.
+		if isTelegramRateLimitErr(err) {
+			logger.WarnCF("telegram", "Rate limit saat edit pesan, melewati edit ini",
+				map[string]any{
+					"chat_id":     chatID,
+					"retry_after": extractTelegramRetryAfter(err),
+				})
+			return fmt.Errorf("telegram edit: %w", channels.ErrRateLimit)
 		}
 
 		// Only fallback to plain text if the error looks like a parsing failure (Bad Request).
@@ -1613,6 +1639,45 @@ func isPostConnectError(err error) bool {
 		strings.Contains(msg, "unexpected eof") ||
 		strings.Contains(msg, "connection closed by foreign host") ||
 		strings.Contains(msg, "broken pipe")
+}
+
+// isTelegramRateLimitErr returns true when err is a Telegram 429 Too Many Requests.
+// Uses errors.As for precise detection, with a string fallback for wrapped errors.
+func isTelegramRateLimitErr(err error) bool {
+	var apiErr *telegoapi.Error
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode == http.StatusTooManyRequests
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "429") || strings.Contains(s, "too many requests")
+}
+
+// extractTelegramRetryAfter reads the Retry-After value (seconds) from a Telegram 429 error.
+// Returns 0 when the value is absent or the error is not a Telegram API error.
+func extractTelegramRetryAfter(err error) int {
+	var apiErr *telegoapi.Error
+	if errors.As(err, &apiErr) && apiErr.Parameters != nil {
+		return apiErr.Parameters.RetryAfter
+	}
+	return 0
+}
+
+// trySendFriendlyError mengirim pesan singkat berbahasa Indonesia ke user saat kirim pesan gagal.
+// Kegagalan pengiriman notifikasi ini diabaikan (best-effort) agar tidak memperburuk kondisi.
+func (c *TelegramChannel) trySendFriendlyError(ctx context.Context, chatID int64, threadID int, origErr error) {
+	var text string
+	var apiErr *telegoapi.Error
+	switch {
+	case errors.As(origErr, &apiErr) && apiErr.ErrorCode == http.StatusBadRequest:
+		text = "⚠️ Maaf, pesan tidak bisa dikirim karena format tidak didukung. Coba kirim ulang pertanyaanmu."
+	case isTelegramRateLimitErr(origErr):
+		text = "⏳ Bot sedang ramai. Pesan akan dikirim ulang otomatis — tunggu sebentar ya."
+	default:
+		text = "⚠️ Maaf, ada kendala teknis sementara. Coba lagi beberapa saat."
+	}
+	plain := tu.Message(tu.ID(chatID), text)
+	plain.MessageThreadID = threadID
+	_, _ = c.bot.SendMessage(ctx, plain)
 }
 
 // VoiceCapabilities returns the voice capabilities of the channel.

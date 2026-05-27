@@ -504,7 +504,8 @@ func TestSend_HTMLFallback_BothFail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, channels.ErrTemporary), "error should wrap ErrTemporary")
-	assert.Equal(t, 2, len(caller.calls), "should have HTML attempt + plain text attempt")
+	// 3 calls: HTML attempt + plain text fallback + friendly error notification (best-effort)
+	assert.Equal(t, 3, len(caller.calls), "should have HTML attempt + plain text fallback + friendly error notification")
 }
 
 func TestSend_LongMessage_HTMLFallback_StopsOnError(t *testing.T) {
@@ -525,8 +526,8 @@ func TestSend_LongMessage_HTMLFallback_StopsOnError(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	// Should fail on the first chunk (2 calls: HTML + fallback), never reaching the second chunk.
-	assert.Equal(t, 2, len(caller.calls), "should stop after first chunk fails both HTML and plain text")
+	// 3 calls: HTML attempt + plain text fallback + friendly error notification, then stop (never reaching second chunk).
+	assert.Equal(t, 3, len(caller.calls), "should stop after first chunk fails both HTML and plain text")
 }
 
 func TestSend_MarkdownShortButHTMLLong_MultipleCalls(t *testing.T) {
