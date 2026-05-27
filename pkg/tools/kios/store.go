@@ -101,6 +101,29 @@ type UserKios struct {
 	Ditambahkan string `json:"ditambahkan"`
 }
 
+// PesananItem adalah satu baris item dalam pesanan pembeli.
+type PesananItem struct {
+	ProdukID    string `json:"produk_id"`
+	NamaProduk  string `json:"nama_produk"`
+	Qty         int    `json:"qty"`
+	HargaSatuan int    `json:"harga_satuan"`
+	Subtotal    int    `json:"subtotal"`
+}
+
+// Pesanan adalah pesanan dari halaman toko pembeli (dibuat oleh dashboard web).
+type Pesanan struct {
+	ID          string        `json:"id"`
+	Tanggal     string        `json:"tanggal"`
+	Jam         string        `json:"jam"`
+	NamaPembeli string        `json:"nama_pembeli"`
+	Kontak      string        `json:"kontak"`
+	Items       []PesananItem `json:"items"`
+	Total       int           `json:"total"`
+	Catatan     string        `json:"catatan"`
+	Status      string        `json:"status"` // pending | diproses | ditolak
+	CreatedAt   int64         `json:"created_at"`
+}
+
 // Redis key constants.
 const (
 	keyProduk    = "kios:produk"
@@ -125,9 +148,11 @@ const (
 	keyLearnShc  = "kios:learn:shortcuts"
 	keyLearnHab  = "kios:learn:habits"
 	keyLearnUnk      = "kios:learn:unknowns"
-	keyKiosConfig    = "kios:config"
-	keyNotifLastDate = "kios:notif:last_date"
-	keyLoginPrefix   = "kios:login:" // one-time dashboard login codes
+	keyKiosConfig       = "kios:config"
+	keyNotifLastDate    = "kios:notif:last_date"
+	keyLoginPrefix      = "kios:login:" // one-time dashboard login codes
+	keyPesanan          = "kios:pesanan"
+	keyNotifPesananLast = "kios:notif:pesanan_last" // highest PSN seq notified to owners
 )
 
 // loginCodeTTL is how long a /login code stays valid.
@@ -504,6 +529,25 @@ func (s *Store) GetAllUsers(ctx context.Context) ([]*UserKios, error) {
 			continue
 		}
 		result = append(result, &u)
+	}
+	return result, nil
+}
+
+// --- Pesanan ---
+
+// GetAllPesanan mengembalikan semua pesanan dari toko pembeli (hash kios:pesanan).
+func (s *Store) GetAllPesanan(ctx context.Context) ([]*Pesanan, error) {
+	m, err := s.rdb.HGetAll(ctx, keyPesanan).Result()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*Pesanan, 0, len(m))
+	for _, v := range m {
+		var p Pesanan
+		if err := json.Unmarshal([]byte(v), &p); err != nil {
+			continue
+		}
+		result = append(result, &p)
 	}
 	return result, nil
 }

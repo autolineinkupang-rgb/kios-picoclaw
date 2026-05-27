@@ -2,11 +2,15 @@ package kios
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sipeed/picoclaw/pkg/commands"
 	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
@@ -288,6 +292,21 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 			},
 		},
 		{
+			Name:        "web",
+			Description: "Cek status Dashboard web kios (khusus owner)",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				ctx = withSender(ctx, req)
+				role, _, refusal := resolveRole(ctx, store)
+				if refusal != nil {
+					return reply(req, refusal.ForLLM)
+				}
+				if r := requireOwner(role); r != nil {
+					return reply(req, r.ForLLM)
+				}
+				return reply(req, checkWebsiteStatus(ctx))
+			},
+		},
+		{
 			Name:        "notif",
 			Description: "Cek & kirim notif stok menipis sekarang (khusus owner)",
 			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
@@ -355,6 +374,43 @@ func loginMessage(code string) string {
 		fmt.Fprintf(&b, "\n\nAtau buka langsung dari HP: %s", link)
 	}
 	return b.String()
+}
+
+// checkWebsiteStatus pings the dashboard health endpoint and reports status,
+// latency, Redis connectivity, and pending-order count.
+func checkWebsiteStatus(ctx context.Context) string {
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("KIOS_DASHBOARD_URL")), "/")
+	if base == "" {
+		return "URL dashboard belum di-set kak (env KIOS_DASHBOARD_URL). Isi dulu ya."
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/health", nil)
+	if err != nil {
+		return "Aduh, gagal menyusun permintaan ke dashboard kak 😣"
+	}
+	start := time.Now()
+	resp, err := client.Do(httpReq)
+	latency := time.Since(start).Milliseconds()
+	if err != nil {
+		return fmt.Sprintf("❌ Dashboard tidak bisa dihubungi kak.\n%s\nError: %v", base, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Sprintf("⚠️ Dashboard membalas status %d (%dms).\n%s", resp.StatusCode, latency, base)
+	}
+	var h struct {
+		OK             bool `json:"ok"`
+		Redis          bool `json:"redis"`
+		PesananPending int  `json:"pesanan_pending"`
+	}
+	_ = json.Unmarshal(body, &h)
+	redisStr := "ok"
+	if !h.Redis {
+		redisStr = "GAGAL"
+	}
+	return fmt.Sprintf("✅ Dashboard online (%dms)\n%s\nRedis: %s\nPesanan menunggu: %d",
+		latency, base, redisStr, h.PesananPending)
 }
 
 // argAfter returns everything after the first whitespace-separated token

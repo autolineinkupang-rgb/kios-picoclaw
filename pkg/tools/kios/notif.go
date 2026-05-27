@@ -3,9 +3,11 @@ package kios
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/logger"
 )
@@ -29,11 +31,13 @@ func (n *NotifService) Start(ctx context.Context) {
 }
 
 func (n *NotifService) loop(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Minute)
+	// Tick setiap 2 menit: notif stok menggating diri sendiri lewat jam/hari,
+	// sedangkan notif pesanan baru perlu cek lebih sering.
+	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 
-	// Cek sekali saat startup (saat jam notif sudah lewat tapi belum dikirim hari ini)
 	n.tryNotify(ctx)
+	n.tryNotifyOrders(ctx)
 
 	for {
 		select {
@@ -41,8 +45,76 @@ func (n *NotifService) loop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			n.tryNotify(ctx)
+			n.tryNotifyOrders(ctx)
 		}
 	}
+}
+
+// tryNotifyOrders memberi tahu owner saat ada pesanan pending baru dari toko.
+// Pada run pertama hanya menetapkan baseline (tidak mengirim riwayat lama).
+func (n *NotifService) tryNotifyOrders(ctx context.Context) {
+	all, err := n.store.GetAllPesanan(ctx)
+	if err != nil || len(all) == 0 {
+		return
+	}
+
+	maxSeq := 0
+	for _, p := range all {
+		if s := pesananSeq(p.ID); s > maxSeq {
+			maxSeq = s
+		}
+	}
+
+	v, err := n.store.rdb.Get(ctx, keyNotifPesananLast).Result()
+	if err == redis.Nil {
+		// Run pertama: jadikan baseline tanpa mengirim notif riwayat.
+		_ = n.store.rdb.Set(ctx, keyNotifPesananLast, strconv.Itoa(maxSeq), 0).Err()
+		return
+	}
+	if err != nil {
+		return
+	}
+	last, _ := strconv.Atoi(v)
+	if maxSeq <= last {
+		return
+	}
+
+	var fresh []*Pesanan
+	for _, p := range all {
+		if p.Status == "pending" && pesananSeq(p.ID) > last {
+			fresh = append(fresh, p)
+		}
+	}
+	if len(fresh) > 0 {
+		n.sendToOwners(ctx, buildNewOrdersMessage(fresh))
+	}
+	_ = n.store.rdb.Set(ctx, keyNotifPesananLast, strconv.Itoa(maxSeq), 0).Err()
+}
+
+func pesananSeq(id string) int {
+	i := strings.LastIndex(id, "-")
+	if i < 0 {
+		return 0
+	}
+	n, _ := strconv.Atoi(id[i+1:])
+	return n
+}
+
+func buildNewOrdersMessage(orders []*Pesanan) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "🛒 *Pesanan Baru* (%d) — %s WITA\n\n", len(orders), NowWITA().Format("02 Jan 2006 15:04"))
+	for _, p := range orders {
+		nama := p.NamaPembeli
+		if strings.TrimSpace(nama) == "" {
+			nama = "Pembeli"
+		}
+		fmt.Fprintf(&b, "• %s — %s (%d item, %s)\n", p.ID, nama, len(p.Items), FormatRupiah(p.Total))
+		if p.Kontak != "" {
+			fmt.Fprintf(&b, "  kontak: %s\n", p.Kontak)
+		}
+	}
+	b.WriteString("\nBuka Dashboard → Pesanan untuk memproses ya kak 🙏")
+	return b.String()
 }
 
 // tryNotify cek apakah sekarang waktunya kirim notif, lalu kirim jika ada stok menipis.
