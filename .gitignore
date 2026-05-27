@@ -1,81 +1,138 @@
-# Binaries
-# Go build artifacts
+# =============================================================================
+# Go
+# =============================================================================
 bin/
 build/
+dist/
 *.exe
 *.dll
 *.so
 *.dylib
 *.test
 *.out
-/picoclaw
-/picoclaw-test
-cmd/**/workspace
+*.prof
+*.pprof
 
-# Picoclaw specific
-
-# PicoClaw
-.picoclaw/
-config.json
-sessions/
-build/
-
-# Coverage
-
-# Secrets & Config (keep templates, ignore actual secrets)
-.env
-config/config.json
-.security.yml
-onboard
-
-
-# Test
+# Go test cache & coverage
 coverage.txt
 coverage.html
+*.coverprofile
+/tmp/
 
+# Go workspace (multi-module)
+go.work
+go.work.sum
+
+# =============================================================================
+# Picoclaw / Kios binaries (stray build artifacts — use go run or Makefile)
+# =============================================================================
+/picoclaw
+/picoclaw-test
+/kios-seed
+/kios-learn-seed
+/kios-import
+/gen-templates
+/membench
+cmd/**/workspace
+
+# =============================================================================
+# Runtime & config (generated at startup — never commit real secrets)
+# =============================================================================
+config.json
+config/config.json
+.env
+.env.local
+.env.*.local
+deploy/.env
+.security.yml
+onboard
+sessions/
+.picoclaw/
+
+# =============================================================================
+# Logs & temp files
+# =============================================================================
+*.log
+*.log.*
+logs/
+_tmp_*
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# =============================================================================
 # OS
+# =============================================================================
 .DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Ralph workspace
-ralph/
-.ralph/
-tasks/
-
-# Plans
-docs/plans/
-docs/superpowers/
-
-# Editors
+# =============================================================================
+# Editors & IDEs
+# =============================================================================
 .vscode/
 .idea/
+*.iml
+*.ipr
+*.iws
+*.sublime-project
+*.sublime-workspace
+.vs/
 
-# Added by goreleaser init:
-dist/
-*.vite/
-
-# Windows Application Icon/Resource
-*.syso
-.cache/
+# =============================================================================
+# Node / Frontend (web/frontend)
+# =============================================================================
+node_modules/
+web/frontend/node_modules/
 web/frontend/.pnpm-store/
-_tmp_*
 web/frontend/_tmp_*
+*.vite/
+web/frontend/dist/
+web/frontend/.next/
+web/frontend/.nuxt/
+web/frontend/.output/
 
-# Test telegram integration
-cmd/telegram/
-
-# Keep embedded backend dist directory placeholder in VCS
+# Keep backend dist placeholder
 !web/backend/dist/
 web/backend/dist/*
 !web/backend/dist/.gitkeep
 
+# =============================================================================
+# Docker & deployment
+# =============================================================================
+docker/data/
+docker-compose.override.yml
+
+# =============================================================================
+# Testing & integration
+# =============================================================================
+cmd/telegram/
+integration/testdata/output/
+
+# =============================================================================
+# Build tooling
+# =============================================================================
+*.syso
+.cache/
+
+# =============================================================================
+# Claude / AI tooling (local only)
+# =============================================================================
 .claude/
 .claude-flow/
-
-docker/data
-
 .omc/
 
-# stray CLI build artifacts (use go run / build/)
-/kios-seed
-/kios-import
-/gen-templates
+# =============================================================================
+# Misc project dirs (local workflow only)
+# =============================================================================
+ralph/
+.ralph/
+tasks/
+docs/plans/
+docs/superpowers/
+workspace/scratch/
