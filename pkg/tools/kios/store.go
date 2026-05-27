@@ -33,6 +33,7 @@ type Produk struct {
 	LastUpdate  string `json:"last_update"`
 	HasExp      bool   `json:"has_exp"`
 	ExpDate     string `json:"exp_date"`
+	ImageURL    string `json:"image_url"`
 }
 
 // Transaksi represents a sales transaction.

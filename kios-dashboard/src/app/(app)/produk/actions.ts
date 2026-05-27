@@ -19,6 +19,7 @@ export interface ProdukInput {
   stok_kritis: number;
   supplier: string;
   exp_date: string;
+  image_url: string;
 }
 
 export type ActionResult = { ok: true; message: string } | { ok: false; error: string };
@@ -37,6 +38,10 @@ function sanitize(input: ProdukInput): ActionResult | null {
   if (input.harga_jual < 0 || input.harga_beli < 0)
     return { ok: false, error: "Harga tidak boleh minus." };
   if (input.stok < 0) return { ok: false, error: "Stok tidak boleh minus." };
+  const img = input.image_url?.trim() ?? "";
+  if (img && !/^https?:\/\/.+/i.test(img)) {
+    return { ok: false, error: "URL gambar harus diawali http:// atau https://." };
+  }
   return null;
 }
 
@@ -67,6 +72,7 @@ export async function createProdukAction(input: ProdukInput): Promise<ActionResu
     last_update: todayWITA(),
     has_exp: exp !== "",
     exp_date: exp,
+    image_url: input.image_url?.trim().slice(0, 500) ?? "",
   };
   await setProduk(p);
   revalidatePath("/produk");
@@ -100,6 +106,7 @@ export async function updateProdukAction(input: ProdukInput): Promise<ActionResu
     last_update: todayWITA(),
     has_exp: exp !== "",
     exp_date: exp,
+    image_url: input.image_url?.trim().slice(0, 500) ?? "",
   };
   await setProduk(p);
   revalidatePath("/produk");

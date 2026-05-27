@@ -18,6 +18,7 @@ export async function GET() {
         satuan: p.satuan,
         harga_jual: p.harga_jual,
         stok: p.stok,
+        image_url: p.image_url || "",
       }))
       .sort((a, b) => a.nama.localeCompare(b.nama));
     const kategori = [...new Set(produk.map((p) => p.kategori).filter(Boolean))].sort();

@@ -248,15 +248,17 @@ export function StorefrontView() {
               const inCart = qtyOf(p.id);
               const habis = p.stok <= 0;
               return (
-                <li key={p.id} className="flex flex-col rounded-xl border bg-card p-3 shadow-sm">
-                  <div className="flex-1">
-                    <p className="line-clamp-2 text-sm font-medium">{p.nama}</p>
-                    <p className="mt-1 font-mono text-base font-semibold text-accent">
-                      {formatRupiah(p.harga_jual)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">per {p.satuan}</p>
-                  </div>
-                  <div className="mt-3">
+                <li key={p.id} className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+                  <ProductImage src={p.image_url} alt={p.nama} dim={habis} />
+                  <div className="flex flex-1 flex-col p-3">
+                    <div className="flex-1">
+                      <p className="line-clamp-2 text-sm font-medium">{p.nama}</p>
+                      <p className="mt-1 font-mono text-base font-semibold text-accent">
+                        {formatRupiah(p.harga_jual)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">per {p.satuan}</p>
+                    </div>
+                    <div className="mt-3">
                     {habis ? (
                       <Badge variant="destructive" className="w-full justify-center py-1">
                         Habis
@@ -287,6 +289,7 @@ export function StorefrontView() {
                         <Plus className="size-4" /> Tambah
                       </Button>
                     )}
+                    </div>
                   </div>
                 </li>
               );
@@ -464,6 +467,29 @@ export function StorefrontView() {
           </Button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function ProductImage({ src, alt, dim }: { src: string; alt: string; dim?: boolean }) {
+  const [broken, setBroken] = useState(false);
+  const show = src && !broken;
+  return (
+    <div className={cn("aspect-square w-full bg-muted/40", dim && "opacity-60")}>
+      {show ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={() => setBroken(true)}
+          className="size-full object-cover"
+        />
+      ) : (
+        <div className="flex size-full items-center justify-center text-muted-foreground/40">
+          <ShoppingBag className="size-10" aria-hidden />
+        </div>
+      )}
     </div>
   );
 }

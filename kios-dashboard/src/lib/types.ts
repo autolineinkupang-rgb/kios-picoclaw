@@ -17,6 +17,7 @@ export interface Produk {
   last_update: string;
   has_exp: boolean;
   exp_date: string;
+  image_url: string;
 }
 
 export interface Transaksi {
@@ -89,6 +90,7 @@ export interface PublicProduk {
   satuan: string;
   harga_jual: number;
   stok: number;
+  image_url: string;
 }
 
 export interface PesananItem {

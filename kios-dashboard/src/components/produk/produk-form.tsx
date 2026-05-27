@@ -25,6 +25,7 @@ function emptyForm(): ProdukInput {
     stok_kritis: 2,
     supplier: "",
     exp_date: "",
+    image_url: "",
   };
 }
 
@@ -42,6 +43,7 @@ function fromProduk(p: Produk): ProdukInput {
     stok_kritis: p.stok_kritis,
     supplier: p.supplier,
     exp_date: p.exp_date,
+    image_url: p.image_url ?? "",
   };
 }
 
@@ -179,6 +181,31 @@ export function ProdukForm({
           onChange={(e) => set("exp_date", e.target.value)}
         />
         <p className="text-xs text-muted-foreground">Kosongkan bila produk tidak kedaluwarsa.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="image_url">URL Gambar Produk</Label>
+        <div className="flex items-start gap-3">
+          <Input
+            id="image_url"
+            value={form.image_url}
+            onChange={(e) => set("image_url", e.target.value)}
+            placeholder="https://…/produk.jpg"
+            inputMode="url"
+            className="font-mono"
+          />
+          {form.image_url.trim() && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={form.image_url}
+              alt="Pratinjau"
+              className="size-16 shrink-0 rounded-lg border object-cover"
+            />
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Tempel tautan gambar produk agar tampil menarik di toko pembeli. Kosongkan bila tidak ada.
+        </p>
       </div>
 
       {error && (

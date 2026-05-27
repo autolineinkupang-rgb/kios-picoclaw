@@ -159,6 +159,7 @@ export async function importProdukAction(rows: TableRow[]): Promise<ImportResult
         last_update: todayWITA(),
         has_exp: false,
         exp_date: "",
+        image_url: "",
       };
       await setProduk(p);
       idx.byId.set(id, p);
