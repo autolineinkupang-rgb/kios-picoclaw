@@ -18,6 +18,7 @@
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "read-excel-file": "^9.0.10",
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.6.0"
   },

@@ -6,7 +6,15 @@ const SESSION_COOKIE = "kios_session";
 
 // Public paths that never require a session.
 // /toko is the buyer-facing storefront; /api/pesanan is its order endpoint.
-const PUBLIC_PREFIXES = ["/login", "/api/auth", "/toko", "/api/pesanan"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/api/auth",
+  "/toko",
+  "/mall",
+  "/api/pesanan",
+  "/api/health",
+  "/api/mall",
+];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

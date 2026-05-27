@@ -5,6 +5,7 @@ import {
   BarChart3,
   ShoppingCart,
   ClipboardList,
+  FileUp,
   Users,
   Settings,
 } from "lucide-react";
@@ -22,6 +23,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/kasir", label: "Kasir", icon: ShoppingCart },
   { href: "/pesanan", label: "Pesanan", icon: ClipboardList },
   { href: "/produk", label: "Produk & Stok", icon: Package },
+  { href: "/impor", label: "Impor Data", icon: FileUp },
   { href: "/penjualan", label: "Penjualan", icon: Receipt },
   { href: "/laporan", label: "Laporan", icon: BarChart3 },
   { href: "/pengguna", label: "Pengguna", icon: Users, ownerOnly: true },

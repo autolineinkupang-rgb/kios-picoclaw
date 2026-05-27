@@ -80,6 +80,17 @@ export interface UserKios {
   ditambahkan: string;
 }
 
+// Public-safe product projection for the buyer storefront (never includes
+// cost price / supplier).
+export interface PublicProduk {
+  id: string;
+  nama: string;
+  kategori: string;
+  satuan: string;
+  harga_jual: number;
+  stok: number;
+}
+
 export interface PesananItem {
   produk_id: string;
   nama_produk: string;

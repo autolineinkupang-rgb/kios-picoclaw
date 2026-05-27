@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Store, X } from "lucide-react";
@@ -14,8 +15,11 @@ function isActive(pathname: string, href: string): boolean {
 
 export function MobileMenu({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const items = navItemsForRole(role);
+
+  useEffect(() => setMounted(true), []);
 
   // Close on navigation.
   useEffect(() => {
@@ -41,8 +45,10 @@ export function MobileMenu({ role }: { role: Role }) {
         <Menu className="size-5" />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
+      {open &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] lg:hidden" role="dialog" aria-modal="true">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setOpen(false)}
@@ -87,8 +93,9 @@ export function MobileMenu({ role }: { role: Role }) {
               })}
             </nav>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
