@@ -39,7 +39,8 @@ export function TelegramLoginButton({ botUsername, next }: Props) {
     script.setAttribute("data-size", "large");
     script.setAttribute("data-radius", "8");
     script.setAttribute("data-auth-url", authUrl.toString());
-    script.setAttribute("data-request-access", "write");
+    // Login only needs identity verification — we never DM the user from here,
+    // so don't request write access (keeps the consent step minimal).
     container.appendChild(script);
   }, [username, next]);
 
