@@ -1,0 +1,93 @@
+// TypeScript mirrors of the Go structs in pkg/tools/kios/store.go.
+// Field names match the JSON tags so we read the exact same Redis payloads
+// the Telegram bot writes. Do not rename without updating the Go side.
+
+export interface Produk {
+  id: string;
+  barcode: string;
+  nama: string;
+  kategori: string;
+  satuan: string;
+  stok: number;
+  harga_beli: number;
+  harga_jual: number;
+  stok_minimum: number;
+  stok_kritis: number;
+  supplier: string;
+  last_update: string;
+  has_exp: boolean;
+  exp_date: string;
+}
+
+export interface Transaksi {
+  id: string;
+  tanggal: string; // YYYY-MM-DD (WITA)
+  jam: string; // HH:mm:ss
+  produk_id: string;
+  nama_produk: string;
+  kategori: string;
+  qty: number;
+  harga_satuan: number;
+  total: number;
+  metode_bayar: string; // tunai | transfer | qris
+  kasir: string;
+  catatan: string;
+  session_id: string;
+}
+
+export interface Pembelian {
+  id: string;
+  session_id: string;
+  tanggal: string;
+  jam: string;
+  produk_id: string;
+  nama_produk: string;
+  qty: number;
+  harga_beli: number;
+  subtotal: number;
+  supplier: string;
+  kasir: string;
+  catatan: string;
+}
+
+export interface PriceHistory {
+  id: string;
+  tanggal: string;
+  jam: string;
+  produk_id: string;
+  nama_produk: string;
+  harga_lama: number;
+  harga_baru: number;
+  selisih: number;
+  supplier: string;
+  kasir: string;
+}
+
+export interface Shift {
+  kasir: string;
+  saldo_awal: number;
+  saldo_akhir: number;
+  waktu_buka: string;
+  waktu_tutup: string;
+  status: string; // buka | tutup
+}
+
+export interface UserKios {
+  phone: string; // holds the Telegram user ID
+  nama: string;
+  role: string; // owner | kasir
+  aktif: boolean;
+  ditambahkan: string;
+}
+
+export type Role = "owner" | "kasir";
+
+export type Periode = "hari_ini" | "minggu" | "bulan";
+
+export interface SessionUser {
+  id: string; // Telegram user ID
+  nama: string;
+  username: string;
+  photo_url: string;
+  role: Role;
+}
