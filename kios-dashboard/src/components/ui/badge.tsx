@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "default" | "secondary" | "success" | "warning" | "destructive" | "outline";
+type Variant = "default" | "secondary" | "success" | "warning" | "destructive" | "outline" | "accent";
 
 const VARIANTS: Record<Variant, string> = {
   default: "border-transparent bg-primary text-primary-foreground",
@@ -10,6 +10,7 @@ const VARIANTS: Record<Variant, string> = {
   warning: "border-transparent bg-warning/15 text-warning",
   destructive: "border-transparent bg-destructive/15 text-destructive",
   outline: "border-border text-foreground",
+  accent: "border-transparent bg-accent/15 text-accent",
 };
 
 export function Badge({

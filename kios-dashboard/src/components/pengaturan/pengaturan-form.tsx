@@ -120,6 +120,54 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Pembayaran QRIS</CardTitle>
+        </CardHeader>
+        <CardContent className="divide-y">
+          <Toggle
+            checked={cfg.qris_enabled}
+            onChange={(v) => setCfg({ ...cfg, qris_enabled: v })}
+            label="Tampilkan opsi bayar QRIS"
+            description="Pembeli di toko & pelanggan via /qris bisa scan QR untuk membayar."
+          />
+          <div className="space-y-1.5 py-3">
+            <Label htmlFor="qris_nama">Nama merchant</Label>
+            <Input
+              id="qris_nama"
+              value={cfg.qris_nama}
+              onChange={(e) => setCfg({ ...cfg, qris_nama: e.target.value })}
+              placeholder="mis. Kios Cerdas"
+              disabled={!cfg.qris_enabled}
+            />
+          </div>
+          <div className="space-y-1.5 py-3">
+            <Label htmlFor="qris_image_url">URL gambar QR (QRIS statis)</Label>
+            <Input
+              id="qris_image_url"
+              value={cfg.qris_image_url}
+              onChange={(e) => setCfg({ ...cfg, qris_image_url: e.target.value })}
+              placeholder="https://…/qris.png"
+              className="font-mono"
+              inputMode="url"
+              disabled={!cfg.qris_enabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              Foto/unggah QR statis dari bank/e-wallet kamu ke layanan gambar, lalu tempel
+              tautannya di sini. Pembeli akan memindainya untuk membayar.
+            </p>
+            {cfg.qris_enabled && cfg.qris_image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={cfg.qris_image_url}
+                alt="Pratinjau QRIS"
+                className="mt-2 size-36 rounded-lg border object-contain p-1"
+              />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center gap-3">
         <Button variant="accent" size="md" onClick={save} disabled={pending}>
           {pending && <Loader2 className="size-4 animate-spin" />}

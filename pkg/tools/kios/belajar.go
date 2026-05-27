@@ -188,6 +188,9 @@ func (t *BelajarTool) Parameters() map[string]any {
 			"learn_model":   map[string]any{"type": "string", "description": "Nama model AI untuk tugas pembelajaran (mis. 'claude', 'groq', 'gemini'). Kosong = ikuti routing default."},
 			"notif_enabled": map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) notifikasi stok menipis otomatis."},
 			"notif_jam":     map[string]any{"type": "string", "description": "Jam WITA pengiriman notif stok menipis (format HH, mis. '07' = 07:00 WITA)."},
+			"qris_enabled":   map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) opsi pembayaran QRIS di toko & perintah /qris."},
+			"qris_nama":      map[string]any{"type": "string", "description": "Nama merchant yang ditampilkan saat pembayaran QRIS (mis. 'Kios Cerdas')."},
+			"qris_image_url": map[string]any{"type": "string", "description": "URL gambar QR statis QRIS kios untuk dipindai pembeli."},
 		},
 		"required": []string{"action"},
 	}
@@ -201,26 +204,7 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 
 	switch argStr(args, "action") {
 	case "config_get":
-		cfg := t.store.GetConfig(ctx)
-		learnStatus := "AKTIF"
-		if !cfg.AutoLearnEnabled {
-			learnStatus = "NONAKTIF"
-		}
-		modelInfo := "ikuti routing default"
-		if cfg.LearnModel != "" {
-			modelInfo = cfg.LearnModel
-		}
-		notifStatus := "AKTIF"
-		if !cfg.NotifEnabled {
-			notifStatus = "NONAKTIF"
-		}
-		return tools.NewToolResult(fmt.Sprintf(
-			"Konfigurasi Kios:\n"+
-				"- Belajar otomatis: %s\n"+
-				"- Model AI untuk pembelajaran: %s\n"+
-				"- Notif stok menipis: %s (jam %s:00 WITA)",
-			learnStatus, modelInfo, notifStatus, cfg.NotifJam,
-		))
+		return tools.NewToolResult("Konfigurasi Kios:\n" + formatConfig(t.store.GetConfig(ctx)))
 
 	case "config_set":
 		if role != "owner" {
@@ -249,32 +233,25 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 			cfg.NotifJam = jam
 			changed = true
 		}
+		if v := argStr(args, "qris_enabled"); v != "" {
+			cfg.QrisEnabled = v == "true"
+			changed = true
+		}
+		if v := argStr(args, "qris_nama"); v != "" {
+			cfg.QrisNama = strings.TrimSpace(v)
+			changed = true
+		}
+		if v := argStr(args, "qris_image_url"); v != "" {
+			cfg.QrisImageURL = strings.TrimSpace(v)
+			changed = true
+		}
 		if !changed {
-			return tools.ErrorResult("Isi auto_learn, learn_model, notif_enabled, atau notif_jam ya kak 🙏")
+			return tools.ErrorResult("Isi auto_learn, learn_model, notif_enabled, notif_jam, qris_enabled, qris_nama, atau qris_image_url ya kak 🙏")
 		}
 		if err := t.store.SaveConfig(ctx, cfg); err != nil {
 			return tools.ErrorResult(fmt.Sprintf("Gagal simpan konfigurasi: %v", err))
 		}
-
-		learnStatus := "AKTIF"
-		if !cfg.AutoLearnEnabled {
-			learnStatus = "NONAKTIF"
-		}
-		modelInfo := "ikuti routing default"
-		if cfg.LearnModel != "" {
-			modelInfo = cfg.LearnModel
-		}
-		notifStatus := "AKTIF"
-		if !cfg.NotifEnabled {
-			notifStatus = "NONAKTIF"
-		}
-		return tools.NewToolResult(fmt.Sprintf(
-			"Konfigurasi diperbarui:\n"+
-				"- Belajar otomatis: %s\n"+
-				"- Model AI untuk pembelajaran: %s\n"+
-				"- Notif stok menipis: %s (jam %s:00 WITA)",
-			learnStatus, modelInfo, notifStatus, cfg.NotifJam,
-		))
+		return tools.NewToolResult("Konfigurasi diperbarui:\n" + formatConfig(cfg))
 
 	case "alias_set":
 		if argStr(args, "alias") == "" || argStr(args, "target") == "" {
@@ -344,6 +321,39 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 	default:
 		return tools.ErrorResult("Hmm, aksi belajar belum dikenal kak 🤔")
 	}
+}
+
+// formatConfig renders the kios configuration as a human-readable bullet list,
+// shared by config_get and config_set so both stay in sync.
+func formatConfig(cfg KiosConfig) string {
+	onOff := func(b bool) string {
+		if b {
+			return "AKTIF"
+		}
+		return "NONAKTIF"
+	}
+	modelInfo := "ikuti routing default"
+	if cfg.LearnModel != "" {
+		modelInfo = cfg.LearnModel
+	}
+	qrisInfo := "NONAKTIF"
+	if cfg.QrisEnabled {
+		nama := cfg.QrisNama
+		if nama == "" {
+			nama = "kios"
+		}
+		qrisInfo = fmt.Sprintf("AKTIF (%s)", nama)
+		if cfg.QrisImageURL == "" {
+			qrisInfo += " — gambar QR belum di-set"
+		}
+	}
+	return fmt.Sprintf(
+		"- Belajar otomatis: %s\n"+
+			"- Model AI untuk pembelajaran: %s\n"+
+			"- Notif stok menipis: %s (jam %s:00 WITA)\n"+
+			"- Pembayaran QRIS: %s",
+		onOff(cfg.AutoLearnEnabled), modelInfo, onOff(cfg.NotifEnabled), cfg.NotifJam, qrisInfo,
+	)
 }
 
 func splitItems(s string) []string {

@@ -13,7 +13,7 @@ async function requireStaff(): Promise<{ nama: string } | ActionResult> {
   return { nama: session.nama };
 }
 
-export async function prosesPesananAction(id: string, metode = "tunai"): Promise<ActionResult> {
+export async function prosesPesananAction(id: string, metode?: string): Promise<ActionResult> {
   const gate = await requireStaff();
   if ("ok" in gate) return gate;
 
@@ -25,7 +25,7 @@ export async function prosesPesananAction(id: string, metode = "tunai"): Promise
 
   const sale = await recordSale(
     pesanan.items.map((it) => ({ produkId: it.produk_id, qty: it.qty })),
-    metode,
+    metode ?? pesanan.metode_bayar ?? "tunai",
     gate.nama,
     `pesanan ${pesanan.id}`,
   );

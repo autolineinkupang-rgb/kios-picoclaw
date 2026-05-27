@@ -13,7 +13,13 @@ function clip(s: unknown, max: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { items?: { produkId?: string; qty?: number }[]; nama?: string; kontak?: string; catatan?: string };
+  let body: {
+    items?: { produkId?: string; qty?: number }[];
+    nama?: string;
+    kontak?: string;
+    catatan?: string;
+    metode?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -62,6 +68,7 @@ export async function POST(req: NextRequest) {
       total += subtotal;
     }
 
+    const metode = body.metode === "qris" ? "qris" : "tunai";
     const id = await nextPesananId();
     const pesanan: Pesanan = {
       id,
@@ -72,6 +79,7 @@ export async function POST(req: NextRequest) {
       items,
       total,
       catatan: clip(body.catatan, 200),
+      metode_bayar: metode,
       status: "pending",
       created_at: Math.floor(Date.now() / 1000),
     };

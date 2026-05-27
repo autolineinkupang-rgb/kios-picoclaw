@@ -17,6 +17,11 @@ export async function saveConfigAction(input: KiosConfig): Promise<ActionResult>
     return { ok: false, error: "Jam notif harus 00–23." };
   }
 
+  const qrisImageUrl = (input.qris_image_url ?? "").trim();
+  if (qrisImageUrl && !/^https?:\/\/.+/i.test(qrisImageUrl)) {
+    return { ok: false, error: "URL gambar QRIS harus diawali http:// atau https://." };
+  }
+
   const current = await getConfig();
   const cfg: KiosConfig = {
     ...current,
@@ -24,6 +29,9 @@ export async function saveConfigAction(input: KiosConfig): Promise<ActionResult>
     notif_enabled: Boolean(input.notif_enabled),
     notif_jam: jam,
     learn_model: (input.learn_model ?? "").trim(),
+    qris_enabled: Boolean(input.qris_enabled),
+    qris_nama: (input.qris_nama ?? "").trim().slice(0, 60),
+    qris_image_url: qrisImageUrl.slice(0, 500),
   };
   await saveConfig(cfg);
   revalidatePath("/pengaturan");

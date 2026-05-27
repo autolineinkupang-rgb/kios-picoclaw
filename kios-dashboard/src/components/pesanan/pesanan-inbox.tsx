@@ -7,8 +7,10 @@ import {
   ClipboardList,
   Loader2,
   Phone,
+  QrCode,
   TriangleAlert,
   User,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,13 +124,22 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
                     <Badge variant={st.variant}>{st.label}</Badge>
                   </div>
 
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <User className="size-3.5" /> {o.nama_pembeli || "Pembeli"}
                     </span>
                     {o.kontak && (
                       <span className="flex items-center gap-1">
                         <Phone className="size-3.5" /> {o.kontak}
+                      </span>
+                    )}
+                    {o.metode_bayar === "qris" ? (
+                      <Badge variant="accent" className="gap-1">
+                        <QrCode className="size-3" /> QRIS
+                      </Badge>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Wallet className="size-3.5" /> Tunai
                       </span>
                     )}
                   </div>

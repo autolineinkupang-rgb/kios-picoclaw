@@ -6,11 +6,13 @@ import {
   Loader2,
   Minus,
   Plus,
+  QrCode,
   RefreshCw,
   Search,
   ShoppingBag,
   Store,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +32,16 @@ interface CartLine {
   qty: number;
 }
 
+type QrisInfo = { enabled: true; nama: string; image_url: string } | { enabled: false };
+
+type Metode = "tunai" | "qris";
+
 export function StorefrontView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [produk, setProduk] = useState<PublicProduk[]>([]);
   const [kategori, setKategori] = useState<string[]>([]);
+  const [qris, setQris] = useState<QrisInfo>({ enabled: false });
 
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("");
@@ -43,9 +50,10 @@ export function StorefrontView() {
   const [nama, setNama] = useState("");
   const [kontak, setKontak] = useState("");
   const [catatan, setCatatan] = useState("");
+  const [metode, setMetode] = useState<Metode>("tunai");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ id: string; total: number } | null>(null);
+  const [done, setDone] = useState<{ id: string; total: number; metode: Metode } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -59,6 +67,11 @@ export function StorefrontView() {
       }
       setProduk(data.produk);
       setKategori(data.kategori);
+      const q: QrisInfo = data.qris?.enabled
+        ? { enabled: true, nama: data.qris.nama, image_url: data.qris.image_url }
+        : { enabled: false };
+      setQris(q);
+      if (!q.enabled) setMetode("tunai");
     } catch {
       setLoadError(true);
     } finally {
@@ -114,6 +127,7 @@ export function StorefrontView() {
           nama,
           kontak,
           catatan,
+          metode,
         }),
       });
       const data = await res.json();
@@ -121,11 +135,12 @@ export function StorefrontView() {
         setSubmitError(data.error || "Gagal mengirim pesanan.");
         return;
       }
-      setDone({ id: data.id, total: data.total });
+      setDone({ id: data.id, total: data.total, metode });
       setCart([]);
       setNama("");
       setKontak("");
       setCatatan("");
+      setMetode("tunai");
       setOpen(false);
       void load(); // refresh stock
     } catch {
@@ -347,6 +362,43 @@ export function StorefrontView() {
                 </div>
               </div>
 
+              {qris.enabled && (
+                <div className="space-y-2">
+                  <Label>Metode pembayaran</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <MetodeOption
+                      icon={Wallet}
+                      label="Tunai di kios"
+                      active={metode === "tunai"}
+                      onClick={() => setMetode("tunai")}
+                    />
+                    <MetodeOption
+                      icon={QrCode}
+                      label="QRIS"
+                      active={metode === "qris"}
+                      onClick={() => setMetode("qris")}
+                    />
+                  </div>
+                  {metode === "qris" && (
+                    <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                      <p className="text-sm font-medium">{qris.nama}</p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={qris.image_url}
+                        alt={`QRIS ${qris.nama}`}
+                        className="mx-auto mt-2 size-48 rounded-md border bg-white object-contain p-1"
+                      />
+                      <p className="mt-2 font-mono text-sm font-semibold tabular-nums">
+                        {formatRupiah(total)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Scan QR di atas untuk bayar, lalu kirim pesanan & tunjukkan bukti ke kasir.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {submitError && (
                 <p role="alert" className="text-sm text-destructive">
                   {submitError}
@@ -373,7 +425,10 @@ export function StorefrontView() {
               Pesanan <span className="font-mono font-semibold">{done?.id}</span> diterima.
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Total {done ? formatRupiah(done.total) : ""}. Kasir kios akan segera memprosesnya.
+              Total {done ? formatRupiah(done.total) : ""}.{" "}
+              {done?.metode === "qris"
+                ? "Pastikan sudah bayar via QRIS, lalu tunjukkan bukti ke kasir ya."
+                : "Kasir kios akan segera memprosesnya."}
             </p>
           </div>
           <Button variant="outline" size="md" className="w-full" onClick={() => setDone(null)}>
@@ -382,6 +437,33 @@ export function StorefrontView() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+function MetodeOption({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: typeof Wallet;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+        active ? "border-accent bg-accent/10 text-accent" : "border-border hover:bg-muted",
+      )}
+    >
+      <Icon className="size-4" />
+      {label}
+    </button>
   );
 }
 

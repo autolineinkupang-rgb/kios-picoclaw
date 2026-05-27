@@ -170,6 +170,12 @@ type KiosConfig struct {
 	NotifEnabled bool `json:"notif_enabled"`
 	// NotifJam adalah jam WITA (format "HH") saat notif dikirim setiap hari. Default "07".
 	NotifJam string `json:"notif_jam"`
+	// QrisEnabled menampilkan opsi pembayaran QRIS di toko & perintah /qris. Default false.
+	QrisEnabled bool `json:"qris_enabled"`
+	// QrisNama adalah nama merchant yang ditampilkan saat pembayaran QRIS (mis. "Kios Cerdas").
+	QrisNama string `json:"qris_nama"`
+	// QrisImageURL adalah URL gambar QR statis QRIS kios untuk dipindai pembeli.
+	QrisImageURL string `json:"qris_image_url"`
 }
 
 func defaultConfig() KiosConfig {

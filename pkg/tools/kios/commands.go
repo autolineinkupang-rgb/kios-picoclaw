@@ -30,6 +30,7 @@ PERINTAH CEPAT (tanpa AI):
 /pasar [produk] — bandingkan harga kita vs pasar
 /produk [nama] — daftar / detail produk
 /suplier [nama | banding <produk>] — info supplier
+/qris — tampilkan QRIS kios untuk pembayaran
 
 PERINTAH OWNER:
 /backup — export data ke JSON (owner)
@@ -292,6 +293,13 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 			},
 		},
 		{
+			Name:        "qris",
+			Description: "Tampilkan QRIS kios untuk pembayaran (tanpa AI)",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				return reply(req, qrisMessage(store.GetConfig(ctx)))
+			},
+		},
+		{
 			Name:        "web",
 			Description: "Cek status Dashboard web kios (khusus owner)",
 			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
@@ -361,6 +369,25 @@ func parseMassalItems(text string) []map[string]any {
 		})
 	}
 	return items
+}
+
+// qrisMessage builds the /qris reply from the kios config: the merchant name
+// and a link to the static QRIS image to scan. Telegram previews the image URL.
+func qrisMessage(cfg KiosConfig) string {
+	if !cfg.QrisEnabled {
+		return "Pembayaran QRIS belum diaktifkan kak. Owner bisa mengaktifkannya lewat Pengaturan di Dashboard, " +
+			"atau ketik: aktifkan QRIS, nama merchant ..., gambar QR ... 🙏"
+	}
+	nama := cfg.QrisNama
+	if nama == "" {
+		nama = "Kios Cerdas"
+	}
+	if cfg.QrisImageURL == "" {
+		return fmt.Sprintf("QRIS %s aktif, tapi gambar QR-nya belum di-set kak. "+
+			"Owner bisa menambahkan URL gambar QRIS lewat Pengaturan di Dashboard ya. 🙏", nama)
+	}
+	return fmt.Sprintf("💳 Pembayaran QRIS — %s\n\nScan QR ini untuk bayar:\n%s\n\n"+
+		"Setelah bayar, tunjukkan bukti ke kasir ya kak. 🙏", nama, cfg.QrisImageURL)
 }
 
 // loginMessage builds the /login reply: the one-time code plus, when

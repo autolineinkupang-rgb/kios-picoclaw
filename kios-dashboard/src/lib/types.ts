@@ -110,6 +110,7 @@ export interface Pesanan {
   items: PesananItem[];
   total: number;
   catatan: string;
+  metode_bayar: string; // tunai | qris
   status: PesananStatus;
   created_at: number; // unix seconds
 }
@@ -119,6 +120,9 @@ export interface KiosConfig {
   learn_model: string;
   notif_enabled: boolean;
   notif_jam: string; // "HH" (WITA)
+  qris_enabled: boolean;
+  qris_nama: string;
+  qris_image_url: string;
 }
 
 export type Role = "owner" | "kasir";

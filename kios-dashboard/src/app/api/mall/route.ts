@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllProduk } from "@/lib/kios";
+import { getAllProduk, getConfig } from "@/lib/kios";
 import type { PublicProduk } from "@/lib/types";
 
 // Public products API for the buyer storefront (/mall). No auth.
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const all = await getAllProduk();
+    const [all, cfg] = await Promise.all([getAllProduk(), getConfig()]);
     const produk: PublicProduk[] = all
       .map((p) => ({
         id: p.id,
@@ -21,8 +21,12 @@ export async function GET() {
       }))
       .sort((a, b) => a.nama.localeCompare(b.nama));
     const kategori = [...new Set(produk.map((p) => p.kategori).filter(Boolean))].sort();
+    const qris =
+      cfg.qris_enabled && cfg.qris_image_url
+        ? { enabled: true, nama: cfg.qris_nama || "Kios Cerdas", image_url: cfg.qris_image_url }
+        : { enabled: false };
     return NextResponse.json(
-      { ok: true, produk, kategori },
+      { ok: true, produk, kategori, qris },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {

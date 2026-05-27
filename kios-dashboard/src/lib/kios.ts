@@ -117,6 +117,9 @@ const DEFAULT_CONFIG: KiosConfig = {
   learn_model: "",
   notif_enabled: true,
   notif_jam: "07",
+  qris_enabled: false,
+  qris_nama: "",
+  qris_image_url: "",
 };
 
 export async function getConfig(): Promise<KiosConfig> {
