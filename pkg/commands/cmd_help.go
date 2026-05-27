@@ -9,7 +9,7 @@ import (
 func helpCommand() Definition {
 	return Definition{
 		Name:        "help",
-		Description: "Show this help message",
+		Description: "Daftar semua perintah yang tersedia",
 		Usage:       "/help",
 		Handler: func(_ context.Context, req Request, rt *Runtime) error {
 			var defs []Definition
@@ -25,10 +25,11 @@ func helpCommand() Definition {
 
 func formatHelpMessage(defs []Definition) string {
 	if len(defs) == 0 {
-		return "No commands available."
+		return "Belum ada perintah tersedia."
 	}
 
-	lines := make([]string, 0, len(defs))
+	lines := make([]string, 0, len(defs)+2)
+	lines = append(lines, "Perintah yang tersedia:")
 	for _, def := range defs {
 		usage := def.EffectiveUsage()
 		if usage == "" {
@@ -36,9 +37,10 @@ func formatHelpMessage(defs []Definition) string {
 		}
 		desc := def.Description
 		if desc == "" {
-			desc = "No description"
+			desc = "tanpa deskripsi"
 		}
-		lines = append(lines, fmt.Sprintf("%s - %s", usage, desc))
+		lines = append(lines, fmt.Sprintf("%s — %s", usage, desc))
 	}
+	lines = append(lines, "\nKetik /bantuan untuk panduan lengkap kak 🙏")
 	return strings.Join(lines, "\n")
 }
