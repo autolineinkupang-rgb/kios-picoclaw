@@ -11,6 +11,41 @@ import (
 	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
 )
 
+const panduanText = `📖 Panduan Kios Cerdas
+
+PERINTAH CEPAT (tanpa AI):
+/stok [nama] — cek stok semua / cari produk
+/harga <produk> — lihat harga jual & modal
+/jual <produk> <jml> — catat penjualan + struk
+/jualmassal <produk> <jml>, ... — jual banyak barang
+/laporan — ringkasan penjualan & laba hari ini
+/menipis — produk yang stoknya hampir habis
+/shift — buka/cek/tutup shift kasir
+/promo — daftar promo & diskon aktif
+/pasar [produk] — bandingkan harga kita vs pasar
+/produk [nama] — daftar / detail produk
+/suplier [nama | banding <produk>] — info supplier
+
+PERINTAH OWNER:
+/backup — export data ke JSON (owner)
+/template — download template Excel untuk import data
+
+TANYA AI (ketik bebas):
+• "stok beras berapa?"
+• "jual sabun 3 biji, bayar 15 ribu"
+• "laporan minggu ini"
+• "tambah produk baru gula 1 kg harga 14.000"
+• "restock minyak 24 botol harga beli 12.000"
+• "promo diskon 10% untuk susu bulan ini"
+
+TIPS:
+• Sebut nominal bayar saat jual agar dapat kembalian
+• Ketik /stok untuk cek stok terkini tanpa menunggu AI
+• Transaksi ada kode TRX-xxxx — simpan jika ingin dibatalkan
+• Owner bisa ketik "aktifkan belajar otomatis" atau "nonaktifkan belajar"
+
+Butuh bantuan lain? Ketik saja pertanyaanmu kak! 🙏`
+
 // templateDir returns the directory holding the downloadable templates,
 // from $KIOS_TEMPLATE_DIR (default "templates" for local dev; the Docker image
 // sets it to /app/templates).
@@ -220,6 +255,13 @@ func Commands(store *Store) []commands.Definition {
 					return reply(req, supplier.Execute(ctx, map[string]any{"action": "banding_harga", "produk": strings.TrimSpace(rest)}).ForLLM)
 				}
 				return reply(req, supplier.Execute(ctx, map[string]any{"action": "cari", "nama": arg}).ForLLM)
+			},
+		},
+		{
+			Name:        "bantuan",
+			Description: "Panduan lengkap cara pakai Kios Cerdas",
+			Handler: func(_ context.Context, req commands.Request, _ *commands.Runtime) error {
+				return reply(req, panduanText)
 			},
 		},
 	}
