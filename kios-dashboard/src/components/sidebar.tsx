@@ -4,14 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Store } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "./nav-items";
+import { navItemsForRole } from "./nav-items";
+import type { Role } from "@/lib/types";
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar() {
+export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
+  const items = navItemsForRole(role);
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
       <div className="flex h-16 items-center gap-2.5 border-b px-5">
@@ -24,7 +26,7 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="flex-1 space-y-1 p-3" aria-label="Navigasi utama">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <Link

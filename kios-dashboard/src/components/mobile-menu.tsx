@@ -5,15 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Store, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "./nav-items";
+import { navItemsForRole } from "./nav-items";
+import type { Role } from "@/lib/types";
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function MobileMenu() {
+export function MobileMenu({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const items = navItemsForRole(role);
 
   // Close on navigation.
   useEffect(() => {
@@ -64,7 +66,7 @@ export function MobileMenu() {
               </button>
             </div>
             <nav className="flex-1 space-y-1 p-3" aria-label="Navigasi utama">
-              {NAV_ITEMS.map((item) => {
+              {items.map((item) => {
                 const active = isActive(pathname, item.href);
                 return (
                   <Link

@@ -32,4 +32,5 @@ export const KEY = {
   shift: "kios:shift",
   users: "kios:users",
   config: "kios:config",
+  seqTrx: "kios:seq:trx",
 } as const;

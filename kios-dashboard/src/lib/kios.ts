@@ -6,6 +6,7 @@ import type {
   PriceHistory,
   Shift,
   UserKios,
+  KiosConfig,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -98,6 +99,46 @@ export async function getAllUsers(): Promise<UserKios[]> {
   const map = await redis().hgetall<Record<string, unknown>>(KEY.users);
   if (!map) return [];
   return normalizeList<UserKios>(Object.values(map));
+}
+
+export async function setUser(u: UserKios): Promise<void> {
+  await redis().hset(KEY.users, { [u.phone]: u });
+}
+
+export async function delUser(id: string): Promise<void> {
+  await redis().hdel(KEY.users, id);
+}
+
+// ── Config (kios:config) ────────────────────────────────────────────────────
+
+const DEFAULT_CONFIG: KiosConfig = {
+  auto_learn_enabled: true,
+  learn_model: "",
+  notif_enabled: true,
+  notif_jam: "07",
+};
+
+export async function getConfig(): Promise<KiosConfig> {
+  const raw = normalize<Partial<KiosConfig>>(await redis().get<unknown>(KEY.config));
+  const cfg = { ...DEFAULT_CONFIG, ...(raw ?? {}) };
+  if (!cfg.notif_jam) cfg.notif_jam = "07";
+  return cfg;
+}
+
+export async function saveConfig(cfg: KiosConfig): Promise<void> {
+  await redis().set(KEY.config, cfg);
+}
+
+// ── Transaksi (penjualan via dashboard) ─────────────────────────────────────
+
+/** Next transaction ID, mirroring Go: INCR kios:seq:trx -> "TRX-%04d". */
+export async function nextTrxId(): Promise<string> {
+  const n = await redis().incr(KEY.seqTrx);
+  return `TRX-${String(n).padStart(4, "0")}`;
+}
+
+export async function pushTransaksi(tx: Transaksi): Promise<void> {
+  await redis().rpush(KEY.transaksi, tx);
 }
 
 // ── Login dashboard (kode dari /login bot) ──────────────────────────────────

@@ -13,6 +13,12 @@ export function todayWITA(): string {
   return formatDateISO(nowWITA());
 }
 
+/** "15:04:05" in WITA, matching the Go bot's time format. */
+export function timeWITA(): string {
+  const d = nowWITA();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }

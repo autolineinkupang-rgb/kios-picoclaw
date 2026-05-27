@@ -1,14 +1,33 @@
-import { LayoutDashboard, Package, Receipt, BarChart3 } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  Receipt,
+  BarChart3,
+  ShoppingCart,
+  Users,
+  Settings,
+} from "lucide-react";
+import type { Role } from "@/lib/types";
 
 export interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  ownerOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/kasir", label: "Kasir", icon: ShoppingCart },
   { href: "/produk", label: "Produk & Stok", icon: Package },
   { href: "/penjualan", label: "Penjualan", icon: Receipt },
   { href: "/laporan", label: "Laporan", icon: BarChart3 },
+  { href: "/pengguna", label: "Pengguna", icon: Users, ownerOnly: true },
+  { href: "/pengaturan", label: "Pengaturan", icon: Settings, ownerOnly: true },
 ];
+
+/** Nav items visible to the given role (owner sees all; kasir sees non-owner items). */
+export function navItemsForRole(role: Role | undefined): NavItem[] {
+  if (role === "owner") return NAV_ITEMS;
+  return NAV_ITEMS.filter((i) => !i.ownerOnly);
+}

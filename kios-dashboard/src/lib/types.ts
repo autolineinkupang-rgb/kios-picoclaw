@@ -80,6 +80,13 @@ export interface UserKios {
   ditambahkan: string;
 }
 
+export interface KiosConfig {
+  auto_learn_enabled: boolean;
+  learn_model: string;
+  notif_enabled: boolean;
+  notif_jam: string; // "HH" (WITA)
+}
+
 export type Role = "owner" | "kasir";
 
 export type Periode = "hari_ini" | "minggu" | "bulan";
