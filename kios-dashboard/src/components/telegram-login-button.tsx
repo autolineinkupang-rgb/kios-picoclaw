@@ -16,9 +16,16 @@ export function TelegramLoginButton({ botUsername, next }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
 
+  // Telegram expects the bare bot username: no leading "@", no spaces, no URL.
+  // A wrong value here makes the widget render "username invalid".
+  const username = (botUsername ?? "")
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/^https?:\/\/t\.me\//i, "");
+
   useEffect(() => {
     setMounted(true);
-    if (!ref.current || !botUsername) return;
+    if (!ref.current || !username) return;
     const container = ref.current;
     container.innerHTML = "";
 
@@ -28,15 +35,15 @@ export function TelegramLoginButton({ botUsername, next }: Props) {
     const script = document.createElement("script");
     script.src = "https://telegram.org/js/telegram-widget.js?22";
     script.async = true;
-    script.setAttribute("data-telegram-login", botUsername);
+    script.setAttribute("data-telegram-login", username);
     script.setAttribute("data-size", "large");
     script.setAttribute("data-radius", "8");
     script.setAttribute("data-auth-url", authUrl.toString());
     script.setAttribute("data-request-access", "write");
     container.appendChild(script);
-  }, [botUsername, next]);
+  }, [username, next]);
 
-  if (mounted && !botUsername) {
+  if (mounted && !username) {
     return (
       <p className="text-sm text-destructive">
         Konfigurasi <code className="font-mono">NEXT_PUBLIC_TELEGRAM_BOT_USERNAME</code> belum
