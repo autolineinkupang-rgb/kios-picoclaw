@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ProdukForm } from "./produk-form";
 import { deleteProdukAction, type ActionResult } from "@/app/(app)/produk/actions";
 import { formatRupiah, formatTanggal } from "@/lib/format";
+import { produkImage } from "@/lib/produk-image";
 import { STATUS_META, marginPct, stokStatus, type StokStatus } from "@/lib/produk-status";
 import { cn } from "@/lib/utils";
 import type { Produk } from "@/lib/types";
@@ -204,11 +205,22 @@ export function ProdukTable({
                 return (
                   <tr key={p.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
                     <td className="p-3">
-                      <p className="font-medium">{p.nama}</p>
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {p.id}
-                        {p.kategori ? ` · ${p.kategori}` : ""}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={produkImage(p)}
+                          alt={p.nama}
+                          loading="lazy"
+                          className="size-10 shrink-0 rounded-md border bg-muted/40 object-cover"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium">{p.nama}</p>
+                          <p className="font-mono text-xs text-muted-foreground">
+                            {p.id}
+                            {p.kategori ? ` · ${p.kategori}` : ""}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     <td className="p-3 font-mono tabular-nums">
                       {p.stok} <span className="text-xs text-muted-foreground">{p.satuan}</span>

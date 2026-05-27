@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Produk umum">
+  <rect width="400" height="400" fill="#f1f5f9"/>
+  <g fill="none" stroke="#64748b" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M150 168 h100 a10 10 0 0 1 10 10 l8 96 a16 16 0 0 1 -16 18 h-104 a16 16 0 0 1 -16 -18 l8 -96 a10 10 0 0 1 10 -10 z"/>
+    <path d="M172 168 v-14 a28 28 0 0 1 56 0 v14"/>
+  </g>
+  <text x="200" y="346" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="600" fill="#334155">Produk</text>
+</svg>

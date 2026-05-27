@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Snack">
+  <rect width="400" height="400" fill="#fce7f3"/>
+  <g fill="none" stroke="#db2777" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M164 150 h72 a8 8 0 0 1 8 8 v84 a8 8 0 0 1 -8 8 h-72 a8 8 0 0 1 -8 -8 v-84 a8 8 0 0 1 8 -8 z"/>
+    <path d="M156 166 l-14 -10 v88 l14 -10"/>
+    <path d="M244 166 l14 -10 v88 l-14 -10"/>
+  </g>
+  <text x="200" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="600" fill="#9d174e">Snack</text>
+</svg>

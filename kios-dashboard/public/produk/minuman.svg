@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Minuman">
+  <rect width="400" height="400" fill="#e0f2fe"/>
+  <g fill="none" stroke="#0284c7" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M184 150 h32 v24 l14 28 v82 a14 14 0 0 1 -14 14 h-46 a14 14 0 0 1 -14 -14 v-82 l14 -28 z"/>
+    <rect x="182" y="136" width="36" height="16" rx="4"/>
+    <path d="M170 226 h60"/>
+  </g>
+  <text x="200" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="600" fill="#075985">Minuman</text>
+</svg>

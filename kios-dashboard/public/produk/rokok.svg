@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Rokok">
+  <rect width="400" height="400" fill="#f4f4f5"/>
+  <g fill="none" stroke="#71717a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="152" y="150" width="96" height="124" rx="10"/>
+    <path d="M152 184 h96"/>
+    <path d="M178 150 v34"/>
+    <path d="M222 150 v34"/>
+  </g>
+  <text x="200" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="600" fill="#3f3f46">Rokok</text>
+</svg>

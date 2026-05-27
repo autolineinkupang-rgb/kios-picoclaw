@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { buildOrderWa, buildQrisDinamisWa, waLink } from "@/lib/wa";
+import { categoryImage } from "@/lib/produk-image";
 import type { PublicProduk } from "@/lib/types";
 
 interface CartLine {
@@ -249,7 +250,12 @@ export function StorefrontView() {
               const habis = p.stok <= 0;
               return (
                 <li key={p.id} className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
-                  <ProductImage src={p.image_url} alt={p.nama} dim={habis} />
+                  <ProductImage
+                    src={p.image_url}
+                    fallback={categoryImage(p.kategori)}
+                    alt={p.nama}
+                    dim={habis}
+                  />
                   <div className="flex flex-1 flex-col p-3">
                     <div className="flex-1">
                       <p className="line-clamp-2 text-sm font-medium">{p.nama}</p>
@@ -498,25 +504,29 @@ export function StorefrontView() {
   );
 }
 
-function ProductImage({ src, alt, dim }: { src: string; alt: string; dim?: boolean }) {
+function ProductImage({
+  src,
+  fallback,
+  alt,
+  dim,
+}: {
+  src: string;
+  fallback: string;
+  alt: string;
+  dim?: boolean;
+}) {
   const [broken, setBroken] = useState(false);
-  const show = src && !broken;
+  const url = src && !broken ? src : fallback;
   return (
     <div className={cn("aspect-square w-full bg-muted/40", dim && "opacity-60")}>
-      {show ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          onError={() => setBroken(true)}
-          className="size-full object-cover"
-        />
-      ) : (
-        <div className="flex size-full items-center justify-center text-muted-foreground/40">
-          <ShoppingBag className="size-10" aria-hidden />
-        </div>
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        loading="lazy"
+        onError={() => setBroken(true)}
+        className="size-full object-cover"
+      />
     </div>
   );
 }

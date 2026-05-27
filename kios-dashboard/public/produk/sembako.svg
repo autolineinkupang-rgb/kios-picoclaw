@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Sembako">
+  <rect width="400" height="400" fill="#fef3c7"/>
+  <g fill="none" stroke="#d97706" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M156 168 h88 l16 24 v74 a16 16 0 0 1 -16 16 h-104 a16 16 0 0 1 -16 -16 v-74 z"/>
+    <path d="M156 168 l-12 -20 h88 l12 20"/>
+    <path d="M196 220 h28"/>
+  </g>
+  <text x="200" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="600" fill="#92400e">Sembako</text>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Mie">
+  <rect width="400" height="400" fill="#ffedd5"/>
+  <g fill="none" stroke="#ea580c" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M134 196 h132 l-12 64 a18 18 0 0 1 -18 14 h-72 a18 18 0 0 1 -18 -14 z"/>
+    <ellipse cx="200" cy="196" rx="66" ry="12"/>
+    <path d="M176 170 q10 -16 0 -34"/>
+    <path d="M200 170 q10 -16 0 -34"/>
+    <path d="M224 170 q10 -16 0 -34"/>
+  </g>
+  <text x="200" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="600" fill="#9a3412">Mie</text>
+</svg>

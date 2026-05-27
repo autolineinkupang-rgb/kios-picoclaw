@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Gas">
+  <rect width="400" height="400" fill="#fee2e2"/>
+  <g fill="none" stroke="#dc2626" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="156" y="158" width="88" height="116" rx="22"/>
+    <rect x="184" y="138" width="32" height="22" rx="6"/>
+    <path d="M156 196 h88"/>
+  </g>
+  <text x="200" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="600" fill="#991b1b">Gas</text>
+</svg>
