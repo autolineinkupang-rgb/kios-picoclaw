@@ -123,6 +123,7 @@ export interface KiosConfig {
   qris_enabled: boolean;
   qris_nama: string;
   qris_image_url: string;
+  wa_number: string; // kios WhatsApp number (buyer contact / order confirmation)
 }
 
 export type Role = "owner" | "kasir";

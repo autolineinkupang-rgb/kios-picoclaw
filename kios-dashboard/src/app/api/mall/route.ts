@@ -26,7 +26,7 @@ export async function GET() {
         ? { enabled: true, nama: cfg.qris_nama || "Kios Cerdas", image_url: cfg.qris_image_url }
         : { enabled: false };
     return NextResponse.json(
-      { ok: true, produk, kategori, qris },
+      { ok: true, produk, kategori, qris, wa_number: cfg.wa_number || "" },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {

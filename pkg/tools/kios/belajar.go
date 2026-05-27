@@ -191,6 +191,7 @@ func (t *BelajarTool) Parameters() map[string]any {
 			"qris_enabled":   map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) opsi pembayaran QRIS di toko & perintah /qris."},
 			"qris_nama":      map[string]any{"type": "string", "description": "Nama merchant yang ditampilkan saat pembayaran QRIS (mis. 'Kios Cerdas')."},
 			"qris_image_url": map[string]any{"type": "string", "description": "URL gambar QR statis QRIS kios untuk dipindai pembeli."},
+			"wa_number":      map[string]any{"type": "string", "description": "Nomor WhatsApp kios untuk konfirmasi pesanan & kontak pembeli (mis. 08123456789)."},
 		},
 		"required": []string{"action"},
 	}
@@ -245,8 +246,12 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 			cfg.QrisImageURL = strings.TrimSpace(v)
 			changed = true
 		}
+		if v := argStr(args, "wa_number"); v != "" {
+			cfg.WaNumber = strings.TrimSpace(v)
+			changed = true
+		}
 		if !changed {
-			return tools.ErrorResult("Isi auto_learn, learn_model, notif_enabled, notif_jam, qris_enabled, qris_nama, atau qris_image_url ya kak 🙏")
+			return tools.ErrorResult("Isi auto_learn, learn_model, notif_enabled, notif_jam, qris_enabled, qris_nama, qris_image_url, atau wa_number ya kak 🙏")
 		}
 		if err := t.store.SaveConfig(ctx, cfg); err != nil {
 			return tools.ErrorResult(fmt.Sprintf("Gagal simpan konfigurasi: %v", err))
@@ -347,12 +352,17 @@ func formatConfig(cfg KiosConfig) string {
 			qrisInfo += " — gambar QR belum di-set"
 		}
 	}
+	waInfo := "belum di-set"
+	if cfg.WaNumber != "" {
+		waInfo = cfg.WaNumber
+	}
 	return fmt.Sprintf(
 		"- Belajar otomatis: %s\n"+
 			"- Model AI untuk pembelajaran: %s\n"+
 			"- Notif stok menipis: %s (jam %s:00 WITA)\n"+
-			"- Pembayaran QRIS: %s",
-		onOff(cfg.AutoLearnEnabled), modelInfo, onOff(cfg.NotifEnabled), cfg.NotifJam, qrisInfo,
+			"- Pembayaran QRIS: %s\n"+
+			"- Nomor WhatsApp kios: %s",
+		onOff(cfg.AutoLearnEnabled), modelInfo, onOff(cfg.NotifEnabled), cfg.NotifJam, qrisInfo, waInfo,
 	)
 }
 

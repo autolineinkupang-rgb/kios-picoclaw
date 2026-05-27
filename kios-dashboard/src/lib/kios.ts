@@ -120,6 +120,7 @@ const DEFAULT_CONFIG: KiosConfig = {
   qris_enabled: false,
   qris_nama: "",
   qris_image_url: "",
+  wa_number: "",
 };
 
 export async function getConfig(): Promise<KiosConfig> {

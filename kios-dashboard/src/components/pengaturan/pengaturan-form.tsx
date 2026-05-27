@@ -168,6 +168,30 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Kontak WhatsApp</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1.5 py-1">
+            <Label htmlFor="wa_number">Nomor WhatsApp kios</Label>
+            <Input
+              id="wa_number"
+              value={cfg.wa_number}
+              onChange={(e) => setCfg({ ...cfg, wa_number: e.target.value })}
+              placeholder="mis. 08123456789"
+              inputMode="tel"
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Dipakai tombol &quot;Konfirmasi via WhatsApp&quot; di toko pembeli. Pembeli akan
+              langsung diarahkan chat ke nomor ini berisi ringkasan pesanan. Kasir juga bisa
+              kirim struk + QRIS ke nomor WhatsApp pembeli dari halaman Pesanan.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center gap-3">
         <Button variant="accent" size="md" onClick={save} disabled={pending}>
           {pending && <Loader2 className="size-4 animate-spin" />}

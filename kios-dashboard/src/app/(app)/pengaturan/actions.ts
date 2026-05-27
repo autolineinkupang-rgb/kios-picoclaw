@@ -22,6 +22,8 @@ export async function saveConfigAction(input: KiosConfig): Promise<ActionResult>
     return { ok: false, error: "URL gambar QRIS harus diawali http:// atau https://." };
   }
 
+  const waNumber = (input.wa_number ?? "").replace(/\D/g, "").slice(0, 20);
+
   const current = await getConfig();
   const cfg: KiosConfig = {
     ...current,
@@ -32,6 +34,7 @@ export async function saveConfigAction(input: KiosConfig): Promise<ActionResult>
     qris_enabled: Boolean(input.qris_enabled),
     qris_nama: (input.qris_nama ?? "").trim().slice(0, 60),
     qris_image_url: qrisImageUrl.slice(0, 500),
+    wa_number: waNumber,
   };
   await saveConfig(cfg);
   revalidatePath("/pengaturan");

@@ -27,7 +27,7 @@ Gunakan tool berikut untuk data NYATA — jangan pernah mengarang angka stok, ha
 - **`kios_pustaka`** — pustaka info + sumber URL yang dicek aman dari malware/phishing; URL tak aman ditolak.
 - **`kios_pasar`** — intelijen harga pasar: simpan harga pasar + analisa harga kita vs pasar. Untuk riset online, gunakan web search lalu simpan.
 - **`kios_belajar`** — memori belajar: alias produk, shortcut paket, kebiasaan (jam ramai/produk laris), pola.
-  - `config_get` / `config_set` (owner) — lihat/ubah apakah belajar otomatis aktif, model AI yang dipakai, jadwal notif stok menipis (`notif_enabled`, `notif_jam`), dan pembayaran QRIS (`qris_enabled`, `qris_nama`, `qris_image_url`). Perintah cepat `/qris` menampilkan QR pembayaran ke pelanggan.
+  - `config_get` / `config_set` (owner) — lihat/ubah apakah belajar otomatis aktif, model AI yang dipakai, jadwal notif stok menipis (`notif_enabled`, `notif_jam`), pembayaran QRIS (`qris_enabled`, `qris_nama`, `qris_image_url`), dan nomor WhatsApp kios (`wa_number`). Perintah cepat `/qris` menampilkan QR pembayaran ke pelanggan; nomor WA dipakai tombol konfirmasi pesanan di toko web.
 - **`kios_import_upload`** — import file Excel/CSV yang DIUNGGAH pengguna di chat ke data produk/supplier (semua user aktif boleh). Panggil saat ada lampiran file + minta import.
 
 Untuk penjualan yang butuh struk + kembalian, pakai `kios_kasir` action `jual` (sertakan `bayar`

@@ -176,6 +176,8 @@ type KiosConfig struct {
 	QrisNama string `json:"qris_nama"`
 	// QrisImageURL adalah URL gambar QR statis QRIS kios untuk dipindai pembeli.
 	QrisImageURL string `json:"qris_image_url"`
+	// WaNumber adalah nomor WhatsApp kios (untuk konfirmasi pesanan & kontak pembeli).
+	WaNumber string `json:"wa_number"`
 }
 
 func defaultConfig() KiosConfig {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
+  MessageCircle,
   Minus,
   Plus,
   QrCode,
@@ -21,6 +22,7 @@ import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { buildOrderWa, waLink } from "@/lib/wa";
 import type { PublicProduk } from "@/lib/types";
 
 interface CartLine {
@@ -42,6 +44,7 @@ export function StorefrontView() {
   const [produk, setProduk] = useState<PublicProduk[]>([]);
   const [kategori, setKategori] = useState<string[]>([]);
   const [qris, setQris] = useState<QrisInfo>({ enabled: false });
+  const [waNumber, setWaNumber] = useState("");
 
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("");
@@ -53,7 +56,12 @@ export function StorefrontView() {
   const [metode, setMetode] = useState<Metode>("tunai");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ id: string; total: number; metode: Metode } | null>(null);
+  const [done, setDone] = useState<{
+    id: string;
+    total: number;
+    metode: Metode;
+    lines: { nama: string; qty: number; subtotal: number }[];
+  } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -72,6 +80,7 @@ export function StorefrontView() {
         : { enabled: false };
       setQris(q);
       if (!q.enabled) setMetode("tunai");
+      setWaNumber(typeof data.wa_number === "string" ? data.wa_number : "");
     } catch {
       setLoadError(true);
     } finally {
@@ -135,7 +144,12 @@ export function StorefrontView() {
         setSubmitError(data.error || "Gagal mengirim pesanan.");
         return;
       }
-      setDone({ id: data.id, total: data.total, metode });
+      setDone({
+        id: data.id,
+        total: data.total,
+        metode,
+        lines: cart.map((l) => ({ nama: l.nama, qty: l.qty, subtotal: l.qty * l.harga })),
+      });
       setCart([]);
       setNama("");
       setKontak("");
@@ -431,6 +445,20 @@ export function StorefrontView() {
                 : "Kasir kios akan segera memprosesnya."}
             </p>
           </div>
+          {waNumber && done && (
+            <a
+              href={waLink(
+                waNumber,
+                buildOrderWa({ id: done.id, total: done.total, metode: done.metode, lines: done.lines }),
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 text-sm font-medium text-white transition-colors hover:bg-[#1ebe5b]"
+            >
+              <MessageCircle className="size-4" />
+              Konfirmasi via WhatsApp
+            </a>
+          )}
           <Button variant="outline" size="md" className="w-full" onClick={() => setDone(null)}>
             Selesai
           </Button>

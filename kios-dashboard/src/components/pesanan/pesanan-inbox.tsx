@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Loader2,
+  MessageCircle,
   Phone,
   QrCode,
   TriangleAlert,
@@ -19,6 +20,7 @@ import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { buildStrukWa, normalizeWaNumber, waLink, type QrisLite } from "@/lib/wa";
 import type { Pesanan, PesananStatus } from "@/lib/types";
 import {
   prosesPesananAction,
@@ -41,7 +43,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "semua", label: "Semua" },
 ];
 
-export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
+export function PesananInbox({ pesanan, qris }: { pesanan: Pesanan[]; qris: QrisLite }) {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("pending");
   const [confirm, setConfirm] = useState<{ kind: "proses" | "tolak"; order: Pesanan } | null>(null);
@@ -188,6 +190,18 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
                       </div>
                     )}
                   </div>
+
+                  {normalizeWaNumber(o.kontak) && o.status !== "ditolak" && (
+                    <a
+                      href={waLink(o.kontak, buildStrukWa(o, qris))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-3 text-sm font-medium text-white transition-colors hover:bg-[#1ebe5b]"
+                    >
+                      <MessageCircle className="size-4" />
+                      Kirim struk{o.metode_bayar === "qris" ? " + QRIS" : ""} via WhatsApp
+                    </a>
+                  )}
                 </Card>
               </li>
             );
