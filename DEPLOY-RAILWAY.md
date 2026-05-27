@@ -19,9 +19,10 @@ dioperasikan lewat Telegram. Panduan ini memakai **Dockerfile** di root repo.
    pakai bot, pisah koma → **`KIOS_ALLOW_FROM`** (mis. `111111111,222222222`).
 3. (opsional) Di BotFather set `/setprivacy` → **Disable** kalau bot dipakai di grup.
 
-## 3. Siapkan Groq (+ Gemini opsional)
+## 3. Siapkan Groq (+ Gemini / Claude opsional)
 - Groq API key dari https://console.groq.com/keys → **`GROQ_API_KEY`** (LLM utama, gratis/cepat).
 - (opsional) Gemini API key dari https://aistudio.google.com/app/apikey → **`GEMINI_API_KEY`** (cadangan).
+- (opsional) Anthropic API key dari https://console.anthropic.com/settings/keys → **`ANTHROPIC_API_KEY`** (cadangan Claude, model default `claude-sonnet-4-6`).
 
 ## 4. Deploy ke Railway
 1. Push repo ini ke GitHub.
@@ -32,7 +33,7 @@ dioperasikan lewat Telegram. Panduan ini memakai **Dockerfile** di root repo.
    - `KIOS_ALLOW_FROM`
    - `GROQ_API_KEY`
    - `UPSTASH_REDIS_URL`
-   - (opsional) `GEMINI_API_KEY`, `KIOS_DEFAULT_ROLE`, `GROQ_MODEL`, `GEMINI_MODEL`
+   - (opsional) `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `KIOS_DEFAULT_ROLE`, `GROQ_MODEL`, `GEMINI_MODEL`, `ANTHROPIC_MODEL`
    > `PORT` di-set otomatis oleh Railway — jangan diisi manual.
 4. **Deploy**. Railway build dari Dockerfile (≈2–4 menit). Entrypoint merender `config.json`
    dari Variables, lalu menjalankan `picoclaw gateway`.

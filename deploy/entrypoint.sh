@@ -32,13 +32,22 @@ fi
 # Build allow_from as a JSON array from a comma-separated list of Telegram IDs.
 ALLOW_JSON=$(printf '%s' "$KIOS_ALLOW_FROM" | awk -F, '{o="";for(i=1;i<=NF;i++){g=$i;gsub(/^[ \t]+|[ \t]+$/,"",g);if(g!=""){if(o!="")o=o",";o=o "\"" g "\""}}print "["o"]"}')
 
-# Optional Gemini fallback model (only when a key is provided).
+# Optional fallback models (Gemini and/or Claude — only when keys are provided).
 GEMINI_ENTRY=""
-FALLBACKS="[]"
+ANTHROPIC_ENTRY=""
+FALLBACK_MODELS=""
+
 if [ -n "$GEMINI_API_KEY" ]; then
     GEMINI_ENTRY=$(printf ',{"model_name":"gemini-flash","model":"gemini/%s","api_keys":["%s"]}' "${GEMINI_MODEL:-gemini-2.0-flash}" "$GEMINI_API_KEY")
-    FALLBACKS='["gemini-flash"]'
+    FALLBACK_MODELS="${FALLBACK_MODELS:+$FALLBACK_MODELS,}\"gemini-flash\""
 fi
+
+if [ -n "$ANTHROPIC_API_KEY" ]; then
+    ANTHROPIC_ENTRY=$(printf ',{"model_name":"claude","model":"anthropic/%s","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "${ANTHROPIC_MODEL:-claude-sonnet-4-6}" "$ANTHROPIC_API_KEY")
+    FALLBACK_MODELS="${FALLBACK_MODELS:+$FALLBACK_MODELS,}\"claude\""
+fi
+
+FALLBACKS="[${FALLBACK_MODELS}]"
 
 cat > "$CONFIG" <<EOF
 {
@@ -55,7 +64,7 @@ cat > "$CONFIG" <<EOF
     }
   },
   "model_list": [
-    {"model_name":"groq-llama","model":"groq/${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}","api_keys":["$GROQ_API_KEY"]}$GEMINI_ENTRY
+    {"model_name":"groq-llama","model":"groq/${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}","api_keys":["$GROQ_API_KEY"]}$GEMINI_ENTRY$ANTHROPIC_ENTRY
   ],
   "channel_list": {
     "telegram": {
