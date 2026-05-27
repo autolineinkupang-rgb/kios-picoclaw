@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fira_Sans, Fira_Code } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const firaSans = Fira_Sans({
@@ -52,6 +53,7 @@ export default function RootLayout({
       </head>
       <body className={`${firaSans.variable} ${firaCode.variable} antialiased`}>
         {children}
+        <Analytics />
       </body>
     </html>
   );
