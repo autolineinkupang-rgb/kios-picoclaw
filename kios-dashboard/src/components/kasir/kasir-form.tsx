@@ -2,25 +2,39 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, Search, ShoppingCart, TriangleAlert } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  Minus,
+  Plus,
+  Search,
+  ShoppingCart,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { stokStatus, STATUS_META } from "@/lib/produk-status";
 import { cn } from "@/lib/utils";
 import type { Produk } from "@/lib/types";
-import { jualAction, type JualResult } from "@/app/(app)/kasir/actions";
+import { checkoutAction, type CheckoutResult } from "@/app/(app)/kasir/actions";
+
+interface CartLine {
+  produk: Produk;
+  qty: number;
+}
 
 export function KasirForm({ produk }: { produk: Produk[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Produk | null>(null);
-  const [qty, setQty] = useState(1);
+  const [cart, setCart] = useState<CartLine[]>([]);
   const [metode, setMetode] = useState("tunai");
   const [bayar, setBayar] = useState("");
-  const [result, setResult] = useState<JualResult | null>(null);
+  const [result, setResult] = useState<CheckoutResult | null>(null);
   const [pending, start] = useTransition();
 
   const matches = useMemo(() => {
@@ -33,32 +47,53 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
             p.barcode.toLowerCase().includes(q),
         )
       : produk;
-    return list.slice(0, 8);
+    return list.slice(0, 12);
   }, [produk, query]);
 
-  const total = selected ? qty * selected.harga_jual : 0;
+  const total = cart.reduce((s, l) => s + l.qty * l.produk.harga_jual, 0);
   const bayarNum = Number(bayar.replace(/\D/g, "")) || 0;
   const kembalian = bayarNum >= total && bayarNum > 0 ? bayarNum - total : null;
-  const canSubmit =
-    selected !== null && qty > 0 && qty <= selected.stok && !pending;
 
-  function submit() {
-    if (!selected) return;
+  function addToCart(p: Produk) {
+    setResult(null);
+    setCart((prev) => {
+      const idx = prev.findIndex((l) => l.produk.id === p.id);
+      if (idx === -1) return [...prev, { produk: p, qty: 1 }];
+      const next = [...prev];
+      next[idx] = { ...next[idx], qty: Math.min(next[idx].qty + 1, p.stok) };
+      return next;
+    });
+  }
+
+  function setQty(id: string, qty: number) {
+    setCart((prev) =>
+      prev.map((l) =>
+        l.produk.id === id
+          ? { ...l, qty: Math.max(1, Math.min(qty || 1, l.produk.stok)) }
+          : l,
+      ),
+    );
+  }
+
+  function removeLine(id: string) {
+    setCart((prev) => prev.filter((l) => l.produk.id !== id));
+  }
+
+  function checkout() {
+    if (cart.length === 0) return;
     start(async () => {
-      const r = await jualAction({
-        produkId: selected.id,
-        qty,
+      const r = await checkoutAction({
+        items: cart.map((l) => ({ produkId: l.produk.id, qty: l.qty })),
         metode,
         bayar: bayarNum > 0 ? bayarNum : undefined,
       });
       setResult(r);
       if (r.ok) {
-        setSelected(null);
-        setQty(1);
+        setCart([]);
         setBayar("");
         setQuery("");
         router.refresh();
-        window.setTimeout(() => setResult(null), 6000);
+        window.setTimeout(() => setResult(null), 8000);
       }
     });
   }
@@ -81,40 +116,43 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
               aria-label="Cari produk"
             />
           </div>
-          <ul className="max-h-80 space-y-1 overflow-y-auto">
+          <ul className="grid max-h-[28rem] grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
             {matches.length === 0 && (
-              <li className="py-6 text-center text-sm text-muted-foreground">
+              <li className="col-span-full py-6 text-center text-sm text-muted-foreground">
                 Produk tidak ditemukan.
               </li>
             )}
             {matches.map((p) => {
               const st = STATUS_META[stokStatus(p)];
-              const active = selected?.id === p.id;
+              const inCart = cart.find((l) => l.produk.id === p.id)?.qty ?? 0;
               const habis = p.stok <= 0;
+              const maxed = inCart >= p.stok;
               return (
                 <li key={p.id}>
                   <button
                     type="button"
-                    disabled={habis}
-                    onClick={() => {
-                      setSelected(p);
-                      setQty(1);
-                    }}
+                    disabled={habis || maxed}
+                    onClick={() => addToCart(p)}
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors",
-                      active ? "border-accent bg-accent/10" : "border-transparent hover:bg-muted",
-                      habis && "cursor-not-allowed opacity-50",
+                      "flex w-full items-center justify-between gap-2 rounded-lg border p-3 text-left transition-colors",
+                      inCart > 0 ? "border-accent/40 bg-accent/5" : "border-border hover:bg-muted",
+                      (habis || maxed) && "cursor-not-allowed opacity-50",
                     )}
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{p.nama}</p>
                       <p className="font-mono text-xs text-muted-foreground">
-                        {p.id} · {formatRupiah(p.harga_jual)}
+                        {formatRupiah(p.harga_jual)}
                       </p>
                     </div>
-                    <Badge variant={st.variant}>
-                      {p.stok} {p.satuan}
-                    </Badge>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Badge variant={st.variant}>
+                        {p.stok} {p.satuan}
+                      </Badge>
+                      {inCart > 0 && (
+                        <span className="text-xs font-medium text-accent">{inCart} di keranjang</span>
+                      )}
+                    </div>
                   </button>
                 </li>
               );
@@ -123,91 +161,137 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
         </CardContent>
       </Card>
 
-      {/* Cart / checkout */}
+      {/* Cart */}
       <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Transaksi</CardTitle>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Keranjang</CardTitle>
+          {cart.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCart([])}
+              className="text-xs font-medium text-muted-foreground hover:text-destructive"
+            >
+              Kosongkan
+            </button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
-          {!selected ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Pilih produk dulu di sebelah kiri.
-            </p>
+          {cart.length === 0 ? (
+            <EmptyState
+              icon={ShoppingCart}
+              title="Keranjang kosong"
+              description="Klik produk di kiri untuk menambah ke keranjang."
+            />
           ) : (
             <>
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-sm font-medium">{selected.nama}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatRupiah(selected.harga_jual)} / {selected.satuan} · stok {selected.stok}
-                </p>
-              </div>
+              <ul className="space-y-2">
+                {cart.map((l) => {
+                  const sub = l.qty * l.produk.harga_jual;
+                  return (
+                    <li key={l.produk.id} className="rounded-lg border p-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{l.produk.nama}</p>
+                          <p className="font-mono text-xs text-muted-foreground">
+                            {formatRupiah(l.produk.harga_jual)} · stok {l.produk.stok}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeLine(l.produk.id)}
+                          aria-label={`Hapus ${l.produk.nama}`}
+                          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setQty(l.produk.id, l.qty - 1)}
+                            disabled={l.qty <= 1}
+                            aria-label="Kurangi"
+                            className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-input hover:bg-muted disabled:opacity-40"
+                          >
+                            <Minus className="size-3.5" />
+                          </button>
+                          <input
+                            value={String(l.qty)}
+                            onChange={(e) => setQty(l.produk.id, Number(e.target.value.replace(/\D/g, "")))}
+                            inputMode="numeric"
+                            aria-label={`Jumlah ${l.produk.nama}`}
+                            className="h-8 w-12 rounded-md border border-input bg-background text-center font-mono text-sm tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setQty(l.produk.id, l.qty + 1)}
+                            disabled={l.qty >= l.produk.stok}
+                            aria-label="Tambah"
+                            className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-input hover:bg-muted disabled:opacity-40"
+                          >
+                            <Plus className="size-3.5" />
+                          </button>
+                        </div>
+                        <span className="font-mono text-sm font-medium tabular-nums">
+                          {formatRupiah(sub)}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="qty">Jumlah</Label>
-                <Input
-                  id="qty"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={selected.stok}
-                  value={String(qty)}
-                  onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
-                  className="font-mono tabular-nums"
-                />
-                {qty > selected.stok && (
-                  <p className="text-xs text-destructive">Melebihi stok ({selected.stok}).</p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="metode">Metode Bayar</Label>
-                <Select id="metode" value={metode} onChange={(e) => setMetode(e.target.value)}>
-                  <option value="tunai">Tunai</option>
-                  <option value="transfer">Transfer</option>
-                  <option value="qris">QRIS</option>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="bayar">Uang Dibayar (opsional)</Label>
-                <Input
-                  id="bayar"
-                  inputMode="numeric"
-                  value={bayar}
-                  onChange={(e) => setBayar(e.target.value.replace(/\D/g, ""))}
-                  placeholder="untuk hitung kembalian"
-                  className="font-mono tabular-nums"
-                />
-              </div>
-
-              <div className="space-y-1 border-t pt-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="font-semibold tabular-nums">{formatRupiah(total)}</span>
-                </div>
-                {kembalian !== null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Kembalian</span>
-                    <span className="font-medium tabular-nums">{formatRupiah(kembalian)}</span>
+              <div className="space-y-3 border-t pt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="metode">Metode</Label>
+                    <Select id="metode" value={metode} onChange={(e) => setMetode(e.target.value)}>
+                      <option value="tunai">Tunai</option>
+                      <option value="transfer">Transfer</option>
+                      <option value="qris">QRIS</option>
+                    </Select>
                   </div>
-                )}
-                {bayarNum > 0 && bayarNum < total && (
-                  <p className="text-xs text-destructive">
-                    Uang kurang {formatRupiah(total - bayarNum)}.
-                  </p>
-                )}
-              </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="bayar">Bayar</Label>
+                    <Input
+                      id="bayar"
+                      inputMode="numeric"
+                      value={bayar}
+                      onChange={(e) => setBayar(e.target.value.replace(/\D/g, ""))}
+                      placeholder="opsional"
+                      className="font-mono tabular-nums"
+                    />
+                  </div>
+                </div>
 
-              <Button
-                variant="accent"
-                size="md"
-                className="w-full"
-                onClick={submit}
-                disabled={!canSubmit}
-              >
-                {pending ? <Loader2 className="size-4 animate-spin" /> : <ShoppingCart className="size-4" />}
-                Catat Penjualan
-              </Button>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total ({cart.length} item)</span>
+                    <span className="text-base font-semibold tabular-nums">{formatRupiah(total)}</span>
+                  </div>
+                  {kembalian !== null && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Kembalian</span>
+                      <span className="font-medium tabular-nums">{formatRupiah(kembalian)}</span>
+                    </div>
+                  )}
+                  {bayarNum > 0 && bayarNum < total && (
+                    <p className="text-xs text-destructive">Uang kurang {formatRupiah(total - bayarNum)}.</p>
+                  )}
+                </div>
+
+                <Button
+                  variant="accent"
+                  size="md"
+                  className="w-full"
+                  onClick={checkout}
+                  disabled={pending || cart.length === 0}
+                >
+                  {pending ? <Loader2 className="size-4 animate-spin" /> : <ShoppingCart className="size-4" />}
+                  Checkout
+                </Button>
+              </div>
             </>
           )}
 
@@ -225,11 +309,20 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
               {result.ok ? (
                 <div className="space-y-1">
                   <p className="flex items-center gap-1.5 font-medium text-success">
-                    <CheckCircle2 className="size-4" /> Tercatat
+                    <CheckCircle2 className="size-4" /> Tercatat — {formatRupiah(result.total)}
                   </p>
-                  <pre className="font-mono text-xs whitespace-pre-wrap text-foreground">
-                    {result.struk}
-                  </pre>
+                  <ul className="font-mono text-xs text-foreground">
+                    {result.lines.map((l) => (
+                      <li key={l.id}>
+                        {l.nama} x{l.qty} = {formatRupiah(l.subtotal)} ({l.id})
+                      </li>
+                    ))}
+                  </ul>
+                  {result.kembalian !== null && (
+                    <p className="text-xs text-muted-foreground">
+                      Kembalian: {formatRupiah(result.kembalian)}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="flex items-center gap-1.5">

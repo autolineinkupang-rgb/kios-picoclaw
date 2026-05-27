@@ -4,6 +4,7 @@ import {
   Receipt,
   BarChart3,
   ShoppingCart,
+  ClipboardList,
   Users,
   Settings,
 } from "lucide-react";
@@ -19,6 +20,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/kasir", label: "Kasir", icon: ShoppingCart },
+  { href: "/pesanan", label: "Pesanan", icon: ClipboardList },
   { href: "/produk", label: "Produk & Stok", icon: Package },
   { href: "/penjualan", label: "Penjualan", icon: Receipt },
   { href: "/laporan", label: "Laporan", icon: BarChart3 },

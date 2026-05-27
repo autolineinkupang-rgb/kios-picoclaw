@@ -33,4 +33,6 @@ export const KEY = {
   users: "kios:users",
   config: "kios:config",
   seqTrx: "kios:seq:trx",
+  pesanan: "kios:pesanan",
+  seqPesanan: "kios:seq:psn",
 } as const;

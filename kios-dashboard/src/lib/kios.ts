@@ -7,6 +7,7 @@ import type {
   Shift,
   UserKios,
   KiosConfig,
+  Pesanan,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -139,6 +140,37 @@ export async function nextTrxId(): Promise<string> {
 
 export async function pushTransaksi(tx: Transaksi): Promise<void> {
   await redis().rpush(KEY.transaksi, tx);
+}
+
+// ── Pesanan (orders from the public storefront) ─────────────────────────────
+
+export async function nextPesananId(): Promise<string> {
+  const n = await redis().incr(KEY.seqPesanan);
+  return `PSN-${String(n).padStart(4, "0")}`;
+}
+
+export async function setPesanan(p: Pesanan): Promise<void> {
+  await redis().hset(KEY.pesanan, { [p.id]: p });
+}
+
+export async function getPesanan(id: string): Promise<Pesanan | null> {
+  return normalize<Pesanan>(await redis().hget<unknown>(KEY.pesanan, id));
+}
+
+export async function getAllPesanan(): Promise<Pesanan[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.pesanan);
+  if (!map) return [];
+  const list = normalizeList<Pesanan>(Object.values(map));
+  list.sort((a, b) => b.created_at - a.created_at); // newest first
+  return list;
+}
+
+/** Generic per-IP rate limiter (sliding window via INCR+EXPIRE). */
+export async function bumpRate(scope: string, ip: string, windowSec: number): Promise<number> {
+  const key = `kios:rate:${scope}:${ip}`;
+  const n = await redis().incr(key);
+  if (n === 1) await redis().expire(key, windowSec);
+  return n;
 }
 
 // ── Login dashboard (kode dari /login bot) ──────────────────────────────────

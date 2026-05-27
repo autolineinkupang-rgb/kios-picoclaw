@@ -80,6 +80,29 @@ export interface UserKios {
   ditambahkan: string;
 }
 
+export interface PesananItem {
+  produk_id: string;
+  nama_produk: string;
+  qty: number;
+  harga_satuan: number;
+  subtotal: number;
+}
+
+export type PesananStatus = "pending" | "diproses" | "ditolak";
+
+export interface Pesanan {
+  id: string;
+  tanggal: string;
+  jam: string;
+  nama_pembeli: string;
+  kontak: string;
+  items: PesananItem[];
+  total: number;
+  catatan: string;
+  status: PesananStatus;
+  created_at: number; // unix seconds
+}
+
 export interface KiosConfig {
   auto_learn_enabled: boolean;
   learn_model: string;
