@@ -69,7 +69,9 @@ func NewAgentLoop(
 	kiosStore := newKiosStoreIfEnabled()
 	cmdDefs := commands.BuiltinDefinitions()
 	if kiosStore != nil {
-		kiosCmds := kios.Commands(kiosStore)
+		notifSvc := kios.NewNotifService(kiosStore, msgBus, "telegram")
+		notifSvc.Start(context.Background())
+		kiosCmds := kios.CommandsWithNotif(kiosStore, notifSvc)
 		cmdDefs = append(cmdDefs, kiosCmds...)
 		// Advertise kios slash-commands in channel menus (e.g. Telegram "/").
 		commands.SetExtraDefinitions(kiosCmds)

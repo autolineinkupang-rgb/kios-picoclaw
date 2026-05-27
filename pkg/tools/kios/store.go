@@ -122,8 +122,9 @@ const (
 	keyLearnAls  = "kios:learn:aliases"
 	keyLearnShc  = "kios:learn:shortcuts"
 	keyLearnHab  = "kios:learn:habits"
-	keyLearnUnk  = "kios:learn:unknowns"
-	keyKiosConfig = "kios:config"
+	keyLearnUnk      = "kios:learn:unknowns"
+	keyKiosConfig    = "kios:config"
+	keyNotifLastDate = "kios:notif:last_date"
 )
 
 // KiosConfig menyimpan preferensi konfigurasi kios yang dapat diubah oleh owner.
@@ -134,18 +135,30 @@ type KiosConfig struct {
 	// LearnModel adalah nama model AI yang dipilih owner untuk tugas pelatihan dan pembelajaran.
 	// Kosong berarti ikuti routing default.
 	LearnModel string `json:"learn_model"`
+	// NotifEnabled mengaktifkan notifikasi stok menipis otomatis ke owner. Default true.
+	NotifEnabled bool `json:"notif_enabled"`
+	// NotifJam adalah jam WITA (format "HH") saat notif dikirim setiap hari. Default "07".
+	NotifJam string `json:"notif_jam"`
+}
+
+func defaultConfig() KiosConfig {
+	return KiosConfig{AutoLearnEnabled: true, NotifEnabled: true, NotifJam: "07"}
 }
 
 // GetConfig membaca konfigurasi kios dari Redis.
-// Jika belum ada, mengembalikan default (AutoLearnEnabled: true).
+// Jika belum ada, mengembalikan default.
 func (s *Store) GetConfig(ctx context.Context) KiosConfig {
 	v, err := s.rdb.Get(ctx, keyKiosConfig).Result()
 	if err != nil {
-		return KiosConfig{AutoLearnEnabled: true}
+		return defaultConfig()
 	}
-	var cfg KiosConfig
+	cfg := defaultConfig()
 	if json.Unmarshal([]byte(v), &cfg) != nil {
-		return KiosConfig{AutoLearnEnabled: true}
+		return defaultConfig()
+	}
+	// Pastikan NotifJam tidak kosong
+	if cfg.NotifJam == "" {
+		cfg.NotifJam = "07"
 	}
 	return cfg
 }

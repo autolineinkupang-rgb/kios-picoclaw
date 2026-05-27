@@ -60,6 +60,12 @@ func templateDir() string {
 // store. They call the tools' logic directly and reply without invoking the
 // LLM, so core data stays accessible even when Groq/Gemini hit rate limits.
 func Commands(store *Store) []commands.Definition {
+	return CommandsWithNotif(store, nil)
+}
+
+// CommandsWithNotif sama dengan Commands, dengan dukungan perintah /notif
+// jika notifSvc tidak nil.
+func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definition {
 	stok := NewStokTool(store)
 	laporan := NewLaporanTool(store)
 	harga := NewHargaTool(store)
@@ -262,6 +268,24 @@ func Commands(store *Store) []commands.Definition {
 			Description: "Panduan lengkap cara pakai Kios Cerdas",
 			Handler: func(_ context.Context, req commands.Request, _ *commands.Runtime) error {
 				return reply(req, panduanText)
+			},
+		},
+		{
+			Name:        "notif",
+			Description: "Cek & kirim notif stok menipis sekarang (khusus owner)",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				ctx = withSender(ctx, req)
+				role, _, refusal := resolveRole(ctx, store)
+				if refusal != nil {
+					return reply(req, refusal.ForLLM)
+				}
+				if r := requireOwner(role); r != nil {
+					return reply(req, r.ForLLM)
+				}
+				if notifSvc == nil {
+					return reply(req, "Layanan notifikasi belum aktif kak 😔")
+				}
+				return reply(req, notifSvc.CheckNow(ctx))
 			},
 		},
 	}

@@ -184,8 +184,10 @@ func (t *BelajarTool) Parameters() map[string]any {
 			"input":       map[string]any{"type": "string"},
 			"intent":      map[string]any{"type": "string"},
 			"cmd":         map[string]any{"type": "string"},
-			"auto_learn":  map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) belajar otomatis."},
-			"learn_model": map[string]any{"type": "string", "description": "Nama model AI untuk tugas pembelajaran (mis. 'claude', 'groq', 'gemini'). Kosong = ikuti routing default."},
+			"auto_learn":    map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) belajar otomatis."},
+			"learn_model":   map[string]any{"type": "string", "description": "Nama model AI untuk tugas pembelajaran (mis. 'claude', 'groq', 'gemini'). Kosong = ikuti routing default."},
+			"notif_enabled": map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) notifikasi stok menipis otomatis."},
+			"notif_jam":     map[string]any{"type": "string", "description": "Jam WITA pengiriman notif stok menipis (format HH, mis. '07' = 07:00 WITA)."},
 		},
 		"required": []string{"action"},
 	}
@@ -200,19 +202,24 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 	switch argStr(args, "action") {
 	case "config_get":
 		cfg := t.store.GetConfig(ctx)
-		status := "AKTIF"
+		learnStatus := "AKTIF"
 		if !cfg.AutoLearnEnabled {
-			status = "NONAKTIF"
+			learnStatus = "NONAKTIF"
 		}
 		modelInfo := "ikuti routing default"
 		if cfg.LearnModel != "" {
 			modelInfo = cfg.LearnModel
 		}
+		notifStatus := "AKTIF"
+		if !cfg.NotifEnabled {
+			notifStatus = "NONAKTIF"
+		}
 		return tools.NewToolResult(fmt.Sprintf(
-			"Konfigurasi Belajar Kios:\n"+
+			"Konfigurasi Kios:\n"+
 				"- Belajar otomatis: %s\n"+
-				"- Model AI untuk pembelajaran: %s",
-			status, modelInfo,
+				"- Model AI untuk pembelajaran: %s\n"+
+				"- Notif stok menipis: %s (jam %s:00 WITA)",
+			learnStatus, modelInfo, notifStatus, cfg.NotifJam,
 		))
 
 	case "config_set":
@@ -230,26 +237,43 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 			cfg.LearnModel = strings.TrimSpace(v)
 			changed = true
 		}
+		if v := argStr(args, "notif_enabled"); v != "" {
+			cfg.NotifEnabled = v == "true"
+			changed = true
+		}
+		if v := argStr(args, "notif_jam"); v != "" {
+			jam := strings.TrimSpace(v)
+			if len(jam) == 1 {
+				jam = "0" + jam
+			}
+			cfg.NotifJam = jam
+			changed = true
+		}
 		if !changed {
-			return tools.ErrorResult("Isi auto_learn (true/false) atau learn_model ya kak 🙏")
+			return tools.ErrorResult("Isi auto_learn, learn_model, notif_enabled, atau notif_jam ya kak 🙏")
 		}
 		if err := t.store.SaveConfig(ctx, cfg); err != nil {
 			return tools.ErrorResult(fmt.Sprintf("Gagal simpan konfigurasi: %v", err))
 		}
 
-		status := "AKTIF"
+		learnStatus := "AKTIF"
 		if !cfg.AutoLearnEnabled {
-			status = "NONAKTIF"
+			learnStatus = "NONAKTIF"
 		}
 		modelInfo := "ikuti routing default"
 		if cfg.LearnModel != "" {
 			modelInfo = cfg.LearnModel
 		}
+		notifStatus := "AKTIF"
+		if !cfg.NotifEnabled {
+			notifStatus = "NONAKTIF"
+		}
 		return tools.NewToolResult(fmt.Sprintf(
-			"Konfigurasi belajar diperbarui:\n"+
+			"Konfigurasi diperbarui:\n"+
 				"- Belajar otomatis: %s\n"+
-				"- Model AI untuk pembelajaran: %s",
-			status, modelInfo,
+				"- Model AI untuk pembelajaran: %s\n"+
+				"- Notif stok menipis: %s (jam %s:00 WITA)",
+			learnStatus, modelInfo, notifStatus, cfg.NotifJam,
 		))
 
 	case "alias_set":
