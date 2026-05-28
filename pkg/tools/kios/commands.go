@@ -432,6 +432,12 @@ func checkWebsiteStatus(ctx context.Context) string {
 		PesananPending int  `json:"pesanan_pending"`
 	}
 	_ = json.Unmarshal(body, &h)
+	// Best-effort: pull the richer authenticated summary. When the service
+	// secret isn't set (or verification fails) we fall back to the plain health
+	// ping so /web keeps working without the secure channel configured.
+	if summary, err := fetchDashboardSummary(ctx); err == nil {
+		return formatDashboardSummary(summary, base, latency)
+	}
 	redisStr := "ok"
 	if !h.Redis {
 		redisStr = "GAGAL"
