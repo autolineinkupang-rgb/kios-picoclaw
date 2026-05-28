@@ -11,14 +11,15 @@ updates:
       - "dependencies"
       - "go"
 
-  # Frontend dependencies
+  # Dashboard (Next.js admin CMS) dependencies — the app the kios fork actually
+  # deploys to Vercel. The upstream /web/frontend Vite app is unused here.
   - package-ecosystem: "npm"
-    directory: "/web/frontend"
+    directory: "/kios-dashboard"
     schedule:
       interval: "weekly"
     labels:
       - "dependencies"
-      - "frontend"
+      - "dashboard"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

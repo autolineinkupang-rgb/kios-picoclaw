@@ -1,0 +1,42 @@
+name: Kios Dashboard
+
+# Typecheck + unit tests for the Next.js admin dashboard. The kios fork pushes
+# straight to main, so this also runs on push (not just PRs) to catch a
+# regression even without a PR. Mirrors kios.yml, which covers the Go side.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kios-dashboard/**'
+      - '.github/workflows/kios-dashboard.yml'
+  pull_request:
+    paths:
+      - 'kios-dashboard/**'
+
+defaults:
+  run:
+    working-directory: kios-dashboard
+
+jobs:
+  check:
+    name: Typecheck & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: kios-dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
