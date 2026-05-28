@@ -151,6 +151,14 @@ func requireOwner(role string) *tools.ToolResult {
 	return nil
 }
 
+// requireStaff returns a refusal when role is neither owner nor kasir.
+func requireStaff(role string) *tools.ToolResult {
+	if role != "owner" && role != "kasir" {
+		return tools.ErrorResult("Maaf ya kak 🙏 aksi ini khusus owner/kasir.")
+	}
+	return nil
+}
+
 // findOne returns the single best product match for a query, or nil.
 func findOne(ctx context.Context, store *Store, query string) (*Produk, error) {
 	if strings.TrimSpace(query) == "" {

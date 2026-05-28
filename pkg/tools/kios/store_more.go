@@ -15,6 +15,7 @@ type Supplier struct {
 	Kontak      string `json:"kontak"`
 	Alamat      string `json:"alamat"`
 	ProdukUtama string `json:"produk_utama"`
+	Pic         string `json:"pic"`
 	Catatan     string `json:"catatan"`
 }
 
@@ -222,4 +223,34 @@ func parseQtyDefault(v any, def int) int {
 		}
 	}
 	return def
+}
+
+// hargaSupplierField membentuk field hash override: "<produk_id>|<nama_supplier>".
+func hargaSupplierField(produkID, supplier string) string {
+	return produkID + "|" + supplier
+}
+
+// GetAllHargaSupplier mengembalikan override harga manual: field -> harga.
+func (s *Store) GetAllHargaSupplier(ctx context.Context) (map[string]int, error) {
+	m, err := s.rdb.HGetAll(ctx, keyHargaSupplier).Result()
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]int, len(m))
+	for k, v := range m {
+		if n, err := strconv.Atoi(v); err == nil {
+			out[k] = n
+		}
+	}
+	return out, nil
+}
+
+// SetHargaSupplier menyimpan override harga manual untuk (produk, supplier).
+func (s *Store) SetHargaSupplier(ctx context.Context, produkID, supplier string, harga int) error {
+	return s.rdb.HSet(ctx, keyHargaSupplier, hargaSupplierField(produkID, supplier), strconv.Itoa(harga)).Err()
+}
+
+// DelHargaSupplier menghapus override harga manual untuk (produk, supplier).
+func (s *Store) DelHargaSupplier(ctx context.Context, produkID, supplier string) error {
+	return s.rdb.HDel(ctx, keyHargaSupplier, hargaSupplierField(produkID, supplier)).Err()
 }

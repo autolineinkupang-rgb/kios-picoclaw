@@ -1191,3 +1191,56 @@ func TestOwnerOnlyGate(t *testing.T) {
 		t.Errorf("kasir must be refused on hapus, got: %s (err=%v)", res.ForLLM, res.IsError)
 	}
 }
+
+func TestSupplierTool_PicField(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	tool := NewSupplierTool(s)
+	tool.Execute(ctx, map[string]any{"action": "tambah", "nama": "UD Maju", "pic": "Pak Budi"})
+	res := tool.Execute(ctx, map[string]any{"action": "cari", "nama": "UD Maju"})
+	if !strings.Contains(res.ForLLM, "Pak Budi") {
+		t.Errorf("expected PIC 'Pak Budi' in cari output, got: %s", res.ForLLM)
+	}
+}
+
+func TestHargaSupplierOverride(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.SetHargaSupplier(ctx, "P1", "UD Maju", 54000); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	all, err := s.GetAllHargaSupplier(ctx)
+	if err != nil {
+		t.Fatalf("getall: %v", err)
+	}
+	if all["P1|UD Maju"] != 54000 {
+		t.Errorf("expected 54000, got %d", all["P1|UD Maju"])
+	}
+}
+
+func TestBandingHarga_OverrideWins(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	_ = s.SetProduk(ctx, &Produk{ID: "P1", Nama: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "Toko Beta"})
+	s.AppendPembelian(ctx, &Pembelian{ProdukID: "P1", NamaProduk: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "Toko Beta"})
+	// Override manual: UD Maju menawarkan 50000 (termurah)
+	_ = s.SetHargaSupplier(ctx, "P1", "UD Maju", 50000)
+
+	res := NewSupplierTool(s).Execute(ctx, map[string]any{"action": "banding_harga", "produk": "Beras Medium 5kg"})
+	if !strings.Contains(res.ForLLM, "UD Maju") || !strings.Contains(res.ForLLM, "termurah") {
+		t.Errorf("expected UD Maju as termurah via override, got: %s", res.ForLLM)
+	}
+}
+
+func TestSupplierTool_KasirCanAddNotDelete(t *testing.T) {
+	t.Setenv("KIOS_DEFAULT_ROLE", "kasir")
+	s := newTestStore(t)
+	tool := NewSupplierTool(s)
+	ctx := context.Background()
+	if res := tool.Execute(ctx, map[string]any{"action": "tambah", "nama": "UD Sinar"}); res.IsError {
+		t.Fatalf("kasir should add supplier, got: %s", res.ForLLM)
+	}
+	if res := tool.Execute(ctx, map[string]any{"action": "hapus", "nama": "UD Sinar"}); !res.IsError {
+		t.Errorf("kasir should NOT delete supplier")
+	}
+}

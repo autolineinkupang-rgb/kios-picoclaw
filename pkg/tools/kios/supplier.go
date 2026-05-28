@@ -15,8 +15,8 @@ type SupplierTool struct{ store *Store }
 func (t *SupplierTool) Name() string { return "kios_supplier" }
 
 func (t *SupplierTool) Description() string {
-	return "Kelola supplier kios: tambah, daftar, cari, hapus, dan bandingkan harga beli " +
-		"sebuah produk antar supplier (dari riwayat pembelian). Tambah/hapus khusus owner."
+	return "Kelola supplier kios: tambah, edit, daftar, cari, hapus, dan bandingkan harga beli " +
+		"sebuah produk antar supplier (riwayat pembelian + override). Tambah/edit owner+kasir; hapus khusus owner."
 }
 
 func (t *SupplierTool) Parameters() map[string]any {
@@ -33,6 +33,7 @@ func (t *SupplierTool) Parameters() map[string]any {
 			"kontak":       map[string]any{"type": "string"},
 			"alamat":       map[string]any{"type": "string"},
 			"produk_utama": map[string]any{"type": "string"},
+			"pic":          map[string]any{"type": "string", "description": "nama PIC/sales"},
 			"catatan":      map[string]any{"type": "string"},
 			"produk":       map[string]any{"type": "string", "description": "produk untuk banding_harga"},
 		},
@@ -47,12 +48,12 @@ func (t *SupplierTool) Execute(ctx context.Context, args map[string]any) *tools.
 	}
 	switch argStr(args, "action") {
 	case "tambah":
-		if r := requireOwner(role); r != nil {
+		if r := requireStaff(role); r != nil {
 			return r
 		}
 		return t.tambah(ctx, args)
 	case "edit":
-		if r := requireOwner(role); r != nil {
+		if r := requireStaff(role); r != nil {
 			return r
 		}
 		return t.edit(ctx, args)
@@ -90,7 +91,7 @@ func (t *SupplierTool) tambah(ctx context.Context, args map[string]any) *tools.T
 	}
 	sup := &Supplier{
 		ID: id, Nama: nama, Kontak: argStr(args, "kontak"), Alamat: argStr(args, "alamat"),
-		ProdukUtama: argStr(args, "produk_utama"), Catatan: argStr(args, "catatan"),
+		ProdukUtama: argStr(args, "produk_utama"), Pic: argStr(args, "pic"), Catatan: argStr(args, "catatan"),
 	}
 	if err := t.store.SetSupplier(ctx, sup); err != nil {
 		return tools.ErrorResult("Aduh, gagal simpan supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
@@ -124,12 +125,16 @@ func (t *SupplierTool) edit(ctx context.Context, args map[string]any) *tools.Too
 		sup.ProdukUtama = v
 		changed = append(changed, "produk_utama")
 	}
+	if v := argStr(args, "pic"); v != "" {
+		sup.Pic = v
+		changed = append(changed, "pic")
+	}
 	if v := argStr(args, "catatan"); v != "" {
 		sup.Catatan = v
 		changed = append(changed, "catatan")
 	}
 	if len(changed) == 0 {
-		return tools.ErrorResult("Tidak ada field yang diubah. Sebutkan nama_baru/kontak/alamat/produk_utama/catatan.")
+		return tools.ErrorResult("Tidak ada field yang diubah. Sebutkan nama_baru/kontak/alamat/produk_utama/pic/catatan.")
 	}
 	if err := t.store.SetSupplier(ctx, sup); err != nil {
 		return tools.ErrorResult("Aduh, gagal simpan supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
@@ -169,8 +174,8 @@ func (t *SupplierTool) cari(ctx context.Context, args map[string]any) *tools.Too
 			supplied = append(supplied, p.Nama)
 		}
 	}
-	msg := fmt.Sprintf("[%s] %s\nKontak: %s\nAlamat: %s\nProduk utama: %s\nCatatan: %s",
-		sup.ID, sup.Nama, sup.Kontak, sup.Alamat, sup.ProdukUtama, sup.Catatan)
+	msg := fmt.Sprintf("[%s] %s\nKontak: %s\nAlamat: %s\nPIC: %s\nProduk utama: %s\nCatatan: %s",
+		sup.ID, sup.Nama, sup.Kontak, sup.Alamat, sup.Pic, sup.ProdukUtama, sup.Catatan)
 	if len(supplied) > 0 {
 		msg += "\nMenyuplai: " + strings.Join(supplied, ", ")
 	}
@@ -226,6 +231,17 @@ func (t *SupplierTool) bandingHarga(ctx context.Context, args map[string]any) *t
 	if item != nil && item.Supplier != "" && item.HargaBeli > 0 {
 		if cur, ok := best[item.Supplier]; !ok || item.HargaBeli < cur {
 			best[item.Supplier] = item.HargaBeli
+		}
+	}
+	// Override harga manual diutamakan (mengalahkan riwayat pembelian).
+	if produkID != "" {
+		if overrides, err := t.store.GetAllHargaSupplier(ctx); err == nil {
+			for field, harga := range overrides {
+				parts := strings.SplitN(field, "|", 2)
+				if len(parts) == 2 && parts[0] == produkID && harga > 0 {
+					best[parts[1]] = harga
+				}
+			}
 		}
 	}
 	if len(best) == 0 {
