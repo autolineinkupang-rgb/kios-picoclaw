@@ -3,6 +3,7 @@ package kios
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,7 @@ func (n *NotifService) loop(ctx context.Context) {
 
 	n.tryNotify(ctx)
 	n.tryNotifyOrders(ctx)
+	n.tryNotifyPendingPileup(ctx)
 
 	for {
 		select {
@@ -46,6 +48,7 @@ func (n *NotifService) loop(ctx context.Context) {
 		case <-ticker.C:
 			n.tryNotify(ctx)
 			n.tryNotifyOrders(ctx)
+			n.tryNotifyPendingPileup(ctx)
 		}
 	}
 }
@@ -169,22 +172,79 @@ func (n *NotifService) buildLowStockMessage(ctx context.Context) (string, bool) 
 	var b strings.Builder
 	count := 0
 	for _, p := range all {
-		if p.Stok <= p.StokMinimum {
-			butuh := p.StokMinimum*3 - p.Stok
-			if butuh < 0 {
-				butuh = 0
-			}
-			fmt.Fprintf(&b, "- %s: sisa %d (min %d), perlu restock ±%d\n", p.Nama, p.Stok, p.StokMinimum, butuh)
-			count++
+		if p.Stok > p.StokMinimum {
+			continue
 		}
+		label := "menipis"
+		if p.Stok == 0 {
+			label = "HABIS"
+		} else if p.Stok <= p.StokKritis {
+			label = "kritis"
+		}
+		butuh := p.StokMinimum*3 - p.Stok
+		if butuh < 0 {
+			butuh = 0
+		}
+		fmt.Fprintf(&b, "- %s [%s]: sisa %d (min %d), perlu restock ±%d\n",
+			p.Nama, label, p.Stok, p.StokMinimum, butuh)
+		count++
 	}
 	if count == 0 {
 		return "", false
 	}
 
-	msg := fmt.Sprintf("⚠️ *Notif Stok Menipis* — %s WITA\n\n%s\nSegera restock ya kak! 🙏",
+	msg := fmt.Sprintf("⚠️ *Notif Stok* — %s WITA\n\n%s\nSegera restock ya kak! 🙏",
 		NowWITA().Format("02 Jan 2006 15:04"), b.String())
 	return msg, true
+}
+
+// pendingAlertThreshold membaca ambang dari env, default 5.
+func pendingAlertThreshold() int {
+	if v := strings.TrimSpace(os.Getenv("KIOS_PENDING_ALERT_THRESHOLD")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 5
+}
+
+// shouldAlertPileup memutuskan apakah perlu kirim alert dan state berikutnya.
+// Alert hanya saat pertama kali mencapai/melewati ambang; reset saat turun.
+func shouldAlertPileup(pending, threshold int, state string) (bool, string) {
+	if pending >= threshold {
+		if state == "alerted" {
+			return false, "alerted"
+		}
+		return true, "alerted"
+	}
+	if state == "alerted" {
+		return false, "clear"
+	}
+	return false, state
+}
+
+// tryNotifyPendingPileup memberi tahu owner saat pesanan pending menumpuk.
+func (n *NotifService) tryNotifyPendingPileup(ctx context.Context) {
+	all, err := n.store.GetAllPesanan(ctx)
+	if err != nil {
+		return
+	}
+	pending := 0
+	for _, p := range all {
+		if p.Status == "pending" {
+			pending++
+		}
+	}
+	state, _ := n.store.rdb.Get(ctx, keyNotifPendingState).Result()
+	alert, next := shouldAlertPileup(pending, pendingAlertThreshold(), state)
+	if alert {
+		n.sendToOwners(ctx, fmt.Sprintf(
+			"🛑 *Pesanan Menumpuk* — %s WITA\n\n%d pesanan masih pending. Mohon segera diproses ya kak 🙏",
+			NowWITA().Format("02 Jan 2006 15:04"), pending))
+	}
+	if next != state {
+		_ = n.store.rdb.Set(ctx, keyNotifPendingState, next, 0).Err()
+	}
 }
 
 func (n *NotifService) sendToOwners(ctx context.Context, msg string) {

@@ -11,9 +11,17 @@ import (
 // DailyReportJobName identifies the auto-registered daily report cron job.
 const DailyReportJobName = "kios-laporan-harian"
 
-// DailyReportText builds the daily summary text deterministically (no LLM),
-// suitable for pushing to Telegram from a cron job.
+// summaryFetcher dipisah agar bisa di-stub di test.
+var summaryFetcher = fetchDashboardSummary
+
+// DailyReportText menyusun teks laporan harian. Memakai ringkasan kaya dari
+// /api/summary bila tersedia; bila gagal (dashboard mati / env belum diset),
+// jatuh ke ringkasan Go dari Redis langsung agar laporan tetap terkirim.
 func DailyReportText(ctx context.Context, store *Store) string {
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("KIOS_DASHBOARD_URL")), "/")
+	if s, err := summaryFetcher(ctx); err == nil && s != nil && s.OK {
+		return "📅 Laporan Harian Otomatis\n" + formatDashboardSummary(s, base, 0)
+	}
 	res := NewLaporanTool(store).Execute(ctx, map[string]any{"action": "ringkas"})
 	text := res.ForLLM
 	if strings.TrimSpace(text) == "" {

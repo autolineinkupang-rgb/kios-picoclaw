@@ -153,7 +153,8 @@ const (
 	keyNotifLastDate    = "kios:notif:last_date"
 	keyLoginPrefix      = "kios:login:" // one-time dashboard login codes
 	keyPesanan          = "kios:pesanan"
-	keyNotifPesananLast = "kios:notif:pesanan_last" // highest PSN seq notified to owners
+	keyNotifPesananLast  = "kios:notif:pesanan_last"  // highest PSN seq notified to owners
+	keyNotifPendingState = "kios:notif:pending_state" // "alerted" | "clear"
 )
 
 // loginCodeTTL is how long a /login code stays valid.

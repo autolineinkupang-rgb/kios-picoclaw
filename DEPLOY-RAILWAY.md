@@ -28,12 +28,18 @@ dioperasikan lewat Telegram. Panduan ini memakai **Dockerfile** di root repo.
 1. Push repo ini ke GitHub.
 2. Railway → **New Project → Deploy from GitHub repo** → pilih repo ini.
    Railway mendeteksi `railway.json` + `Dockerfile` otomatis.
-3. Buka tab **Variables**, isi (lihat `deploy/env.example`):
+3. Buka tab **Variables**, isi (lihat `.env.example`):
    - `TELEGRAM_BOT_TOKEN`
    - `KIOS_ALLOW_FROM`
    - `GROQ_API_KEY`
    - `UPSTASH_REDIS_URL`
    - (opsional) `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `KIOS_DEFAULT_ROLE`, `GROQ_MODEL`, `GEMINI_MODEL`, `ANTHROPIC_MODEL`
+   - **Laporan & Alert bot** (opsional, aktif bila diisi):
+     - `KIOS_REPORT_CHAT` — chat ID Telegram tujuan laporan harian otomatis
+     - `KIOS_REPORT_CRON` — jadwal cron (default `0 18 * * *`, TZ Asia/Makassar)
+     - `KIOS_DASHBOARD_URL` — base URL dashboard (mis. `https://kios-dashboard.vercel.app`)
+     - `KIOS_SERVICE_SECRET` — rahasia HMAC; **harus sama** dengan `KIOS_SERVICE_SECRET` di dashboard
+     - `KIOS_PENDING_ALERT_THRESHOLD` — ambang pesanan pending yang memicu alert (default `5`)
    > `PORT` di-set otomatis oleh Railway — jangan diisi manual.
 4. **Deploy**. Railway build dari Dockerfile (≈2–4 menit). Entrypoint merender `config.json`
    dari Variables, lalu menjalankan `picoclaw gateway`.
