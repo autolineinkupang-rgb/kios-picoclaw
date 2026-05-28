@@ -1,4 +1,5 @@
 import { KEY, redis } from "./redis";
+import { formatSuplierId } from "./format";
 import type {
   Produk,
   Transaksi,
@@ -8,6 +9,7 @@ import type {
   UserKios,
   KiosConfig,
   Pesanan,
+  Supplier,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -178,6 +180,53 @@ export async function bumpRate(scope: string, ip: string, windowSec: number): Pr
 }
 
 // ── Login dashboard (kode dari /login bot) ──────────────────────────────────
+
+// --- Supplier ---
+
+export { formatSuplierId };
+
+export async function getAllSuplier(): Promise<Supplier[]> {
+  const m = await redis().hgetall(KEY.suplier);
+  return normalizeList<Supplier>(Object.values(m ?? {}));
+}
+
+export async function getSuplier(id: string): Promise<Supplier | null> {
+  const v = await redis().hget<unknown>(KEY.suplier, id);
+  return normalize<Supplier>(v);
+}
+
+export async function setSuplier(s: Supplier): Promise<void> {
+  await redis().hset(KEY.suplier, { [s.id]: s });
+}
+
+export async function delSuplier(id: string): Promise<void> {
+  await redis().hdel(KEY.suplier, id);
+}
+
+export async function nextSuplierId(): Promise<string> {
+  const n = await redis().incr(KEY.seqSup);
+  return formatSuplierId(n as number);
+}
+
+export async function getAllHargaSupplier(): Promise<Record<string, number>> {
+  const m = (await redis().hgetall(KEY.hargaSupplier)) ?? {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(m)) {
+    const n = typeof v === "number" ? v : parseInt(String(v), 10);
+    if (!Number.isNaN(n)) out[k] = n;
+  }
+  return out;
+}
+
+export async function setHargaSupplier(
+  produkId: string,
+  supplier: string,
+  harga: number,
+): Promise<void> {
+  await redis().hset(KEY.hargaSupplier, {
+    [`${produkId}|${supplier}`]: harga,
+  });
+}
 
 /**
  * Look up and consume a one-time login code written by the bot's /login

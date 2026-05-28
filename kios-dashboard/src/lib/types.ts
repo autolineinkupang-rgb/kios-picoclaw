@@ -51,6 +51,16 @@ export interface Pembelian {
   catatan: string;
 }
 
+export interface Supplier {
+  id: string;
+  nama: string;
+  kontak: string;
+  alamat: string;
+  produk_utama: string;
+  pic: string;
+  catatan: string;
+}
+
 export interface PriceHistory {
   id: string;
   tanggal: string;

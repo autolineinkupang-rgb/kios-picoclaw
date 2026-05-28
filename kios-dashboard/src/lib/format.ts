@@ -1,5 +1,10 @@
 import type { Periode, Transaksi } from "./types";
 
+/** Format supplier ID agar selaras dengan Go: SUP-001, SUP-042, SUP-123. */
+export function formatSuplierId(n: number): string {
+  return "SUP-" + String(n).padStart(3, "0");
+}
+
 const WITA_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 /** Current time shifted to WITA (UTC+8), matching the Go bot's NowWITA(). */
