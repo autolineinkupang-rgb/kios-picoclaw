@@ -1,12 +1,6 @@
 import type { Pesanan } from "./types";
 import { formatRupiah } from "./format";
 
-export interface QrisLite {
-  enabled: boolean;
-  nama?: string;
-  image_url?: string;
-}
-
 /**
  * Normalize an Indonesian phone number to wa.me digits (62…). Accepts inputs
  * like "08xx", "+62 8xx", "8xx", returning "" when there's nothing usable.
@@ -32,22 +26,23 @@ export const KIOS_INTRO =
   "Kios kebutuhan harian di Rote Ndao — pesan online, ambil di kios, tanpa ribet. 😊";
 
 /**
- * Receipt + payment message the kios sends TO the buyer (cashier taps the
- * WhatsApp button in the order inbox). Includes the friendly intro, the struk,
- * and QRIS payment instructions when the order is paid via QRIS.
+ * Receipt message the kios sends TO the buyer (cashier taps the WhatsApp button
+ * in the order inbox). Includes the friendly intro and the struk. For QRIS the
+ * cashier attaches a *dynamic* QR photo (amount-specific, screenshotted from
+ * their app) separately — so the text only tells the buyer the QR follows.
  */
-export function buildStrukWa(p: Pesanan, qris: QrisLite): string {
+export function buildStrukWa(p: Pesanan): string {
   const lines = p.items
     .map((it) => `• ${it.nama_produk} x${it.qty} — ${formatRupiah(it.subtotal)}`)
     .join("\n");
   let msg = `${KIOS_INTRO}\n\n🧾 *Struk ${p.id}*\n${lines}\nTotal: *${formatRupiah(p.total)}*\n\n`;
-  if (p.metode_bayar === "qris" && qris.enabled && qris.image_url) {
+  if (p.metode_bayar === "qris") {
     msg +=
-      `💳 Pembayaran: *QRIS* (${qris.nama || "Kios Cerdas"})\n` +
-      `Scan QR ini untuk bayar:\n${qris.image_url}\n` +
-      `Sudah bayar? Kirim bukti transfernya ke sini ya kak 🙏\n\n`;
+      "💳 Pembayaran: *QRIS*\n" +
+      "QR pembayaran sesuai total ini saya kirim sebagai foto di chat ya kak — " +
+      "silakan scan & bayar, lalu kirim bukti transfernya. 🙏\n\n";
   } else {
-    msg += `💳 Pembayaran: *Tunai* saat ambil pesanan di kios ya kak.\n\n`;
+    msg += "💳 Pembayaran: *Tunai* saat ambil pesanan di kios ya kak.\n\n";
   }
   msg += "Sampai jumpa di kios, terima kasih banyak! 🙏✨";
   return msg;

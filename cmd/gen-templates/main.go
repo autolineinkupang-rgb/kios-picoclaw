@@ -34,6 +34,7 @@ var sheets = []sheet{
 			{"Rokok Surya 16", "8997011710018", "rokok", "bungkus", 40, 27000, 29000, 15, 5, "Agen Rokok Rote", ""},
 			{"Gas LPG 3kg", "", "gas", "tabung", 10, 18000, 22000, 5, 2, "Pangkalan Gas Baa", ""},
 			{"Sabun Mandi", "8999999036007", "kebutuhan", "pcs", 25, 3500, 5000, 10, 3, "Grosir Baa", ""},
+			{"Biskuit Kelapa", "8990111222333", "snack", "bungkus", 40, 3500, 5000, 15, 5, "Grosir Baa", ""},
 		},
 	},
 	{

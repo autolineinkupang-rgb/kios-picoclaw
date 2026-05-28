@@ -20,7 +20,7 @@ import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { buildStrukWa, normalizeWaNumber, waLink, type QrisLite } from "@/lib/wa";
+import { buildStrukWa, normalizeWaNumber, waLink } from "@/lib/wa";
 import type { Pesanan, PesananStatus } from "@/lib/types";
 import {
   prosesPesananAction,
@@ -43,7 +43,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "semua", label: "Semua" },
 ];
 
-export function PesananInbox({ pesanan, qris }: { pesanan: Pesanan[]; qris: QrisLite }) {
+export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("pending");
   const [confirm, setConfirm] = useState<{ kind: "proses" | "tolak"; order: Pesanan } | null>(null);
@@ -192,15 +192,26 @@ export function PesananInbox({ pesanan, qris }: { pesanan: Pesanan[]; qris: Qris
                   </div>
 
                   {normalizeWaNumber(o.kontak) && o.status !== "ditolak" && (
-                    <a
-                      href={waLink(o.kontak, buildStrukWa(o, qris))}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-3 text-sm font-medium text-white transition-colors hover:bg-[#1ebe5b]"
-                    >
-                      <MessageCircle className="size-4" />
-                      Kirim struk{o.metode_bayar === "qris" ? " + QRIS" : ""} via WhatsApp
-                    </a>
+                    <div className="mt-2 space-y-1.5">
+                      {o.metode_bayar === "qris" && (
+                        <p className="flex items-start gap-1.5 rounded-md bg-accent/10 px-2 py-1.5 text-xs text-accent">
+                          <QrCode className="mt-0.5 size-3.5 shrink-0" />
+                          <span>
+                            Bayar QRIS: screenshot QR dinamis (sesuai total) dari aplikasimu, lalu
+                            lampirkan sebagai foto bersama struk ini di WhatsApp.
+                          </span>
+                        </p>
+                      )}
+                      <a
+                        href={waLink(o.kontak, buildStrukWa(o))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-3 text-sm font-medium text-white transition-colors hover:bg-[#1ebe5b]"
+                      >
+                        <MessageCircle className="size-4" />
+                        Kirim struk via WhatsApp
+                      </a>
+                    </div>
                   )}
                 </Card>
               </li>
