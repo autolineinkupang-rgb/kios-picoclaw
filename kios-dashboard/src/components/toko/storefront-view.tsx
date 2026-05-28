@@ -55,6 +55,7 @@ export function StorefrontView() {
   const [kontak, setKontak] = useState("");
   const [catatan, setCatatan] = useState("");
   const [metode, setMetode] = useState<Metode>("tunai");
+  const [qrisChatOpened, setQrisChatOpened] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [done, setDone] = useState<{
@@ -156,6 +157,7 @@ export function StorefrontView() {
       setKontak("");
       setCatatan("");
       setMetode("tunai");
+      setQrisChatOpened(false);
       setOpen(false);
       void load(); // refresh stock
     } catch {
@@ -320,7 +322,15 @@ export function StorefrontView() {
       )}
 
       {/* Cart + checkout */}
-      <Modal open={open} onClose={() => setOpen(false)} title="Keranjang" description="Periksa pesanan & kirim ke kios.">
+      <Modal
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setQrisChatOpened(false);
+        }}
+        title="Keranjang"
+        description="Periksa pesanan & kirim ke kios."
+      >
         <div className="space-y-4">
           {cart.length === 0 ? (
             <EmptyState icon={ShoppingBag} title="Keranjang kosong" description="Tambahkan produk dulu ya." />
@@ -393,7 +403,10 @@ export function StorefrontView() {
                       icon={Wallet}
                       label="Tunai di kios"
                       active={metode === "tunai"}
-                      onClick={() => setMetode("tunai")}
+                      onClick={() => {
+                        setMetode("tunai");
+                        setQrisChatOpened(false);
+                      }}
                     />
                     <MetodeOption
                       icon={QrCode}
@@ -434,14 +447,34 @@ export function StorefrontView() {
                             )}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => setQrisChatOpened(true)}
                             className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1ebe5b]"
                           >
                             <MessageCircle className="size-4" />
                             Chat kasir untuk QR dinamis
                           </a>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Kasir online akan mengirim QR sesuai total belanjamu.
-                          </p>
+                          {!qrisChatOpened ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Kasir online akan mengirim QR sesuai total belanjamu.
+                            </p>
+                          ) : (
+                            <div className="mt-3 space-y-2 rounded-lg border border-accent/40 bg-accent/5 p-2.5 text-left">
+                              <p className="text-xs text-muted-foreground">
+                                Sudah mengirim pesan ke kasir lewat WhatsApp? Kalau sudah, kami masukkan
+                                pesananmu ke antrian supaya kasir bisa proses & kirim QR-nya.
+                              </p>
+                              <Button
+                                variant="accent"
+                                size="sm"
+                                className="w-full"
+                                onClick={submit}
+                                disabled={submitting}
+                              >
+                                {submitting && <Loader2 className="size-4 animate-spin" />}
+                                Sudah kirim — Buat Pesanan
+                              </Button>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
