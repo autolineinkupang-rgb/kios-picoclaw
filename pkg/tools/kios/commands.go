@@ -526,7 +526,7 @@ func availableModels() []modelEntry {
 		list = append(list,
 			modelEntry{"anthropic/claude-haiku-4-5-20251001", "Anthropic — Claude Haiku (cepat & hemat)"},
 			modelEntry{"anthropic/claude-sonnet-4-6", "Anthropic — Claude Sonnet (pintar & seimbang)"},
-			modelEntry{"anthropic/claude-opus-4-8", "Anthropic — Claude Opus 4.8 (paling canggih)"},
+			modelEntry{"anthropic/claude-opus-4-6", "Anthropic — Claude Opus 4.6 (paling canggih)"},
 		)
 	}
 	return list

@@ -128,7 +128,7 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
               <optgroup label="Anthropic">
                 <option value="anthropic/claude-haiku-4-5-20251001">Claude Haiku 4.5 (cepat &amp; hemat)</option>
                 <option value="anthropic/claude-sonnet-4-6">Claude Sonnet 4.6 (pintar &amp; seimbang)</option>
-                <option value="anthropic/claude-opus-4-8">Claude Opus 4.8 (paling canggih)</option>
+                <option value="anthropic/claude-opus-4-6">Claude Opus 4.6 (paling canggih)</option>
               </optgroup>
             </Select>
             <p className="text-xs text-muted-foreground">
