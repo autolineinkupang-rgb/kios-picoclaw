@@ -291,15 +291,17 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 						current = "routing default (dari config.json)"
 					}
 					return reply(req, fmt.Sprintf(
-						"🤖 *Model AI Utama Kios*\n\nSaat ini: *%s*\n\n"+
-							"Untuk mengganti, ketik:\n`/model nama-model`\n\n"+
-							"Contoh:\n"+
-							"• `/model groq/llama-3.3-70b-versatile`\n"+
-							"• `/model gemini/gemini-2.0-flash-lite`\n"+
-							"• `/model groq/mixtral-8x7b-32768`\n\n"+
-							"Untuk kembali ke routing default:\n`/model reset`",
-						current,
+						"🤖 *Model AI Utama Kios*\n\nSaat ini: *%s*\n\n%s\n\n"+
+							"Ketik `/model <nomor>` atau `/model <nama-model>` untuk mengganti.\n"+
+							"Ketik `/model reset` untuk kembali ke routing default.",
+						current, availableModelsText(),
 					))
+				}
+				// Nomor pilihan dari daftar model
+				if n, err2 := strconv.Atoi(strings.TrimSpace(arg)); err2 == nil {
+					if name, ok := modelByNumber(n); ok {
+						arg = name
+					}
 				}
 				if strings.ToLower(arg) == "reset" || strings.ToLower(arg) == "default" {
 					cfg.ModelUtama = ""
@@ -493,6 +495,63 @@ func checkWebsiteStatus(ctx context.Context) string {
 	}
 	return fmt.Sprintf("✅ Dashboard online (%dms)\n%s\nRedis: %s\nPesanan menunggu: %d",
 		latency, base, redisStr, h.PesananPending)
+}
+
+// modelEntry mewakili satu model yang bisa dipilih owner.
+type modelEntry struct {
+	Name  string // model identifier (dipakai untuk set ModelUtama)
+	Label string // deskripsi singkat untuk owner
+}
+
+// availableModels mengembalikan daftar model yang tersedia berdasarkan
+// API key yang di-set di environment variable Railway.
+func availableModels() []modelEntry {
+	var list []modelEntry
+
+	if os.Getenv("GROQ_API_KEY") != "" {
+		list = append(list,
+			modelEntry{"groq/llama-3.3-70b-versatile", "Groq — Llama 3.3 70B (cepat & pintar) ⭐"},
+			modelEntry{"groq/llama3-8b-8192", "Groq — Llama 3 8B (sangat cepat)"},
+			modelEntry{"groq/mixtral-8x7b-32768", "Groq — Mixtral 8x7B (konteks panjang)"},
+		)
+	}
+	if os.Getenv("GEMINI_API_KEY") != "" {
+		list = append(list,
+			modelEntry{"gemini/gemini-2.0-flash-lite", "Gemini — 2.0 Flash Lite (tercepat)"},
+			modelEntry{"gemini/gemini-2.0-flash", "Gemini — 2.0 Flash (seimbang)"},
+			modelEntry{"gemini/gemini-1.5-pro", "Gemini — 1.5 Pro (paling canggih)"},
+		)
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		list = append(list,
+			modelEntry{"anthropic/claude-haiku-4-5-20251001", "Anthropic — Claude Haiku (cepat & hemat)"},
+			modelEntry{"anthropic/claude-sonnet-4-6", "Anthropic — Claude Sonnet (pintar & seimbang)"},
+		)
+	}
+	return list
+}
+
+// availableModelsText membangun teks daftar bernomor model yang tersedia.
+func availableModelsText() string {
+	models := availableModels()
+	if len(models) == 0 {
+		return "_(Tidak ada API key provider yang terdeteksi — set GROQ_API_KEY, GEMINI_API_KEY, atau ANTHROPIC_API_KEY di Railway.)_"
+	}
+	var b strings.Builder
+	b.WriteString("*Pilihan model tersedia:*\n")
+	for i, m := range models {
+		fmt.Fprintf(&b, "%d. `%s`\n   _%s_\n", i+1, m.Name, m.Label)
+	}
+	return b.String()
+}
+
+// modelByNumber mengembalikan nama model berdasarkan nomor pilihan (1-based).
+func modelByNumber(n int) (string, bool) {
+	models := availableModels()
+	if n < 1 || n > len(models) {
+		return "", false
+	}
+	return models[n-1].Name, true
 }
 
 // argAfter returns everything after the first whitespace-separated token

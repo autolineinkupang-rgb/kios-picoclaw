@@ -109,24 +109,36 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="model_utama">Model untuk semua respons bot</Label>
-            <Input
+            <Select
               id="model_utama"
               value={cfg.model_utama ?? ""}
               onChange={(e) => setCfg({ ...cfg, model_utama: e.target.value })}
-              placeholder="Kosong = ikuti routing default (config.json)"
-              className="font-mono"
-            />
+            >
+              <option value="">— Routing default (dari config.json) —</option>
+              <optgroup label="Groq">
+                <option value="groq/llama-3.3-70b-versatile">Llama 3.3 70B Versatile ⭐ (cepat &amp; pintar)</option>
+                <option value="groq/llama3-8b-8192">Llama 3 8B (sangat cepat)</option>
+                <option value="groq/mixtral-8x7b-32768">Mixtral 8x7B (konteks panjang)</option>
+              </optgroup>
+              <optgroup label="Google Gemini">
+                <option value="gemini/gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (tercepat)</option>
+                <option value="gemini/gemini-2.0-flash">Gemini 2.0 Flash (seimbang)</option>
+                <option value="gemini/gemini-1.5-pro">Gemini 1.5 Pro (paling canggih)</option>
+              </optgroup>
+              <optgroup label="Anthropic">
+                <option value="anthropic/claude-haiku-4-5-20251001">Claude Haiku 4.5 (cepat &amp; hemat)</option>
+                <option value="anthropic/claude-sonnet-4-6">Claude Sonnet 4.6 (pintar &amp; seimbang)</option>
+              </optgroup>
+            </Select>
             <p className="text-xs text-muted-foreground">
-              Format: <code className="font-mono">provider/model-id</code>. Contoh:{" "}
-              <code className="font-mono">groq/llama-3.3-70b-versatile</code>,{" "}
-              <code className="font-mono">gemini/gemini-2.0-flash-lite</code>.
-              Kosongkan untuk kembali ke routing default.
+              Pilih model yang tersedia sesuai API key di Railway. Kosong = ikuti routing default.
+              Bisa juga ketik <code className="font-mono">/model</code> di Telegram untuk melihat pilihan.
             </p>
           </div>
           {cfg.model_utama && (
             <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-accent">
               <Bot className="size-3.5 shrink-0" />
-              Bot akan menggunakan <span className="font-mono font-medium">{cfg.model_utama}</span> untuk semua respons.
+              Bot menggunakan <span className="font-mono font-medium">{cfg.model_utama}</span> untuk semua respons.
             </div>
           )}
         </CardContent>
