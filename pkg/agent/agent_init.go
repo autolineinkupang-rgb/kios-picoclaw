@@ -112,7 +112,7 @@ func NewAgentLoop(
 	configureHookManagerFromConfig(al.hooks, cfg)
 	// Override model AI dari KiosConfig (diset owner via /model atau dashboard).
 	if kiosStore != nil {
-		_ = al.hooks.Mount(NamedHook("kios-model-override", &kiosModelOverrideHook{store: kiosStore}))
+		_ = al.hooks.Mount(NamedHook("kios-model-override", &kiosModelOverrideHook{store: kiosStore, cfg: cfg}))
 	}
 	al.contextManager = al.resolveContextManager()
 
