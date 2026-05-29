@@ -39,6 +39,24 @@ type QrisInfo = { enabled: true; nama: string; image_url: string } | { enabled: 
 
 type Metode = "tunai" | "qris";
 
+interface TokoInfo {
+  nama: string;
+  deskripsi: string;
+  lokasi: string;
+  banner_image_url: string;
+  jam_buka: string;
+  jam_tutup: string;
+}
+
+const DEFAULT_TOKO: TokoInfo = {
+  nama: "Kios Cerdas",
+  deskripsi: "Pesan online, ambil di kios. Tanpa perlu daftar.",
+  lokasi: "",
+  banner_image_url: "",
+  jam_buka: "",
+  jam_tutup: "",
+};
+
 export function StorefrontView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -46,6 +64,7 @@ export function StorefrontView() {
   const [kategori, setKategori] = useState<string[]>([]);
   const [qris, setQris] = useState<QrisInfo>({ enabled: false });
   const [waNumber, setWaNumber] = useState("");
+  const [toko, setToko] = useState<TokoInfo>(DEFAULT_TOKO);
 
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("");
@@ -83,6 +102,9 @@ export function StorefrontView() {
       setQris(q);
       if (!q.enabled) setMetode("tunai");
       setWaNumber(typeof data.wa_number === "string" ? data.wa_number : "");
+      if (data.toko && typeof data.toko === "object") {
+        setToko({ ...DEFAULT_TOKO, ...(data.toko as Partial<TokoInfo>) });
+      }
     } catch {
       setLoadError(true);
     } finally {
@@ -177,8 +199,11 @@ export function StorefrontView() {
               <Store className="size-5" aria-hidden />
             </div>
             <div className="leading-tight">
-              <p className="text-sm font-semibold">Kios Cerdas</p>
-              <p className="text-xs text-muted-foreground">Belanja Online · Rote Ndao</p>
+              <p className="text-sm font-semibold">{toko.nama}</p>
+              <p className="text-xs text-muted-foreground">
+                Belanja Online{toko.lokasi ? ` · ${toko.lokasi}` : ""}
+                {(toko.jam_buka && toko.jam_tutup) ? ` · ${toko.jam_buka}–${toko.jam_tutup}` : ""}
+              </p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={() => setOpen(true)} aria-label="Buka keranjang">
@@ -195,12 +220,20 @@ export function StorefrontView() {
 
       {/* Hero search */}
       <section className="border-b bg-gradient-to-b from-accent/10 to-background">
+        {toko.banner_image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={toko.banner_image_url}
+            alt={`Banner ${toko.nama}`}
+            className="h-36 w-full object-cover sm:h-48"
+          />
+        )}
         <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Belanja kebutuhan harian, langsung dari kios.
+            {toko.nama}
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Pesan online, ambil di kios. Tanpa perlu daftar.
+            {toko.deskripsi}
           </p>
           <div className="relative mt-5 max-w-xl">
             <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />

@@ -25,12 +25,14 @@ import type { Pesanan, PesananStatus } from "@/lib/types";
 import {
   prosesPesananAction,
   tolakPesananAction,
+  selesaikanPesananAction,
   type ActionResult,
 } from "@/app/(app)/pesanan/actions";
 
-const STATUS_META: Record<PesananStatus, { label: string; variant: "warning" | "success" | "secondary" }> = {
+const STATUS_META: Record<PesananStatus, { label: string; variant: "warning" | "success" | "secondary" | "accent" }> = {
   pending: { label: "Menunggu", variant: "warning" },
   diproses: { label: "Diproses", variant: "success" },
+  selesai: { label: "Selesai", variant: "accent" },
   ditolak: { label: "Ditolak", variant: "secondary" },
 };
 
@@ -39,6 +41,7 @@ type Filter = PesananStatus | "semua";
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "pending", label: "Menunggu" },
   { value: "diproses", label: "Diproses" },
+  { value: "selesai", label: "Selesai" },
   { value: "ditolak", label: "Ditolak" },
   { value: "semua", label: "Semua" },
 ];
@@ -46,12 +49,12 @@ const FILTERS: { value: Filter; label: string }[] = [
 export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("pending");
-  const [confirm, setConfirm] = useState<{ kind: "proses" | "tolak"; order: Pesanan } | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: "proses" | "tolak" | "selesai"; order: Pesanan } | null>(null);
   const [toast, setToast] = useState<ActionResult | null>(null);
   const [pending, start] = useTransition();
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { pending: 0, diproses: 0, ditolak: 0 };
+    const c: Record<string, number> = { pending: 0, diproses: 0, selesai: 0, ditolak: 0 };
     for (const p of pesanan) c[p.status] = (c[p.status] ?? 0) + 1;
     return c;
   }, [pesanan]);
@@ -70,7 +73,10 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
     if (!confirm) return;
     const { kind, order } = confirm;
     start(async () => {
-      const r = kind === "proses" ? await prosesPesananAction(order.id) : await tolakPesananAction(order.id);
+      let r: ActionResult;
+      if (kind === "proses") r = await prosesPesananAction(order.id);
+      else if (kind === "selesai") r = await selesaikanPesananAction(order.id);
+      else r = await tolakPesananAction(order.id);
       setConfirm(null);
       showToast(r);
       if (r.ok) router.refresh();
@@ -189,6 +195,17 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
                         </Button>
                       </div>
                     )}
+                    {o.status === "diproses" && (
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => setConfirm({ kind: "selesai", order: o })}
+                      >
+                        <CheckCircle2 className="size-4" />
+                        Selesaikan
+                      </Button>
+                    )}
                   </div>
 
                   {normalizeWaNumber(o.kontak) && o.status !== "ditolak" && (
@@ -223,18 +240,26 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
       <Modal
         open={confirm !== null}
         onClose={() => !pending && setConfirm(null)}
-        title={confirm?.kind === "proses" ? "Proses pesanan?" : "Tolak pesanan?"}
+        title={
+          confirm?.kind === "proses"
+            ? "Proses pesanan?"
+            : confirm?.kind === "selesai"
+              ? "Tandai selesai?"
+              : "Tolak pesanan?"
+        }
         description={
           confirm?.kind === "proses"
             ? "Stok akan dikurangi & pesanan dicatat sebagai penjualan."
-            : "Pesanan ditandai ditolak. Stok tidak berubah."
+            : confirm?.kind === "selesai"
+              ? "Pesanan ditandai selesai — barang sudah diserahkan ke pembeli."
+              : "Pesanan ditandai ditolak. Stok tidak berubah."
         }
         className="max-w-md"
       >
         {confirm && (
           <div className="space-y-4">
             <p className="text-sm">
-              {confirm.kind === "proses" ? "Proses" : "Tolak"} pesanan{" "}
+              {confirm.kind === "proses" ? "Proses" : confirm.kind === "selesai" ? "Selesaikan" : "Tolak"} pesanan{" "}
               <span className="font-mono font-medium">{confirm.order.id}</span> (
               {formatRupiah(confirm.order.total)})?
             </p>
@@ -243,13 +268,13 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
                 Batal
               </Button>
               <Button
-                variant={confirm.kind === "proses" ? "accent" : "destructive"}
+                variant={confirm.kind === "tolak" ? "destructive" : "accent"}
                 size="sm"
                 disabled={pending}
                 onClick={runConfirm}
               >
                 {pending && <Loader2 className="size-4 animate-spin" />}
-                {confirm.kind === "proses" ? "Proses" : "Tolak"}
+                {confirm.kind === "proses" ? "Proses" : confirm.kind === "selesai" ? "Selesaikan" : "Tolak"}
               </Button>
             </div>
           </div>

@@ -25,6 +25,23 @@ export async function saveConfigAction(input: KiosConfig): Promise<ActionResult>
     return { ok: false, error: "Gambar QRIS terlalu besar. Coba gambar yang lebih kecil ya." };
   }
 
+  const bannerImageUrl = (input.banner_image_url ?? "").trim();
+  if (bannerImageUrl && !/^(https?:\/\/|data:image\/)/i.test(bannerImageUrl)) {
+    return { ok: false, error: "Gambar banner harus berupa URL (http/https) atau hasil unggahan." };
+  }
+  if (bannerImageUrl.length > 600_000) {
+    return { ok: false, error: "Gambar banner terlalu besar. Coba gambar yang lebih kecil ya." };
+  }
+
+  const jamBuka = (input.jam_buka ?? "").trim();
+  const jamTutup = (input.jam_tutup ?? "").trim();
+  if (jamBuka && !/^\d{2}:\d{2}$/.test(jamBuka)) {
+    return { ok: false, error: "Format jam buka salah. Gunakan format HH:MM (mis. 08:00)." };
+  }
+  if (jamTutup && !/^\d{2}:\d{2}$/.test(jamTutup)) {
+    return { ok: false, error: "Format jam tutup salah. Gunakan format HH:MM (mis. 21:00)." };
+  }
+
   const waNumber = (input.wa_number ?? "").replace(/\D/g, "").slice(0, 20);
 
   const current = await getConfig();
@@ -38,8 +55,15 @@ export async function saveConfigAction(input: KiosConfig): Promise<ActionResult>
     qris_nama: (input.qris_nama ?? "").trim().slice(0, 60),
     qris_image_url: qrisImageUrl,
     wa_number: waNumber,
+    nama_toko: (input.nama_toko ?? "").trim().slice(0, 60),
+    deskripsi_toko: (input.deskripsi_toko ?? "").trim().slice(0, 200),
+    lokasi_toko: (input.lokasi_toko ?? "").trim().slice(0, 80),
+    banner_image_url: bannerImageUrl,
+    jam_buka: jamBuka,
+    jam_tutup: jamTutup,
   };
   await saveConfig(cfg);
   revalidatePath("/pengaturan");
+  revalidatePath("/toko");
   return { ok: true, message: "Pengaturan disimpan." };
 }

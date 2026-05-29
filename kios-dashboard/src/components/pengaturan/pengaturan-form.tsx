@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CheckCircle2, Loader2, TriangleAlert, Upload } from "lucide-react";
+import { CheckCircle2, Clock, ImagePlus, Loader2, MapPin, Store, TriangleAlert, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,8 +53,10 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
   const [cfg, setCfg] = useState<KiosConfig>(config);
   const [toast, setToast] = useState<ActionResult | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [pending, start] = useTransition();
   const qrisFileRef = useRef<HTMLInputElement>(null);
+  const bannerFileRef = useRef<HTMLInputElement>(null);
 
   async function onPickQris(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -69,6 +71,22 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
       window.setTimeout(() => setToast(null), 4000);
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function onPickBanner(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingBanner(true);
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file, { maxDim: 1200, quality: 0.85 });
+      setCfg((c) => ({ ...c, banner_image_url: dataUrl }));
+    } catch (err) {
+      setToast({ ok: false, error: err instanceof Error ? err.message : "Gagal memproses gambar." });
+      window.setTimeout(() => setToast(null), 4000);
+    } finally {
+      setUploadingBanner(false);
     }
   }
 
@@ -213,6 +231,131 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
                 className="mt-2 size-36 rounded-lg border object-contain p-1"
               />
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Store className="size-4" /> Tampilan Toko Publik
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 divide-y">
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="nama_toko">Nama toko</Label>
+              <Input
+                id="nama_toko"
+                value={cfg.nama_toko ?? ""}
+                onChange={(e) => setCfg({ ...cfg, nama_toko: e.target.value })}
+                placeholder="mis. Kios Maju Jaya"
+                maxLength={60}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="deskripsi_toko">Deskripsi / tagline</Label>
+              <Input
+                id="deskripsi_toko"
+                value={cfg.deskripsi_toko ?? ""}
+                onChange={(e) => setCfg({ ...cfg, deskripsi_toko: e.target.value })}
+                placeholder="mis. Pesan online, ambil di kios."
+                maxLength={200}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lokasi_toko" className="flex items-center gap-1">
+                <MapPin className="size-3.5" /> Lokasi / desa
+              </Label>
+              <Input
+                id="lokasi_toko"
+                value={cfg.lokasi_toko ?? ""}
+                onChange={(e) => setCfg({ ...cfg, lokasi_toko: e.target.value })}
+                placeholder="mis. Rote Ndao"
+                maxLength={80}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pt-4">
+            <Label className="flex items-center gap-1">
+              <Clock className="size-3.5" /> Jam operasional (WITA)
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="jam_buka"
+                type="time"
+                value={cfg.jam_buka ?? "08:00"}
+                onChange={(e) => setCfg({ ...cfg, jam_buka: e.target.value })}
+                className="w-36 font-mono"
+                aria-label="Jam buka"
+              />
+              <span className="text-sm text-muted-foreground">–</span>
+              <Input
+                id="jam_tutup"
+                type="time"
+                value={cfg.jam_tutup ?? "21:00"}
+                onChange={(e) => setCfg({ ...cfg, jam_tutup: e.target.value })}
+                className="w-36 font-mono"
+                aria-label="Jam tutup"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Ditampilkan di header toko publik.</p>
+          </div>
+
+          <div className="space-y-1.5 pt-4">
+            <Label htmlFor="banner_image_url" className="flex items-center gap-1">
+              <ImagePlus className="size-3.5" /> Gambar banner toko
+            </Label>
+            <input
+              ref={bannerFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onPickBanner}
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => bannerFileRef.current?.click()}
+                disabled={uploadingBanner}
+              >
+                {uploadingBanner ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                {cfg.banner_image_url ? "Ganti banner" : "Unggah banner"}
+              </Button>
+              {cfg.banner_image_url && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCfg({ ...cfg, banner_image_url: "" })}
+                >
+                  Hapus
+                </Button>
+              )}
+            </div>
+            <Input
+              id="banner_image_url"
+              value={cfg.banner_image_url?.startsWith("data:") ? "" : (cfg.banner_image_url ?? "")}
+              onChange={(e) => setCfg({ ...cfg, banner_image_url: e.target.value })}
+              placeholder="atau tempel URL gambar banner…"
+              className="font-mono"
+              inputMode="url"
+              disabled={cfg.banner_image_url?.startsWith("data:")}
+            />
+            {cfg.banner_image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={cfg.banner_image_url}
+                alt="Pratinjau banner"
+                className="mt-2 h-24 w-full rounded-lg border object-cover"
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Ditampilkan di bagian atas halaman toko publik. Rasio 3:1 ideal (mis. 1200×400px).
+            </p>
           </div>
         </CardContent>
       </Card>

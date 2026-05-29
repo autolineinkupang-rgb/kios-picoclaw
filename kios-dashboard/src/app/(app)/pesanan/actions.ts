@@ -56,3 +56,18 @@ export async function tolakPesananAction(id: string): Promise<ActionResult> {
   revalidatePath("/pesanan");
   return { ok: true, message: `Pesanan ${pesanan.id} ditolak.` };
 }
+
+export async function selesaikanPesananAction(id: string): Promise<ActionResult> {
+  const gate = await requireStaff();
+  if ("ok" in gate) return gate;
+
+  const pesanan = await getPesanan(id);
+  if (!pesanan) return { ok: false, error: "Pesanan tidak ditemukan." };
+  if (pesanan.status !== "diproses") {
+    return { ok: false, error: "Hanya pesanan yang sudah diproses yang bisa diselesaikan." };
+  }
+  pesanan.status = "selesai";
+  await setPesanan(pesanan);
+  revalidatePath("/pesanan");
+  return { ok: true, message: `Pesanan ${pesanan.id} selesai.` };
+}

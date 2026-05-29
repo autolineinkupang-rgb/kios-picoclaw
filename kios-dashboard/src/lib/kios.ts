@@ -123,6 +123,12 @@ const DEFAULT_CONFIG: KiosConfig = {
   qris_nama: "",
   qris_image_url: "",
   wa_number: "",
+  nama_toko: "Kios Cerdas",
+  deskripsi_toko: "Pesan online, ambil di kios. Tanpa perlu daftar.",
+  lokasi_toko: "",
+  banner_image_url: "",
+  jam_buka: "08:00",
+  jam_tutup: "21:00",
 };
 
 export async function getConfig(): Promise<KiosConfig> {

@@ -111,7 +111,7 @@ export interface PesananItem {
   subtotal: number;
 }
 
-export type PesananStatus = "pending" | "diproses" | "ditolak";
+export type PesananStatus = "pending" | "diproses" | "selesai" | "ditolak";
 
 export interface Pesanan {
   id: string;
@@ -136,6 +136,13 @@ export interface KiosConfig {
   qris_nama: string;
   qris_image_url: string;
   wa_number: string; // kios WhatsApp number (buyer contact / order confirmation)
+  // Pengaturan tampilan toko publik (/toko)
+  nama_toko: string;
+  deskripsi_toko: string;
+  lokasi_toko: string;
+  banner_image_url: string;
+  jam_buka: string; // "HH:mm" WITA
+  jam_tutup: string; // "HH:mm" WITA
 }
 
 export type Role = "owner" | "kasir";
