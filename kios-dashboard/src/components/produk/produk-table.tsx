@@ -28,12 +28,28 @@ import type { Produk } from "@/lib/types";
 
 type SortKey = "nama" | "stok" | "harga_jual";
 
+/** Hitung rentang harga supplier untuk satu produk dari semua entri hargaSupplier. */
+function getHargaRange(
+  produkId: string,
+  hargaSupplier: Record<string, number>,
+): { min: number; max: number; count: number } | null {
+  const prefix = `${produkId}|`;
+  const vals = Object.entries(hargaSupplier)
+    .filter(([k]) => k.startsWith(prefix))
+    .map(([, v]) => v)
+    .filter((v) => v > 0);
+  if (vals.length === 0) return null;
+  return { min: Math.min(...vals), max: Math.max(...vals), count: vals.length };
+}
+
 export function ProdukTable({
   produk,
   canManage,
+  hargaSupplier = {},
 }: {
   produk: Produk[];
   canManage: boolean;
+  hargaSupplier?: Record<string, number>;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -173,7 +189,7 @@ export function ProdukTable({
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="p-3 font-medium">
@@ -193,6 +209,8 @@ export function ProdukTable({
                     align="right"
                   />
                 </th>
+                <th className="p-3 text-right font-medium">Pasar Min</th>
+                <th className="p-3 text-right font-medium">Pasar Max</th>
                 <th className="p-3 text-right font-medium">Margin</th>
                 <th className="p-3 font-medium">Update</th>
                 {canManage && <th className="p-3 text-right font-medium">Aksi</th>}
@@ -234,6 +252,19 @@ export function ProdukTable({
                     <td className="p-3 text-right font-mono tabular-nums">
                       {formatRupiah(p.harga_jual)}
                     </td>
+                    {(() => {
+                      const range = getHargaRange(p.id, hargaSupplier);
+                      return (
+                        <>
+                          <td className="p-3 text-right font-mono tabular-nums text-muted-foreground">
+                            {range ? formatRupiah(range.min) : "–"}
+                          </td>
+                          <td className="p-3 text-right font-mono tabular-nums text-muted-foreground">
+                            {range ? formatRupiah(range.max) : "–"}
+                          </td>
+                        </>
+                      );
+                    })()}
                     <td className="p-3 text-right font-mono tabular-nums text-muted-foreground">
                       {margin === null ? "–" : `${margin}%`}
                     </td>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getAllProduk } from "@/lib/kios";
+import { getAllProduk, getAllHargaSupplier } from "@/lib/kios";
 import { getSession } from "@/lib/auth";
 import { ConnectionError } from "@/components/connection-error";
 import { ProdukTable } from "@/components/produk/produk-table";
@@ -9,9 +9,12 @@ export const dynamic = "force-dynamic";
 
 export default async function ProdukPage() {
   const session = await getSession();
-  let produk;
+  let produk, hargaSupplier;
   try {
-    produk = await getAllProduk();
+    [produk, hargaSupplier] = await Promise.all([
+      getAllProduk(),
+      getAllHargaSupplier(),
+    ]);
   } catch (e) {
     return <ConnectionError message={e instanceof Error ? e.message : String(e)} />;
   }
@@ -28,7 +31,7 @@ export default async function ProdukPage() {
             : "Lihat daftar produk dan stok. Pengelolaan khusus pemilik."}
         </p>
       </div>
-      <ProdukTable produk={produk} canManage={canManage} />
+      <ProdukTable produk={produk} canManage={canManage} hargaSupplier={hargaSupplier} />
     </div>
   );
 }
