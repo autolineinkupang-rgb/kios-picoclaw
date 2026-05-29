@@ -181,6 +181,10 @@ type KiosConfig struct {
 	QrisImageURL string `json:"qris_image_url"`
 	// WaNumber adalah nomor WhatsApp kios (untuk konfirmasi pesanan & kontak pembeli).
 	WaNumber string `json:"wa_number"`
+	// ModelUtama adalah model AI utama untuk semua respons bot.
+	// Format: "provider/model-id" (mis. "groq/llama-3.3-70b-versatile").
+	// Kosong berarti ikuti routing default dari config.json.
+	ModelUtama string `json:"model_utama"`
 }
 
 func defaultConfig() KiosConfig {

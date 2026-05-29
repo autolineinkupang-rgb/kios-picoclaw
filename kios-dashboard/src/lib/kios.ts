@@ -117,6 +117,7 @@ export async function delUser(id: string): Promise<void> {
 const DEFAULT_CONFIG: KiosConfig = {
   auto_learn_enabled: true,
   learn_model: "",
+  model_utama: "",
   notif_enabled: true,
   notif_jam: "07",
   qris_enabled: false,

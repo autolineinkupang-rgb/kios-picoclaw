@@ -110,6 +110,10 @@ func NewAgentLoop(
 	al.providerFactory = providers.CreateProviderFromConfig
 	al.hooks = NewHookManager(al.runtimeEvents.Channel())
 	configureHookManagerFromConfig(al.hooks, cfg)
+	// Override model AI dari KiosConfig (diset owner via /model atau dashboard).
+	if kiosStore != nil {
+		_ = al.hooks.Mount(NamedHook("kios-model-override", &kiosModelOverrideHook{store: kiosStore}))
+	}
 	al.contextManager = al.resolveContextManager()
 
 	// Register shared tools to all agents (now that al is created)
@@ -153,9 +157,10 @@ func registerSharedTools(
 	}
 
 	// Kios village-shop tools (store created once in the constructor).
+	// Pass msgBus so UserTool can send a welcome message to newly added users.
 	var kiosTools []tools.Tool
 	if kiosStore != nil {
-		kiosTools = kios.AllTools(kiosStore)
+		kiosTools = kios.AllToolsWithBus(kiosStore, msgBus, "telegram")
 	}
 
 	for _, agentID := range registry.ListAgentIDs() {

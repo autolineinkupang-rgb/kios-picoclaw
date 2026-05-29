@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CheckCircle2, Clock, ImagePlus, Loader2, MapPin, Store, TriangleAlert, Upload } from "lucide-react";
+import { Bot, CheckCircle2, Clock, ImagePlus, Loader2, MapPin, Store, TriangleAlert, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,6 +100,38 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
 
   return (
     <div className="max-w-2xl space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="size-4" /> Model AI Utama
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="model_utama">Model untuk semua respons bot</Label>
+            <Input
+              id="model_utama"
+              value={cfg.model_utama ?? ""}
+              onChange={(e) => setCfg({ ...cfg, model_utama: e.target.value })}
+              placeholder="Kosong = ikuti routing default (config.json)"
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Format: <code className="font-mono">provider/model-id</code>. Contoh:{" "}
+              <code className="font-mono">groq/llama-3.3-70b-versatile</code>,{" "}
+              <code className="font-mono">gemini/gemini-2.0-flash-lite</code>.
+              Kosongkan untuk kembali ke routing default.
+            </p>
+          </div>
+          {cfg.model_utama && (
+            <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-accent">
+              <Bot className="size-3.5 shrink-0" />
+              Bot akan menggunakan <span className="font-mono font-medium">{cfg.model_utama}</span> untuk semua respons.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Belajar Otomatis</CardTitle>

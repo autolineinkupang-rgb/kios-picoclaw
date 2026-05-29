@@ -186,6 +186,7 @@ func (t *BelajarTool) Parameters() map[string]any {
 			"cmd":         map[string]any{"type": "string"},
 			"auto_learn":    map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) belajar otomatis."},
 			"learn_model":   map[string]any{"type": "string", "description": "Nama model AI untuk tugas pembelajaran (mis. 'claude', 'groq', 'gemini'). Kosong = ikuti routing default."},
+			"model_utama":   map[string]any{"type": "string", "description": "Model AI utama untuk semua respons bot (mis. 'groq/llama-3.3-70b-versatile', 'gemini/gemini-2.0-flash-lite'). Kosong = ikuti routing default. Ketik 'default' untuk reset ke routing default."},
 			"notif_enabled": map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) notifikasi stok menipis otomatis."},
 			"notif_jam":     map[string]any{"type": "string", "description": "Jam WITA pengiriman notif stok menipis (format HH, mis. '07' = 07:00 WITA)."},
 			"qris_enabled":   map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) opsi pembayaran QRIS di toko & perintah /qris."},
@@ -250,8 +251,16 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 			cfg.WaNumber = strings.TrimSpace(v)
 			changed = true
 		}
+		if v := argStr(args, "model_utama"); v != "" {
+			if strings.ToLower(v) == "default" || strings.ToLower(v) == "reset" {
+				cfg.ModelUtama = ""
+			} else {
+				cfg.ModelUtama = strings.TrimSpace(v)
+			}
+			changed = true
+		}
 		if !changed {
-			return tools.ErrorResult("Isi auto_learn, learn_model, notif_enabled, notif_jam, qris_enabled, qris_nama, qris_image_url, atau wa_number ya kak 🙏")
+			return tools.ErrorResult("Isi auto_learn, learn_model, model_utama, notif_enabled, notif_jam, qris_enabled, qris_nama, qris_image_url, atau wa_number ya kak 🙏")
 		}
 		if err := t.store.SaveConfig(ctx, cfg); err != nil {
 			return tools.ErrorResult(fmt.Sprintf("Gagal simpan konfigurasi: %v", err))
@@ -337,9 +346,13 @@ func formatConfig(cfg KiosConfig) string {
 		}
 		return "NONAKTIF"
 	}
-	modelInfo := "ikuti routing default"
+	modelUtamaInfo := "ikuti routing default"
+	if cfg.ModelUtama != "" {
+		modelUtamaInfo = cfg.ModelUtama
+	}
+	modelLearnInfo := "ikuti routing default"
 	if cfg.LearnModel != "" {
-		modelInfo = cfg.LearnModel
+		modelLearnInfo = cfg.LearnModel
 	}
 	qrisInfo := "NONAKTIF"
 	if cfg.QrisEnabled {
@@ -357,12 +370,13 @@ func formatConfig(cfg KiosConfig) string {
 		waInfo = cfg.WaNumber
 	}
 	return fmt.Sprintf(
-		"- Belajar otomatis: %s\n"+
+		"- Model AI utama: %s\n"+
+			"- Belajar otomatis: %s\n"+
 			"- Model AI untuk pembelajaran: %s\n"+
 			"- Notif stok menipis: %s (jam %s:00 WITA)\n"+
 			"- Pembayaran QRIS: %s\n"+
 			"- Nomor WhatsApp kios: %s",
-		onOff(cfg.AutoLearnEnabled), modelInfo, onOff(cfg.NotifEnabled), cfg.NotifJam, qrisInfo, waInfo,
+		modelUtamaInfo, onOff(cfg.AutoLearnEnabled), modelLearnInfo, onOff(cfg.NotifEnabled), cfg.NotifJam, qrisInfo, waInfo,
 	)
 }
 

@@ -136,6 +136,9 @@ export interface KiosConfig {
   qris_nama: string;
   qris_image_url: string;
   wa_number: string; // kios WhatsApp number (buyer contact / order confirmation)
+  // Model AI utama untuk semua respons bot (format: "provider/model-id").
+  // Kosong = ikuti routing default dari config.json.
+  model_utama: string;
   // Pengaturan tampilan toko publik (/toko)
   nama_toko: string;
   deskripsi_toko: string;

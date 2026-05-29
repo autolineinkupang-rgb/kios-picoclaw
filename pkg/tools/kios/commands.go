@@ -35,6 +35,7 @@ PERINTAH CEPAT (tanpa AI):
 PERINTAH OWNER:
 /backup — export data ke JSON (owner)
 /template — download template Excel untuk import data
+/model [nama|reset] — lihat/ganti model AI utama bot
 
 TANYA AI (ketik bebas):
 • "stok beras berapa?"
@@ -267,6 +268,54 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 					return reply(req, supplier.Execute(ctx, map[string]any{"action": "banding_harga", "produk": strings.TrimSpace(rest)}).ForLLM)
 				}
 				return reply(req, supplier.Execute(ctx, map[string]any{"action": "cari", "nama": arg}).ForLLM)
+			},
+		},
+		{
+			Name:        "model",
+			Description: "Lihat atau ganti model AI utama bot (khusus owner)",
+			Usage:       "/model [nama-model | reset]",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				ctx = withSender(ctx, req)
+				role, _, refusal := resolveRole(ctx, store)
+				if refusal != nil {
+					return reply(req, refusal.ForLLM)
+				}
+				if r := requireOwner(role); r != nil {
+					return reply(req, r.ForLLM)
+				}
+				cfg := store.GetConfig(ctx)
+				arg := argAfter(req.Text)
+				if arg == "" {
+					current := cfg.ModelUtama
+					if current == "" {
+						current = "routing default (dari config.json)"
+					}
+					return reply(req, fmt.Sprintf(
+						"🤖 *Model AI Utama Kios*\n\nSaat ini: *%s*\n\n"+
+							"Untuk mengganti, ketik:\n`/model nama-model`\n\n"+
+							"Contoh:\n"+
+							"• `/model groq/llama-3.3-70b-versatile`\n"+
+							"• `/model gemini/gemini-2.0-flash-lite`\n"+
+							"• `/model groq/mixtral-8x7b-32768`\n\n"+
+							"Untuk kembali ke routing default:\n`/model reset`",
+						current,
+					))
+				}
+				if strings.ToLower(arg) == "reset" || strings.ToLower(arg) == "default" {
+					cfg.ModelUtama = ""
+					if err := store.SaveConfig(ctx, cfg); err != nil {
+						return reply(req, "Aduh, gagal simpan pengaturan kak 😣 Coba lagi sebentar ya.")
+					}
+					return reply(req, "✅ Model AI dikembalikan ke *routing default* (dari config.json).")
+				}
+				cfg.ModelUtama = strings.TrimSpace(arg)
+				if err := store.SaveConfig(ctx, cfg); err != nil {
+					return reply(req, "Aduh, gagal simpan pengaturan kak 😣 Coba lagi sebentar ya.")
+				}
+				return reply(req, fmt.Sprintf(
+					"✅ Model AI utama diubah ke *%s*\n\nPerubahan berlaku untuk semua respons bot mulai sekarang 🙏",
+					cfg.ModelUtama,
+				))
 			},
 		},
 		{

@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sipeed/picoclaw/pkg/bus"
+	"github.com/sipeed/picoclaw/pkg/logger"
 	tools "github.com/sipeed/picoclaw/pkg/tools"
 )
 
 // UserTool manages authorized users / roles (owner-only).
-type UserTool struct{ store *Store }
+type UserTool struct {
+	store   *Store
+	msgBus  *bus.MessageBus
+	channel string // "telegram"
+}
 
 func (t *UserTool) Name() string { return "kios_user" }
 
@@ -82,7 +88,41 @@ func (t *UserTool) tambah(ctx context.Context, args map[string]any) *tools.ToolR
 	if err := t.store.SetUser(ctx, u); err != nil {
 		return tools.ErrorResult("Aduh, gagal simpan pengguna kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
+	t.sendWelcome(ctx, u)
 	return tools.NewToolResult(fmt.Sprintf("Pengguna ditambahkan: %s (%s), peran %s.", u.Nama, id, u.Role))
+}
+
+// sendWelcome mengirim pesan sambutan ke pengguna baru via Telegram.
+func (t *UserTool) sendWelcome(ctx context.Context, u *UserKios) {
+	if t.msgBus == nil || u.Phone == "" {
+		return
+	}
+	nama := u.Nama
+	if nama == "" {
+		nama = "Kamu"
+	}
+	peranLabel := "kasir"
+	if u.Role == "owner" {
+		peranLabel = "pemilik (owner)"
+	}
+	msg := fmt.Sprintf(
+		"👋 Halo *%s*! Selamat datang di Kios Cerdas 🎉\n\n"+
+			"Kamu sudah ditambahkan sebagai *%s*. Mulai sekarang kamu bisa menggunakan bot ini untuk membantu operasional kios ya.\n\n"+
+			"Ketik /bantuan untuk melihat semua perintah yang tersedia. Selamat bekerja kak! 🙏",
+		nama, peranLabel,
+	)
+	outCtx := bus.NewOutboundContext(t.channel, u.Phone, "")
+	if err := t.msgBus.PublishOutbound(ctx, bus.OutboundMessage{
+		Channel: t.channel,
+		ChatID:  u.Phone,
+		Context: outCtx,
+		Content: msg,
+	}); err != nil {
+		logger.WarnCF("kios-user", "gagal kirim pesan sambutan", map[string]any{
+			"user_id": u.Phone,
+			"error":   err.Error(),
+		})
+	}
 }
 
 func (t *UserTool) list(ctx context.Context) *tools.ToolResult {

@@ -1,6 +1,7 @@
 package kios
 
 import (
+	"github.com/sipeed/picoclaw/pkg/bus"
 	tools "github.com/sipeed/picoclaw/pkg/tools"
 )
 
@@ -16,8 +17,14 @@ func NewLaporanTool(store *Store) *LaporanTool { return &LaporanTool{store: stor
 // NewHargaTool builds the pricing tool.
 func NewHargaTool(store *Store) *HargaTool { return &HargaTool{store: store} }
 
-// NewUserTool builds the user/RBAC management tool.
+// NewUserTool builds the user/RBAC management tool (no outbound messaging).
 func NewUserTool(store *Store) *UserTool { return &UserTool{store: store} }
+
+// NewUserToolWithBus builds the user tool with outbound messaging support
+// so the bot can send a welcome message to newly added users.
+func NewUserToolWithBus(store *Store, msgBus *bus.MessageBus, channel string) *UserTool {
+	return &UserTool{store: store, msgBus: msgBus, channel: channel}
+}
 
 // NewSupplierTool builds the supplier tool.
 func NewSupplierTool(store *Store) *SupplierTool { return &SupplierTool{store: store} }
@@ -43,12 +50,18 @@ func NewRestoreTool(store *Store) *RestoreTool { return &RestoreTool{store: stor
 // AllTools returns the full set of kios tools backed by the given store,
 // ready to register in picoclaw's tool registry.
 func AllTools(store *Store) []tools.Tool {
+	return AllToolsWithBus(store, nil, "")
+}
+
+// AllToolsWithBus returns the full set of kios tools, with the user tool
+// wired for outbound messaging (welcome message to newly added users).
+func AllToolsWithBus(store *Store, msgBus *bus.MessageBus, channel string) []tools.Tool {
 	return []tools.Tool{
 		NewStokTool(store),
 		NewKasirTool(store),
 		NewLaporanTool(store),
 		NewHargaTool(store),
-		NewUserTool(store),
+		NewUserToolWithBus(store, msgBus, channel),
 		NewSupplierTool(store),
 		NewPromoTool(store),
 		NewPustakaTool(store),
