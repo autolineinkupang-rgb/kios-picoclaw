@@ -158,9 +158,13 @@ func registerSharedTools(
 
 	// Kios village-shop tools (store created once in the constructor).
 	// Pass msgBus so UserTool can send a welcome message to newly added users.
+	// Use a type assertion to convert interfaces.MessageBus → *bus.MessageBus;
+	// if the runtime value is not a *bus.MessageBus the tool falls back to
+	// no-op (nil) so welcome messages are simply skipped rather than panicking.
 	var kiosTools []tools.Tool
 	if kiosStore != nil {
-		kiosTools = kios.AllToolsWithBus(kiosStore, msgBus, "telegram")
+		concreteBus, _ := msgBus.(*bus.MessageBus)
+		kiosTools = kios.AllToolsWithBus(kiosStore, concreteBus, "telegram")
 	}
 
 	for _, agentID := range registry.ListAgentIDs() {
