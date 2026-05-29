@@ -126,6 +126,7 @@ integration/testdata/output/
 .claude/
 .claude-flow/
 .omc/
+.superpowers/
 
 # =============================================================================
 # Misc project dirs (local workflow only)
