@@ -33,18 +33,34 @@ fi
 ALLOW_JSON=$(printf '%s' "$KIOS_ALLOW_FROM" | awk -F, '{o="";for(i=1;i<=NF;i++){g=$i;gsub(/^[ \t]+|[ \t]+$/,"",g);if(g!=""){if(o!="")o=o",";o=o "\"" g "\""}}print "["o"]"}')
 
 # Optional fallback models (Gemini and/or Claude — only when keys are provided).
+# Each provider registers multiple named entries so the owner can pick a
+# specific model via /model or the dashboard without redeploying.
 GEMINI_ENTRY=""
 ANTHROPIC_ENTRY=""
 FALLBACK_MODELS=""
+# Extra Groq variants (always registered alongside the primary groq-llama).
+GROQ_EXTRA=""
+
+# Groq: register 3 model variants with stable model_name values.
+GROQ_EXTRA=$(printf ',{"model_name":"groq-8b","model":"groq/llama3-8b-8192","api_keys":["%s"]}' "$GROQ_API_KEY")
+GROQ_EXTRA="${GROQ_EXTRA}$(printf ',{"model_name":"groq-mixtral","model":"groq/mixtral-8x7b-32768","api_keys":["%s"]}' "$GROQ_API_KEY")"
 
 if [ -n "$GEMINI_API_KEY" ]; then
-    GEMINI_ENTRY=$(printf ',{"model_name":"gemini-flash","model":"gemini/%s","api_keys":["%s"]}' "${GEMINI_MODEL:-gemini-2.0-flash}" "$GEMINI_API_KEY")
+    # Register 3 Gemini variants; gemini-flash is used by the routing system.
+    GEMINI_ENTRY=$(printf ',{"model_name":"gemini-lite","model":"gemini/gemini-2.0-flash-lite","api_keys":["%s"]}' "$GEMINI_API_KEY")
+    GEMINI_ENTRY="${GEMINI_ENTRY}$(printf ',{"model_name":"gemini-flash","model":"gemini/gemini-2.0-flash","api_keys":["%s"]}' "$GEMINI_API_KEY")"
+    GEMINI_ENTRY="${GEMINI_ENTRY}$(printf ',{"model_name":"gemini-pro","model":"gemini/gemini-1.5-pro","api_keys":["%s"]}' "$GEMINI_API_KEY")"
     FALLBACK_MODELS="${FALLBACK_MODELS:+$FALLBACK_MODELS,}\"gemini-flash\""
 fi
 
 if [ -n "$ANTHROPIC_API_KEY" ]; then
-    ANTHROPIC_ENTRY=$(printf ',{"model_name":"claude","model":"anthropic/%s","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "${ANTHROPIC_MODEL:-claude-sonnet-4-6}" "$ANTHROPIC_API_KEY")
-    FALLBACK_MODELS="${FALLBACK_MODELS:+$FALLBACK_MODELS,}\"claude\""
+    # Register 3 Anthropic variants; claude-sonnet is used by the routing system.
+    ANTHROPIC_ENTRY=$(printf ',{"model_name":"claude-haiku","model":"anthropic/claude-haiku-4-5-20251001","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "$ANTHROPIC_API_KEY")
+    ANTHROPIC_ENTRY="${ANTHROPIC_ENTRY}$(printf ',{"model_name":"claude-sonnet","model":"anthropic/claude-sonnet-4-6","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "$ANTHROPIC_API_KEY")"
+    ANTHROPIC_ENTRY="${ANTHROPIC_ENTRY}$(printf ',{"model_name":"claude-opus","model":"anthropic/claude-opus-4-6","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "$ANTHROPIC_API_KEY")"
+    # Alias "claude" → claude-sonnet for backward compat (routing uses "claude").
+    ANTHROPIC_ENTRY="${ANTHROPIC_ENTRY}$(printf ',{"model_name":"claude","model":"anthropic/claude-sonnet-4-6","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "$ANTHROPIC_API_KEY")"
+    FALLBACK_MODELS="${FALLBACK_MODELS:+$FALLBACK_MODELS,}\"claude-sonnet\""
 fi
 
 FALLBACKS="[${FALLBACK_MODELS}]"
@@ -60,11 +76,11 @@ ROUTING_MEDIUM=""
 if [ -n "$GEMINI_API_KEY" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
     ROUTING_ENABLED="true"
     ROUTING_LIGHT="gemini-flash"
-    ROUTING_MEDIUM="claude"
+    ROUTING_MEDIUM="claude-sonnet"
 elif [ -n "$ANTHROPIC_API_KEY" ]; then
-    # Only Claude available: simple → Claude, complex → Groq (no light tier)
+    # Only Claude available: simple → Claude Sonnet, complex → Groq (no light tier)
     ROUTING_ENABLED="true"
-    ROUTING_LIGHT="claude"
+    ROUTING_LIGHT="claude-sonnet"
     ROUTING_MEDIUM=""
 elif [ -n "$GEMINI_API_KEY" ]; then
     # Only Gemini available: simple → Gemini, rest → Groq (no medium tier)
@@ -95,7 +111,7 @@ cat > "$CONFIG" <<EOF
     }
   },
   "model_list": [
-    {"model_name":"groq-llama","model":"groq/${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}","api_keys":["$GROQ_API_KEY"]}$GEMINI_ENTRY$ANTHROPIC_ENTRY
+    {"model_name":"groq-llama","model":"groq/${GROQ_MODEL:-llama-3.3-70b-versatile}","api_keys":["$GROQ_API_KEY"]}$GROQ_EXTRA$GEMINI_ENTRY$ANTHROPIC_ENTRY
   ],
   "channel_list": {
     "telegram": {

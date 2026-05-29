@@ -116,19 +116,19 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
             >
               <option value="">— Routing default (dari config.json) —</option>
               <optgroup label="Groq">
-                <option value="groq/llama-3.3-70b-versatile">Llama 3.3 70B Versatile ⭐ (cepat &amp; pintar)</option>
-                <option value="groq/llama3-8b-8192">Llama 3 8B (sangat cepat)</option>
-                <option value="groq/mixtral-8x7b-32768">Mixtral 8x7B (konteks panjang)</option>
+                <option value="groq-llama">Llama 3.3 70B Versatile ⭐ (cepat &amp; pintar)</option>
+                <option value="groq-8b">Llama 3 8B (sangat cepat)</option>
+                <option value="groq-mixtral">Mixtral 8x7B (konteks panjang)</option>
               </optgroup>
               <optgroup label="Google Gemini">
-                <option value="gemini/gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (tercepat)</option>
-                <option value="gemini/gemini-2.0-flash">Gemini 2.0 Flash (seimbang)</option>
-                <option value="gemini/gemini-1.5-pro">Gemini 1.5 Pro (paling canggih)</option>
+                <option value="gemini-lite">Gemini 2.0 Flash Lite (tercepat)</option>
+                <option value="gemini-flash">Gemini 2.0 Flash (seimbang)</option>
+                <option value="gemini-pro">Gemini 1.5 Pro (paling canggih)</option>
               </optgroup>
               <optgroup label="Anthropic">
-                <option value="anthropic/claude-haiku-4-5-20251001">Claude Haiku 4.5 (cepat &amp; hemat)</option>
-                <option value="anthropic/claude-sonnet-4-6">Claude Sonnet 4.6 (pintar &amp; seimbang)</option>
-                <option value="anthropic/claude-opus-4-6">Claude Opus 4.6 (paling canggih)</option>
+                <option value="claude-haiku">Claude Haiku 4.5 (cepat &amp; hemat)</option>
+                <option value="claude-sonnet">Claude Sonnet 4.6 (pintar &amp; seimbang)</option>
+                <option value="claude-opus">Claude Opus 4.6 (paling canggih)</option>
               </optgroup>
             </Select>
             <p className="text-xs text-muted-foreground">

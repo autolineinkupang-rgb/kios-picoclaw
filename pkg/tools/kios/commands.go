@@ -505,28 +505,29 @@ type modelEntry struct {
 
 // availableModels mengembalikan daftar model yang tersedia berdasarkan
 // API key yang di-set di environment variable Railway.
+// Nilai Name harus sesuai dengan model_name di config.json (di-generate entrypoint.sh).
 func availableModels() []modelEntry {
 	var list []modelEntry
 
 	if os.Getenv("GROQ_API_KEY") != "" {
 		list = append(list,
-			modelEntry{"groq/llama-3.3-70b-versatile", "Groq — Llama 3.3 70B (cepat & pintar) ⭐"},
-			modelEntry{"groq/llama3-8b-8192", "Groq — Llama 3 8B (sangat cepat)"},
-			modelEntry{"groq/mixtral-8x7b-32768", "Groq — Mixtral 8x7B (konteks panjang)"},
+			modelEntry{"groq-llama", "Groq — Llama 3.3 70B Versatile (cepat & pintar) ⭐"},
+			modelEntry{"groq-8b", "Groq — Llama 3 8B (sangat cepat)"},
+			modelEntry{"groq-mixtral", "Groq — Mixtral 8x7B (konteks panjang)"},
 		)
 	}
 	if os.Getenv("GEMINI_API_KEY") != "" {
 		list = append(list,
-			modelEntry{"gemini/gemini-2.0-flash-lite", "Gemini — 2.0 Flash Lite (tercepat)"},
-			modelEntry{"gemini/gemini-2.0-flash", "Gemini — 2.0 Flash (seimbang)"},
-			modelEntry{"gemini/gemini-1.5-pro", "Gemini — 1.5 Pro (paling canggih)"},
+			modelEntry{"gemini-lite", "Gemini — 2.0 Flash Lite (tercepat)"},
+			modelEntry{"gemini-flash", "Gemini — 2.0 Flash (seimbang)"},
+			modelEntry{"gemini-pro", "Gemini — 1.5 Pro (paling canggih)"},
 		)
 	}
 	if os.Getenv("ANTHROPIC_API_KEY") != "" {
 		list = append(list,
-			modelEntry{"anthropic/claude-haiku-4-5-20251001", "Anthropic — Claude Haiku (cepat & hemat)"},
-			modelEntry{"anthropic/claude-sonnet-4-6", "Anthropic — Claude Sonnet (pintar & seimbang)"},
-			modelEntry{"anthropic/claude-opus-4-6", "Anthropic — Claude Opus 4.6 (paling canggih)"},
+			modelEntry{"claude-haiku", "Anthropic — Claude Haiku 4.5 (cepat & hemat)"},
+			modelEntry{"claude-sonnet", "Anthropic — Claude Sonnet 4.6 (pintar & seimbang)"},
+			modelEntry{"claude-opus", "Anthropic — Claude Opus 4.6 (paling canggih)"},
 		)
 	}
 	return list
