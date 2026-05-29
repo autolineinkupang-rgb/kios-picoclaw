@@ -38,4 +38,7 @@ export const KEY = {
   suplier: "kios:supplier",
   seqSup: "kios:seq:sup",
   hargaSupplier: "kios:harga_supplier",
+  promo: "kios:promo",
+  seqPromo: "kios:seq:promo",
+  shiftHistory: "kios:shift:history",
 } as const;

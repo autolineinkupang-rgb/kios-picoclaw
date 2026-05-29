@@ -5,6 +5,7 @@ import type {
   Transaksi,
   Pembelian,
   PriceHistory,
+  Promo,
   Shift,
   UserKios,
   KiosConfig,
@@ -91,6 +92,24 @@ export async function getAllPriceHistory(): Promise<PriceHistory[]> {
 export async function getShift(): Promise<Shift | null> {
   const v = await redis().get<unknown>(KEY.shift);
   return normalize<Shift>(v);
+}
+
+export async function setShift(s: Shift): Promise<void> {
+  await redis().set(KEY.shift, s);
+}
+
+export async function clearShift(): Promise<void> {
+  await redis().del(KEY.shift);
+}
+
+/** Ambil riwayat shift terakhir (newest first). */
+export async function getShiftHistory(n = 10): Promise<Shift[]> {
+  const vals = await redis().lrange<unknown>(KEY.shiftHistory, -n, -1);
+  return normalizeList<Shift>(vals).reverse();
+}
+
+export async function pushShiftHistory(s: Shift): Promise<void> {
+  await redis().rpush(KEY.shiftHistory, s);
 }
 
 export async function getUser(id: string): Promise<UserKios | null> {
@@ -255,4 +274,28 @@ export async function bumpLoginAttempts(ip: string): Promise<number> {
   const n = await redis().incr(key);
   if (n === 1) await redis().expire(key, 300);
   return n;
+}
+
+// ── Promo ────────────────────────────────────────────────────────────────────
+
+export async function getAllPromo(): Promise<Promo[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.promo);
+  if (!map) return [];
+  const list = normalizeList<Promo>(Object.values(map));
+  list.sort((a, b) => a.id.localeCompare(b.id));
+  return list;
+}
+
+export async function setPromo(p: Promo): Promise<void> {
+  await redis().hset(KEY.promo, { [p.id]: p });
+}
+
+export async function deletePromo(id: string): Promise<void> {
+  await redis().hdel(KEY.promo, id);
+}
+
+/** Next promo ID, mirroring Go: INCR kios:seq:promo -> "PROMO-NNNN". */
+export async function nextPromoId(): Promise<string> {
+  const n = await redis().incr(KEY.seqPromo);
+  return `PROMO-${String(n).padStart(4, "0")}`;
 }

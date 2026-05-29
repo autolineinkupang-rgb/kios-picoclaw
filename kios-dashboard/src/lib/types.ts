@@ -83,6 +83,19 @@ export interface Shift {
   status: string; // buka | tutup
 }
 
+export interface Promo {
+  id: string;        // PROMO-NNNN
+  produk: string;    // nama produk
+  produk_id: string;
+  tipe: "persen" | "fixed";
+  nilai: number;     // persen (mis. 10) atau nominal rupiah
+  min_qty: number;   // min qty agar promo berlaku (default 1)
+  aktif: boolean;
+  mulai: string;     // YYYY-MM-DD
+  selesai: string;   // YYYY-MM-DD
+  catatan: string;
+}
+
 export interface UserKios {
   phone: string; // holds the Telegram user ID
   nama: string;
