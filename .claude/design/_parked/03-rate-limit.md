@@ -1,3 +1,5 @@
+> PARKED — di luar scope KIOS_BUILD_SPEC.md. Jangan dikerjakan sampai 4 tool inti (stok/kasir/laporan/harga) sudah live. Spec tetap berlaku, TIDAK superseded.
+
 # Design 03 — Rate-limit per-user + Debounce
 
 **Subsistem:** Manajemen Kuota LLM (D7 Lapis 5)

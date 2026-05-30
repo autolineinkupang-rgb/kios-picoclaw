@@ -1,3 +1,5 @@
+> PARKED — di luar scope KIOS_BUILD_SPEC.md. Jangan dikerjakan sampai 4 tool inti (stok/kasir/laporan/harga) sudah live. Spec tetap berlaku, TIDAK superseded.
+
 # Design: Counter Pemakaian Harian + Mode Hemat (Fitur #4)
 
 > Dokumen ini adalah desain arsitektur untuk implementor. Tidak ada kode yang ditulis di sini.

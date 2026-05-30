@@ -1,3 +1,5 @@
+> PARKED — di luar scope KIOS_BUILD_SPEC.md. Jangan dikerjakan sampai 4 tool inti (stok/kasir/laporan/harga) sudah live. Spec tetap berlaku, TIDAK superseded.
+
 # PLAN Konsolidasi — Sisa Fase 2 + Fase 2.5
 
 > Hasil gabungan dari 5 desain paralel (agen arsitek ruflo, 2026-05-30).

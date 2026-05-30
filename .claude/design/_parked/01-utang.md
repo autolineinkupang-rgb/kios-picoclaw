@@ -1,3 +1,5 @@
+> PARKED — di luar scope KIOS_BUILD_SPEC.md. Jangan dikerjakan sampai 4 tool inti (stok/kasir/laporan/harga) sudah live. Spec tetap berlaku, TIDAK superseded.
+
 # Desain Fitur: Hutang Pelanggan (kios_hutang)
 
 > Dokumen desain untuk F1 dari Milestone 1 Roadmap Kios Cerdas.

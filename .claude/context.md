@@ -1,3 +1,5 @@
+> **SOURCE OF TRUTH: KIOS_BUILD_SPEC.md mengikat. Jika file .claude/ bertentangan dengan spec, SPEC yang menang. Spec TIDAK pernah superseded oleh .claude/.**
+
 # PROJECT CONTEXT — kios-picoclaw
 
 > **Status (per 2026-05-30, v0.2.x):** dokumen ini menangkap VISI & alasan awal.
@@ -18,7 +20,7 @@ Deploy ke Railway sebagai single binary dalam container.
 - Base: fork sipeed/picoclaw — JANGAN rombak arsitektur core, extend lewat channel/tools/skills
 - Channel utama: Telegram (long polling, paling mudah, tanpa webhook publik)
 - LLM: Groq (primary, model routing untuk query simple) + Gemini (fallback/vision)
-- State/DB: Upstash Redis (serverless, REST API — cocok untuk Railway)
+- State/DB: Upstash Redis (serverless, koneksi rediss:// TCP via go-redis, dari $UPSTASH_REDIS_URL — cocok untuk Railway)
 - Deploy: Railway (railway.json + Dockerfile sudah ada)
 
 ## Domain: Kios Desa

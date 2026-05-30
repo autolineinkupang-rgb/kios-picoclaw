@@ -1,3 +1,5 @@
+> PARKED — di luar scope KIOS_BUILD_SPEC.md. Jangan dikerjakan sampai 4 tool inti (stok/kasir/laporan/harga) sudah live. Spec tetap berlaku, TIDAK superseded.
+
 # Desain 05: Notifikasi Kuota LLM ke Owner
 
 **Versi:** 0.1 (desain awal, belum diimplementasi)

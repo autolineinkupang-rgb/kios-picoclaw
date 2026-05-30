@@ -1,3 +1,5 @@
+> PARKED — di luar scope KIOS_BUILD_SPEC.md. Jangan dikerjakan sampai 4 tool inti (stok/kasir/laporan/harga) sudah live. Spec tetap berlaku, TIDAK superseded.
+
 # Desain Fitur: Cache FAQ (jawaban 0-token)
 
 > **Scope:** Subsistem "Manajemen Kuota LLM" — Fitur #2 (Cache FAQ)
