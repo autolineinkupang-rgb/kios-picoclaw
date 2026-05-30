@@ -1136,6 +1136,29 @@ func TestKasirStrukAndShift(t *testing.T) {
 	}
 }
 
+// Spec (KIOS_BUILD_SPEC.md:81): "error if bayar<total". A sale with insufficient
+// payment must be REJECTED and must NOT be recorded (no stock decrement, no tx).
+func TestKasirJualBayarKurangDitolak(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+	tool := NewKasirTool(s)
+
+	// total = 2 * 15000 = 30000; bayar 20000 < total -> reject.
+	res := tool.Execute(ctx, map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(20000)})
+	if !res.IsError {
+		t.Fatalf("bayar 20000 < total 30000 must be an error, got (err=%v): %s", res.IsError, res.ForLLM)
+	}
+	// Stock must be untouched.
+	if it, _ := s.GetProduk(ctx, "003"); it.Stok != 10 {
+		t.Errorf("stock must stay 10 when sale rejected, got %d", it.Stok)
+	}
+	// No transaction must be recorded.
+	if txs, _ := s.GetAllTransaksi(ctx); len(txs) != 0 {
+		t.Errorf("no transaksi should be recorded on rejected sale, got %d", len(txs))
+	}
+}
+
 func TestLaporanLaba(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

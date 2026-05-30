@@ -80,16 +80,25 @@ func (t *KasirTool) jual(ctx context.Context, args map[string]any, kasir string)
 	diskon, promoID := 0, ""
 	if pre, _ := findOne(ctx, t.store, argStr(args, "produk")); pre != nil {
 		diskon, promoID = activePromoDiskon(ctx, t.store, pre.ID, qty, pre.HargaJual)
+		// Spec (KIOS_BUILD_SPEC.md:81): error if bayar<total. Reject the sale
+		// BEFORE it is recorded — no stock decrement, no transaction.
+		if bayarPtr != nil && qty > 0 {
+			hargaEfektif := pre.HargaJual - diskon
+			if hargaEfektif < 0 {
+				hargaEfektif = 0
+			}
+			total := qty * hargaEfektif
+			if *bayarPtr < total {
+				kurang := total - *bayarPtr
+				return tools.ErrorResult(fmt.Sprintf("Uang kurang %s kak 🙏 Total %s, dibayar %s — transaksi belum dicatat ya.",
+					FormatRupiah(kurang), FormatRupiah(total), FormatRupiah(*bayarPtr)))
+			}
+		}
 	}
 
 	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), qty, argStr(args, "metode"), kasir, diskon)
 	if err != nil {
 		return tools.ErrorResult(err.Error())
-	}
-	if bayarPtr != nil && *bayarPtr < tx.Total {
-		// Sale already recorded; warn about underpayment but keep the receipt.
-		kurang := tx.Total - *bayarPtr
-		return tools.UserResult(fmt.Sprintf("%s\n\n⚠️ Uang kurang %s kak!", t.struk(tx, item, bayarPtr, promoID), FormatRupiah(kurang)))
 	}
 	out := t.struk(tx, item, bayarPtr, promoID)
 	if sisa <= 0 {
