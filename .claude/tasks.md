@@ -8,14 +8,22 @@
 
 ## ✅ SELESAI (sudah jalan di v0.2.x)
 
-### Fondasi & konektivitas
+### Fondasi & konektivitas (eks-"Fase 0/1" — diverifikasi 2026-05-30)
 - [x] `make build` jalan, binary hidup (Dockerfile multi-stage Go→alpine)
 - [x] `.env.example` lengkap (TELEGRAM_BOT_TOKEN, GROQ_API_KEY, GEMINI_API_KEY,
       UPSTASH_REDIS_URL, KIOS_ALLOW_FROM, dll.)
-- [x] `railway.json` + `deploy/entrypoint.sh` (render config.json dari env)
-- [x] Channel Telegram (long polling) + model_list Groq primary / Gemini fallback
+      Catatan: koneksi Redis pakai `UPSTASH_REDIS_URL` (rediss:// TCP via go-redis),
+      BUKAN REST `UPSTASH_REDIS_REST_URL/TOKEN` seperti tertulis di rencana awal.
+- [x] `railway.json` + `deploy/entrypoint.sh` — config.json kios di-render saat boot
+      dari env (picoclaw TIDAK expand $VAR di config.json). `config/config.example.json`
+      adalah contoh generik upstream (Telegram off), sengaja TIDAK dipakai runtime.
+- [x] Channel Telegram (long polling) enabled, `allow_from` dari `KIOS_ALLOW_FROM`
+- [x] model_list: Groq primary (`groq-llama`) + fallback Gemini & Claude (kondisional
+      bila key ada) + **routing 3-tier by skor kompleksitas** — melampaui spec
 - [x] System prompt Bahasa Indonesia, persona asisten kios (`workspace/AGENT.md`, `SOUL.md`)
-- [x] Upstash Redis sebagai single source of truth (`store.go`, `store_more.go`)
+- [x] Upstash Redis: `store.go` (`UPSTASH_REDIS_URL`→ParseURL→NewClient), `Ping()`,
+      seed idempoten saat boot. Kios di-gate oleh ADA/tidaknya `UPSTASH_REDIS_URL`
+      (`agent_init.go:124`) — bukan flag `Tools.Kios.Enabled`. Env kosong → kios mati senyap.
 
 ### Logika kios — diimplementasi sebagai Go tools native (BUKAN SKILL.md saja, lihat D4)
 12 tool ter-register via `AllTools(store)` di `register.go`:
@@ -59,6 +67,9 @@ Fallback antar-provider (D7 lapis 4) sudah ditangani picoclaw core
 - [ ] Audit limit aktual tiap provider saat setup (RPM/RPD Groq, kuota harian Gemini)
 - [ ] Set `gateway.log_level=warn`, cek resource usage di Railway
 - [ ] Tes end-to-end produksi via Telegram (deploy nyata)
+- [ ] Verifikasi koneksi Redis saat gateway boot — `Ping()` ada tapi hanya dipanggil
+      CLI (kios-seed/import/learn-seed), bukan saat `newKiosStoreIfEnabled` di gateway.
+      Pertimbangkan ping + log jelas saat startup agar koneksi mati ketahuan dini.
 
 ---
 
