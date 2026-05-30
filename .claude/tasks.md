@@ -50,20 +50,33 @@
 
 ## ⚠️ BELUM DIKERJAKAN — gap penting dari rencana awal
 
-### Manajemen kuota LLM khusus kios (decisions.md D7/D8) — SEBAGIAN BESAR BELUM ADA
-Fallback antar-provider (D7 lapis 4) sudah ditangani picoclaw core
-(`pkg/providers/error_classifier.go`). Lapisan khusus kios berikut **belum** ada:
-- [ ] Cache FAQ di Redis (`kios:cache:faq:{hash}`) — cek cache sebelum panggil LLM
-- [ ] Rate limit per-user + debounce pesan beruntun (cegah 1 user habiskan kuota)
-- [ ] Counter pemakaian harian (`kios:llm:usage:{tgl}`) per provider
-- [ ] Ambang "mode hemat" otomatis (rule-only + cache) saat mendekati limit
-- [ ] Notif ke owner saat kuota mendekati / mencapai limit
-- [ ] Pesan ramah saat SEMUA provider habis (verifikasi: bukan error mentah ke pembeli)
-- [ ] Tes beban: banyak pesan barengan → degradasi mulus, tidak crash
+### Sisa Fase 2 + 2.5 — DESAIN SELESAI ✅, implementasi pending
+> Didekomposisi jadi 5 sub-task paralel + plan gabungan (2026-05-30, agen arsitek ruflo).
+> Desain lengkap di `.claude/design/` (01–05 + `PLAN-fase2.5.md`). Keputusan §6 ditetapkan.
+> Semua lapisan kuota via hook `LLMInterceptor` (BeforeLLM/AfterLLM) — ADITIF, core utuh.
 
-> Keputusan: tuntaskan gap ini, ATAU lanjut ke roadmap fitur. Perlu konfirmasi prioritas.
+**Utang/kredit pelanggan (`kios_hutang`) — sisa Fase 2:**
+- [ ] (desain ✓ `01-utang.md`) Tool `kios_hutang` + slash `/hutang` + dashboard `/hutang`.
+      Keputusan §6: bon KURANGI stok; field jatuh tempo ditunda.
 
-### Hardening yang belum diverifikasi
+**Subsistem kuota LLM (decisions.md D7/D8) — Fase 2.5:**
+Fallback antar-provider (D7 lapis 4) sudah di core (`pkg/providers/error_classifier.go`).
+Lapisan khusus kios berikut sudah didesain, BELUM diimplementasi:
+- [ ] (desain ✓ `02-cache-faq.md`) Cache FAQ `kios:cache:faq:{hash}` — non-produk dulu (§6.3)
+- [ ] (desain ✓ `03-rate-limit.md`) Rate-limit per-user + debounce pesan beruntun
+- [ ] (desain ✓ `04-counter-mode-hemat.md`) Counter harian `kios:llm:usage:*` + mode hemat
+- [ ] (desain ✓ `05-notif-kuota.md`) Notif kuota ke owner (polling di `notif.go`)
+- [ ] Pesan ramah saat SEMUA provider habis (tercakup mode hemat + `HookActionAbortTurn`)
+- [ ] Tes beban: banyak pesan barengan + simulasi kuota habis → degradasi mulus, no crash
+
+> Sebelum koding: jalankan spike S1–S5 di `PLAN-fase2.5.md §5` (verifikasi field identitas
+> `HookMeta`, thread-safety `bus.PublishOutbound`, dukungan Lua Upstash, titik debounce).
+> Urutan implementasi: B0 fondasi hook → B1 cache / B2 rate-limit → B3 counter → B4 notif;
+> Jalur A (utang) independen. Aktivasi env kuota bertahap, default OFF.
+
+### Hardening
+- [x] `.gitignore` mencakup `.env*`, `deploy/.env`, `.security.yml`, `config.json` —
+      terverifikasi tidak ada secret nyata ter-track (hanya placeholder/test dummy), 2026-05-30.
 - [ ] Audit limit aktual tiap provider saat setup (RPM/RPD Groq, kuota harian Gemini)
 - [ ] Set `gateway.log_level=warn`, cek resource usage di Railway
 - [ ] Tes end-to-end produksi via Telegram (deploy nyata)
@@ -76,8 +89,8 @@ Fallback antar-provider (D7 lapis 4) sudah ditangani picoclaw core
 ## 📋 Roadmap fitur berikutnya
 Lihat `ROADMAP-KIOS.md` — Milestone 1 (F1 Hutang, F2 keranjang multi-item,
 F3 stok opname, F4 UI promo/pasar, F5 ekspor Excel) sampai Milestone 3.
-Catatan: fitur **hutang/kredit** (F1) sudah disebut sejak rencana awal tapi
-sampai sekarang belum dibuat.
+Catatan: fitur **hutang/kredit** (F1) sudah masuk tahap DESAIN (lihat bagian
+"Sisa Fase 2 + 2.5" di atas, `.claude/design/01-utang.md`) — tinggal implementasi.
 
 ---
 
