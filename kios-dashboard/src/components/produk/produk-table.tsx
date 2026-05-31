@@ -59,9 +59,9 @@ export function ProdukTable({
       if (status && stokStatus(p) !== status) return false;
       if (!q) return true;
       return (
-        p.nama.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q) ||
-        p.barcode.toLowerCase().includes(q)
+        (p.nama ?? "").toLowerCase().includes(q) ||
+        (p.id ?? "").toLowerCase().includes(q) ||
+        (p.barcode ?? "").toLowerCase().includes(q)
       );
     });
     list = [...list].sort((a, b) => {

@@ -112,7 +112,7 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
       ) : (
         <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {rows.map((o) => {
-            const st = STATUS_META[o.status];
+            const st = STATUS_META[o.status] ?? { label: o.status || "Lainnya", variant: "secondary" as const };
             return (
               <li key={o.id}>
                 <Card className="flex h-full flex-col p-4">

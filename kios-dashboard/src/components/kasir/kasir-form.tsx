@@ -42,9 +42,9 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
     const list = q
       ? produk.filter(
           (p) =>
-            p.nama.toLowerCase().includes(q) ||
-            p.id.toLowerCase().includes(q) ||
-            p.barcode.toLowerCase().includes(q),
+            (p.nama ?? "").toLowerCase().includes(q) ||
+            (p.id ?? "").toLowerCase().includes(q) ||
+            (p.barcode ?? "").toLowerCase().includes(q),
         )
       : produk;
     return list.slice(0, 12);
