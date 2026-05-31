@@ -75,17 +75,22 @@ func argBool(args map[string]any, key string) bool {
 
 // argItems reads an "items" argument as a list of objects (for bulk actions).
 func argItems(args map[string]any) []map[string]any {
-	raw, ok := args["items"].([]any)
-	if !ok {
+	// items may arrive as []map[string]any (slash command parser) or as
+	// []any of maps (LLM tool call decoded from JSON). Accept both.
+	switch raw := args["items"].(type) {
+	case []map[string]any:
+		return raw
+	case []any:
+		out := make([]map[string]any, 0, len(raw))
+		for _, r := range raw {
+			if m, ok := r.(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+		return out
+	default:
 		return nil
 	}
-	out := make([]map[string]any, 0, len(raw))
-	for _, r := range raw {
-		if m, ok := r.(map[string]any); ok {
-			out = append(out, m)
-		}
-	}
-	return out
 }
 
 // defaultRole is used for whitelisted callers who are not registered in

@@ -143,7 +143,8 @@ func (t *PasarTool) analisa(ctx context.Context, args map[string]any) *tools.Too
 		return tools.ErrorResult("Aduh, gagal baca harga pasar kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
 	if len(refs) == 0 {
-		return tools.NewToolResult("Belum ada data harga pasar. Set dulu: action set_pasar.")
+		return tools.NewToolResult("Belum ada data harga pasar kak. Owner bisa set dulu lewat Dashboard, " +
+			"atau chat contoh: \"set harga pasar gula 14000\" 🙏")
 	}
 	produk := argStr(args, "produk")
 	var items []*Produk

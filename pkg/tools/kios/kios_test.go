@@ -526,6 +526,33 @@ func TestJualMassal(t *testing.T) {
 	}
 }
 
+// TestJualMassalSlashItems guards the /jualmassal slash command path: the
+// command parser yields []map[string]any (not []any), which argItems must
+// accept. Regression: previously argItems only handled []any, so every
+// /jualmassal slash invocation failed with "items wajib diisi".
+func TestJualMassalSlashItems(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
+
+	items := parseMassalItems("beras 1, gula 2") // []map[string]any, slash shape
+	res := NewKasirTool(s).Execute(ctx, map[string]any{
+		"action": "jual_massal",
+		"items":  items,
+		"bayar":  float64(100000),
+	})
+	if res.IsError {
+		t.Fatalf("jual_massal (slash items): %s", res.ForLLM)
+	}
+	if !strings.Contains(res.ForUser, "Total: Rp 92.000") {
+		t.Errorf("slash jual_massal struk wrong: %s", res.ForUser)
+	}
+	if it, _ := s.GetProduk(ctx, "003"); it.Stok != 8 {
+		t.Errorf("gula stock should be 8 after selling 2, got %d", it.Stok)
+	}
+}
+
 func TestTambahMassalAndEditMassal(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
