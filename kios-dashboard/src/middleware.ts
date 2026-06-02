@@ -48,6 +48,13 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except Next internals and common static assets.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt|.*\\.png$).*)"],
+  // Run on everything except Next internals and static assets. Static files are
+  // excluded by *extension* (not by path prefix) on purpose: the public category
+  // placeholders live under /produk/*.svg, but /produk is ALSO an auth-gated admin
+  // route — so whitelisting the "/produk" prefix would expose the admin page.
+  // Matching every common image extension keeps any public asset (svg/png/jpg/…)
+  // out of the auth gate without leaking app routes.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp)$).*)",
+  ],
 };
