@@ -329,6 +329,78 @@ func TestTemplateCommand(t *testing.T) {
 	}
 }
 
+// /qris must send the QR as an actual scannable photo (via SendImageURL, which
+// has Telegram fetch the URL) — not a raw URL in a text reply.
+func TestQrisCommandSendsImage(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	cfg := s.GetConfig(ctx)
+	cfg.QrisEnabled = true
+	cfg.QrisNama = "Kios Test"
+	cfg.QrisImageURL = "https://cdn.example.com/qris.png"
+	if err := s.SaveConfig(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	var def commands.Definition
+	for _, d := range Commands(s) {
+		if d.Name == "qris" {
+			def = d
+		}
+	}
+	if def.Handler == nil {
+		t.Fatal("/qris command missing")
+	}
+
+	var gotURL, gotCaption, replyText string
+	rt := &commands.Runtime{
+		SendImageURL: func(_ context.Context, _, _, url, caption string) error {
+			gotURL, gotCaption = url, caption
+			return nil
+		},
+	}
+	req := commands.Request{Channel: "telegram", ChatID: "1", Reply: func(s string) error { replyText = s; return nil }}
+	if err := def.Handler(ctx, req, rt); err != nil {
+		t.Fatalf("/qris: %v", err)
+	}
+	if gotURL != "https://cdn.example.com/qris.png" {
+		t.Errorf("QR image not sent as photo, gotURL=%q", gotURL)
+	}
+	if !strings.Contains(gotCaption, "Kios Test") {
+		t.Errorf("caption missing merchant name: %q", gotCaption)
+	}
+	if strings.Contains(replyText, "https://") {
+		t.Errorf("raw URL leaked into text reply: %q", replyText)
+	}
+}
+
+// When no image is set (or no media-capable runtime), /qris must fall back to a
+// plain text message — never panic, never send a broken photo.
+func TestQrisCommandTextFallback(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	cfg := s.GetConfig(ctx)
+	cfg.QrisEnabled = true
+	cfg.QrisImageURL = "" // enabled but image not set yet
+	if err := s.SaveConfig(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	var def commands.Definition
+	for _, d := range Commands(s) {
+		if d.Name == "qris" {
+			def = d
+		}
+	}
+	var replyText string
+	req := commands.Request{Channel: "telegram", ChatID: "1", Reply: func(s string) error { replyText = s; return nil }}
+	if err := def.Handler(ctx, req, nil); err != nil { // rt nil must be safe
+		t.Fatalf("/qris: %v", err)
+	}
+	if !strings.Contains(replyText, "belum di-set") {
+		t.Errorf("expected text fallback about missing QR image, got %q", replyText)
+	}
+}
+
 func TestParseJualArgs(t *testing.T) {
 	cases := []struct {
 		text   string
@@ -347,6 +419,94 @@ func TestParseJualArgs(t *testing.T) {
 		if ok != c.ok || (ok && (p != c.produk || q != c.qty)) {
 			t.Errorf("parseJualArgs(%q)=(%q,%d,%v) want (%q,%d,%v)", c.text, p, q, ok, c.produk, c.qty, c.ok)
 		}
+	}
+}
+
+func TestBatalCommand(t *testing.T) {
+	s := newTestStore(t) // default role owner
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+	ctx := context.Background()
+
+	byName := map[string]commands.Definition{}
+	for _, d := range Commands(s) {
+		byName[d.Name] = d
+	}
+	if _, ok := byName["batal"]; !ok {
+		t.Fatal("slash-command /batal missing")
+	}
+
+	run := func(text string) string {
+		var out string
+		req := commands.Request{
+			Channel:  "telegram",
+			SenderID: "owner1",
+			Text:     text,
+			Reply:    func(s string) error { out = s; return nil },
+		}
+		if err := byName["batal"].Handler(ctx, req, nil); err != nil {
+			t.Fatalf("/batal handler error: %v", err)
+		}
+		return out
+	}
+
+	// Empty arg -> usage hint.
+	if got := run("/batal"); !strings.Contains(got, "Pakai: /batal") {
+		t.Errorf("/batal without arg should show usage, got: %s", got)
+	}
+
+	// Sell 2 to create TRX-0001 (stok 10 -> 8).
+	sell := byName["jual"]
+	var sellOut string
+	sellReq := commands.Request{Channel: "telegram", SenderID: "owner1", Text: "/jual beras 2",
+		Reply: func(s string) error { sellOut = s; return nil }}
+	if err := sell.Handler(ctx, sellReq, nil); err != nil {
+		t.Fatalf("/jual: %v", err)
+	}
+	if !strings.Contains(sellOut, "STRUK") {
+		t.Fatalf("/jual setup failed, got: %s", sellOut)
+	}
+
+	// Owner cancels TRX-0001 -> transaction gone, stok restored to 10.
+	got := run("/batal TRX-0001")
+	if !strings.Contains(got, "dibatalkan") {
+		t.Errorf("/batal TRX-0001 should confirm cancellation, got: %s", got)
+	}
+	tx, _ := s.RemoveTransaksi(ctx, "TRX-0001")
+	if tx != nil {
+		t.Errorf("transaction TRX-0001 should be removed after /batal")
+	}
+	p, _ := s.GetProduk(ctx, "002")
+	if p == nil || p.Stok != 10 {
+		t.Errorf("stok should be restored to 10 after /batal, got: %+v", p)
+	}
+}
+
+func TestBatalCommandKasirRefused(t *testing.T) {
+	t.Setenv("KIOS_DEFAULT_ROLE", "kasir")
+	s := newTestStore(t)
+	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
+
+	var def commands.Definition
+	for _, d := range Commands(s) {
+		if d.Name == "batal" {
+			def = d
+		}
+	}
+	if def.Handler == nil {
+		t.Fatal("/batal command missing")
+	}
+	var out string
+	req := commands.Request{
+		Channel:  "telegram",
+		SenderID: "kasir1",
+		Text:     "/batal TRX-0001",
+		Reply:    func(s string) error { out = s; return nil },
+	}
+	if err := def.Handler(context.Background(), req, nil); err != nil {
+		t.Fatalf("/batal handler error: %v", err)
+	}
+	if !strings.Contains(out, "owner") {
+		t.Errorf("kasir must be refused on /batal, got: %s", out)
 	}
 }
 

@@ -23,6 +23,7 @@ PERINTAH CEPAT (tanpa AI):
 /harga <produk> — lihat harga jual & modal
 /jual <produk> <jml> — catat penjualan + struk
 /jualmassal <produk> <jml>, ... — jual banyak barang
+/batal <TRX-id> — batalkan transaksi (owner)
 /laporan — ringkasan penjualan & laba hari ini
 /menipis — produk yang stoknya hampir habis
 /shift — buka/cek/tutup shift kasir
@@ -140,6 +141,24 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 					return reply(req, "Pakai: /jual <produk> <jumlah>. Contoh: /jual beras 2")
 				}
 				res := kasir.Execute(withSender(ctx, req), map[string]any{"action": "jual", "produk": produk, "qty": float64(qty)})
+				out := res.ForUser
+				if out == "" {
+					out = res.ForLLM
+				}
+				return reply(req, out)
+			},
+		},
+		{
+			Name:        "batal",
+			Description: "Batalkan transaksi & kembalikan stok (khusus owner)",
+			Usage:       "/batal <TRX-id>",
+			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
+				arg := argAfter(req.Text)
+				if arg == "" {
+					return reply(req, "Pakai: /batal <TRX-id>. Contoh: /batal TRX-0001")
+				}
+				// withSender keeps RBAC (owner-only) in force for the slash-command.
+				res := stok.Execute(withSender(ctx, req), map[string]any{"action": "batalkan_tx", "id": arg})
 				out := res.ForUser
 				if out == "" {
 					out = res.ForLLM
@@ -295,8 +314,23 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 		{
 			Name:        "qris",
 			Description: "Tampilkan QRIS kios untuk pembayaran (tanpa AI)",
-			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
-				return reply(req, qrisMessage(store.GetConfig(ctx)))
+			Handler: func(ctx context.Context, req commands.Request, rt *commands.Runtime) error {
+				cfg := store.GetConfig(ctx)
+				// When QRIS is enabled with an image and the channel can send
+				// photos, deliver the actual scannable QR (Telegram fetches the
+				// URL itself — the bot never downloads it). Fall back to text.
+				if cfg.QrisEnabled && strings.TrimSpace(cfg.QrisImageURL) != "" && rt != nil && rt.SendImageURL != nil {
+					nama := cfg.QrisNama
+					if nama == "" {
+						nama = "Kios Cerdas"
+					}
+					caption := fmt.Sprintf("💳 Pembayaran QRIS — %s\nScan QR ini untuk bayar. Setelah bayar, tunjukkan bukti ke kasir ya kak. 🙏", nama)
+					if err := rt.SendImageURL(ctx, req.Channel, req.ChatID, cfg.QrisImageURL, caption); err == nil {
+						return nil
+					}
+					// On delivery failure, fall through to the text reply below.
+				}
+				return reply(req, qrisMessage(cfg))
 			},
 		},
 		{
