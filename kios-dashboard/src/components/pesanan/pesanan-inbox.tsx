@@ -147,7 +147,7 @@ export function PesananInbox({ pesanan }: { pesanan: Pesanan[] }) {
                   </div>
 
                   <ul className="mt-3 flex-1 space-y-1 border-t pt-3 text-sm">
-                    {o.items.map((it, i) => (
+                    {(o.items ?? []).map((it, i) => (
                       <li key={i} className="flex justify-between gap-2">
                         <span className="min-w-0 truncate">
                           {it.nama_produk} <span className="text-muted-foreground">x{it.qty}</span>

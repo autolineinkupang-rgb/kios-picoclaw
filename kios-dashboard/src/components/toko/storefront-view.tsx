@@ -21,7 +21,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, matchesQuery } from "@/lib/utils";
 import { buildOrderWa, buildQrisDinamisWa, waLink } from "@/lib/wa";
 import { categoryImage } from "@/lib/produk-image";
 import type { PublicProduk } from "@/lib/types";
@@ -99,7 +99,7 @@ export function StorefrontView() {
     return produk.filter((p) => {
       if (cat && p.kategori !== cat) return false;
       if (!q) return true;
-      return (p.nama ?? "").toLowerCase().includes(q);
+      return matchesQuery(q, p.nama);
     });
   }, [produk, query, cat]);
 

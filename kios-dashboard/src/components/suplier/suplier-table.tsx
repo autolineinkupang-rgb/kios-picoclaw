@@ -18,7 +18,7 @@ import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SuplierForm } from "./suplier-form";
 import { deleteSuplierAction } from "@/app/(app)/suplier/actions";
-import { cn } from "@/lib/utils";
+import { cn, matchesQuery } from "@/lib/utils";
 import type { Supplier } from "@/lib/types";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -43,13 +43,8 @@ export function SuplierTable({
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return suplier;
-    return suplier.filter(
-      (s) =>
-        (s.nama ?? "").toLowerCase().includes(q) ||
-        (s.kontak ?? "").toLowerCase().includes(q) ||
-        (s.pic ?? "").toLowerCase().includes(q) ||
-        (s.produk_utama ?? "").toLowerCase().includes(q) ||
-        (s.id ?? "").toLowerCase().includes(q),
+    return suplier.filter((s) =>
+      matchesQuery(q, s.nama, s.kontak, s.pic, s.produk_utama, s.id),
     );
   }, [suplier, query]);
 

@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { stokStatus, STATUS_META } from "@/lib/produk-status";
-import { cn } from "@/lib/utils";
+import { cn, matchesQuery } from "@/lib/utils";
 import type { Produk } from "@/lib/types";
 import { checkoutAction, type CheckoutResult } from "@/app/(app)/kasir/actions";
 
@@ -40,12 +40,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = q
-      ? produk.filter(
-          (p) =>
-            (p.nama ?? "").toLowerCase().includes(q) ||
-            (p.id ?? "").toLowerCase().includes(q) ||
-            (p.barcode ?? "").toLowerCase().includes(q),
-        )
+      ? produk.filter((p) => matchesQuery(q, p.nama, p.id, p.barcode))
       : produk;
     return list.slice(0, 12);
   }, [produk, query]);

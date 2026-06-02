@@ -8,7 +8,7 @@ import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PeriodeTabs } from "@/components/periode-tabs";
 import { filterPeriode, formatNumber, formatRupiah, periodeLabel } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, matchesQuery } from "@/lib/utils";
 import type { Periode, Transaksi } from "@/lib/types";
 
 const METODE_VARIANT: Record<string, "secondary" | "default" | "success"> = {
@@ -29,11 +29,7 @@ export function PenjualanView({ transaksi }: { transaksi: Transaksi[] }) {
     return filterPeriode(transaksi, periode)
       .filter((t) => (metode ? t.metode_bayar === metode : true))
       .filter((t) =>
-        q
-          ? (t.nama_produk ?? "").toLowerCase().includes(q) ||
-            (t.id ?? "").toLowerCase().includes(q) ||
-            (t.kasir ?? "").toLowerCase().includes(q)
-          : true,
+        q ? matchesQuery(q, t.nama_produk, t.id, t.kasir) : true,
       )
       .slice()
       .reverse(); // newest first

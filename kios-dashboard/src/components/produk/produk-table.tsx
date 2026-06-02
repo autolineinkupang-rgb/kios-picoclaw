@@ -23,7 +23,7 @@ import { deleteProdukAction, type ActionResult } from "@/app/(app)/produk/action
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import { produkImage } from "@/lib/produk-image";
 import { STATUS_META, marginPct, stokStatus, type StokStatus } from "@/lib/produk-status";
-import { cn } from "@/lib/utils";
+import { cn, matchesQuery } from "@/lib/utils";
 import type { Produk } from "@/lib/types";
 
 type SortKey = "nama" | "stok" | "harga_jual";
@@ -58,11 +58,7 @@ export function ProdukTable({
       if (kategori && p.kategori !== kategori) return false;
       if (status && stokStatus(p) !== status) return false;
       if (!q) return true;
-      return (
-        (p.nama ?? "").toLowerCase().includes(q) ||
-        (p.id ?? "").toLowerCase().includes(q) ||
-        (p.barcode ?? "").toLowerCase().includes(q)
-      );
+      return matchesQuery(q, p.nama, p.id, p.barcode);
     });
     list = [...list].sort((a, b) => {
       let cmp = 0;
