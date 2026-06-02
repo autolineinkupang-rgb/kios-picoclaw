@@ -166,7 +166,7 @@ export async function importProdukAction(rows: TableRow[]): Promise<ImportResult
       };
       await setProduk(p);
       idx.byId.set(id, p);
-      idx.byNama.set(p.nama.toLowerCase(), p);
+      idx.byNama.set((p.nama ?? "").toLowerCase(), p);
       created++;
     }
   }

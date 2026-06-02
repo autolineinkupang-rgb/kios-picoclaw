@@ -30,9 +30,9 @@ export function PenjualanView({ transaksi }: { transaksi: Transaksi[] }) {
       .filter((t) => (metode ? t.metode_bayar === metode : true))
       .filter((t) =>
         q
-          ? t.nama_produk.toLowerCase().includes(q) ||
-            t.id.toLowerCase().includes(q) ||
-            t.kasir.toLowerCase().includes(q)
+          ? (t.nama_produk ?? "").toLowerCase().includes(q) ||
+            (t.id ?? "").toLowerCase().includes(q) ||
+            (t.kasir ?? "").toLowerCase().includes(q)
           : true,
       )
       .slice()

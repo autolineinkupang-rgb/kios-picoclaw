@@ -45,11 +45,11 @@ export function SuplierTable({
     if (!q) return suplier;
     return suplier.filter(
       (s) =>
-        s.nama.toLowerCase().includes(q) ||
-        s.kontak.toLowerCase().includes(q) ||
-        s.pic.toLowerCase().includes(q) ||
-        s.produk_utama.toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q),
+        (s.nama ?? "").toLowerCase().includes(q) ||
+        (s.kontak ?? "").toLowerCase().includes(q) ||
+        (s.pic ?? "").toLowerCase().includes(q) ||
+        (s.produk_utama ?? "").toLowerCase().includes(q) ||
+        (s.id ?? "").toLowerCase().includes(q),
     );
   }, [suplier, query]);
 

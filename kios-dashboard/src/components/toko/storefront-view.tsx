@@ -99,7 +99,7 @@ export function StorefrontView() {
     return produk.filter((p) => {
       if (cat && p.kategori !== cat) return false;
       if (!q) return true;
-      return p.nama.toLowerCase().includes(q);
+      return (p.nama ?? "").toLowerCase().includes(q);
     });
   }, [produk, query, cat]);
 
