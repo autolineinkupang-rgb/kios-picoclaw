@@ -50,6 +50,8 @@ sessions/
 .picoclaw/
 # local dev runtime (rendered config, may contain secrets)
 .picoclaw-dev/
+# local-only run helper (not needed for build/deploy; kept on dev machines)
+run-local-ollama.sh
 
 # =============================================================================
 # Logs & temp files
