@@ -392,6 +392,33 @@ func (al *AgentLoop) buildCommandsRuntime(
 		}
 		return fmt.Errorf("no delivery channel")
 	}
+
+	rt.SendImageURL = func(fctx context.Context, channel, chatID, imageURL, caption string) error {
+		if strings.TrimSpace(imageURL) == "" {
+			return fmt.Errorf("empty image url")
+		}
+		var inbound *bus.InboundContext
+		var replyTo string
+		if opts != nil {
+			inbound = opts.Dispatch.InboundContext
+			replyTo = opts.Dispatch.ReplyToMessageID()
+		}
+		// The image Ref is the remote URL itself; the channel hands it to the
+		// platform (e.g. Telegram) to fetch, so the bot never downloads it.
+		msg := bus.OutboundMediaMessage{
+			Channel: channel,
+			ChatID:  chatID,
+			Context: outboundContextFromInbound(inbound, channel, chatID, replyTo),
+			Parts:   []bus.MediaPart{{Type: "image", Ref: imageURL, Caption: caption}},
+		}
+		if al.channelManager != nil && channel != "" {
+			return al.channelManager.SendMedia(fctx, msg)
+		}
+		if al.bus != nil {
+			return al.bus.PublishOutboundMedia(fctx, msg)
+		}
+		return fmt.Errorf("no delivery channel")
+	}
 	return rt
 }
 

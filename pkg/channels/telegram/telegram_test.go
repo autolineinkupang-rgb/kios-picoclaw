@@ -237,6 +237,39 @@ func TestSendMedia_ImageNonDimensionErrorDoesNotFallback(t *testing.T) {
 	assert.NotContains(t, caller.calls[0].URL, "sendDocument")
 }
 
+// An image MediaPart whose Ref is a remote http(s) URL must be sent by handing
+// the URL to Telegram (sendPhoto with a JSON body, no multipart upload) so the
+// bot itself never fetches the URL.
+func TestSendMedia_ImageFromRemoteURL(t *testing.T) {
+	const imgURL = "https://cdn.example.com/qris.png"
+	var photoBody string
+	caller := &stubCaller{
+		callFn: func(ctx context.Context, url string, data *ta.RequestData) (*ta.Response, error) {
+			if strings.Contains(url, "sendPhoto") {
+				photoBody = string(data.BodyRaw)
+				return successResponse(t), nil
+			}
+			t.Fatalf("unexpected API call: %s", url)
+			return nil, nil
+		},
+	}
+	ch := newTestChannel(t, caller)
+	ch.SetMediaStore(media.NewFileMediaStore())
+
+	ids, err := ch.SendMedia(context.Background(), bus.OutboundMediaMessage{
+		ChatID: "12345",
+		Parts:  []bus.MediaPart{{Type: "image", Ref: imgURL, Caption: "scan ini"}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, ids, 1)
+	require.Len(t, caller.calls, 1)
+	assert.Contains(t, caller.calls[0].URL, "sendPhoto")
+	// The URL is passed in the JSON body (Telegram fetches it), not uploaded.
+	assert.Contains(t, photoBody, imgURL)
+	assert.Equal(t, "application/json", caller.calls[0].Data.ContentType)
+}
+
 func TestSend_EmptyContent(t *testing.T) {
 	caller := &stubCaller{
 		callFn: func(ctx context.Context, url string, data *ta.RequestData) (*ta.Response, error) {

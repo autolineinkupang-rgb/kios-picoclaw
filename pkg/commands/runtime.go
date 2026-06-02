@@ -65,4 +65,8 @@ type Runtime struct {
 	// SendFile delivers a local file to the given channel/chat as an attachment.
 	// Nil when the runtime has no media-capable channel.
 	SendFile func(ctx context.Context, channel, chatID, path, filename string) error
+	// SendImageURL delivers an image located at a remote URL as a photo. The
+	// channel (e.g. Telegram) fetches the URL itself, so the bot never makes the
+	// outbound request — avoiding SSRF. Nil when no media-capable channel.
+	SendImageURL func(ctx context.Context, channel, chatID, url, caption string) error
 }

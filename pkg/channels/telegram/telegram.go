@@ -647,6 +647,16 @@ func (c *TelegramChannel) SendPlaceholder(ctx context.Context, chatID string) (s
 }
 
 // SendMedia implements the channels.MediaSender interface.
+// isRemoteMediaURL reports whether ref is an http(s) URL Telegram can fetch
+// directly, so the bot does not download the file itself (avoids SSRF).
+func isRemoteMediaURL(ref string) bool {
+	u, err := url.Parse(ref)
+	if err != nil {
+		return false
+	}
+	return (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
 func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessage) ([]string, error) {
 	if !c.IsRunning() {
 		return nil, channels.ErrNotRunning
@@ -666,22 +676,33 @@ func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMe
 
 	var messageIDs []string
 	for _, part := range msg.Parts {
-		localPath, err := store.Resolve(part.Ref)
-		if err != nil {
-			logger.ErrorCF("telegram", "Failed to resolve media ref", map[string]any{
-				"ref":   part.Ref,
-				"error": err.Error(),
-			})
-			continue
-		}
-
-		file, err := os.Open(localPath)
-		if err != nil {
-			logger.ErrorCF("telegram", "Failed to open media file", map[string]any{
-				"path":  localPath,
-				"error": err.Error(),
-			})
-			continue
+		// A remote http(s) Ref is handed to Telegram as a URL so Telegram fetches
+		// it server-side; the bot never makes the outbound request (avoids SSRF).
+		// Any other Ref is resolved to a local file in the media store.
+		var inputFile telego.InputFile
+		var localFile *os.File
+		var err error
+		if isRemoteMediaURL(part.Ref) {
+			inputFile = telego.InputFile{URL: part.Ref}
+		} else {
+			var localPath string
+			localPath, err = store.Resolve(part.Ref)
+			if err != nil {
+				logger.ErrorCF("telegram", "Failed to resolve media ref", map[string]any{
+					"ref":   part.Ref,
+					"error": err.Error(),
+				})
+				continue
+			}
+			localFile, err = os.Open(localPath)
+			if err != nil {
+				logger.ErrorCF("telegram", "Failed to open media file", map[string]any{
+					"path":  localPath,
+					"error": err.Error(),
+				})
+				continue
+			}
+			inputFile = telego.InputFile{File: localFile}
 		}
 
 		var tgResult *telego.Message
@@ -690,20 +711,24 @@ func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMe
 			params := &telego.SendPhotoParams{
 				ChatID:          tu.ID(chatID),
 				MessageThreadID: threadID,
-				Photo:           telego.InputFile{File: file},
+				Photo:           inputFile,
 				Caption:         part.Caption,
 			}
 			tgResult, err = c.bot.SendPhoto(ctx, params)
 			if err != nil && strings.Contains(err.Error(), "PHOTO_INVALID_DIMENSIONS") {
-				if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
-					file.Close()
-					return nil, fmt.Errorf("telegram rewind media after photo failure: %w", channels.ErrTemporary)
+				// Local uploads must rewind before re-sending; URL refs have no
+				// local file to seek.
+				if localFile != nil {
+					if _, seekErr := localFile.Seek(0, io.SeekStart); seekErr != nil {
+						localFile.Close()
+						return nil, fmt.Errorf("telegram rewind media after photo failure: %w", channels.ErrTemporary)
+					}
 				}
 
 				docParams := &telego.SendDocumentParams{
 					ChatID:          tu.ID(chatID),
 					MessageThreadID: threadID,
-					Document:        telego.InputFile{File: file},
+					Document:        inputFile,
 					Caption:         part.Caption,
 				}
 				tgResult, err = c.bot.SendDocument(ctx, docParams)
@@ -716,7 +741,7 @@ func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMe
 				vparams := &telego.SendVoiceParams{
 					ChatID:          tu.ID(chatID),
 					MessageThreadID: threadID,
-					Voice:           telego.InputFile{File: file},
+					Voice:           inputFile,
 					Caption:         part.Caption,
 				}
 				tgResult, err = c.bot.SendVoice(ctx, vparams)
@@ -724,7 +749,7 @@ func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMe
 				params := &telego.SendAudioParams{
 					ChatID:          tu.ID(chatID),
 					MessageThreadID: threadID,
-					Audio:           telego.InputFile{File: file},
+					Audio:           inputFile,
 					Caption:         part.Caption,
 				}
 				tgResult, err = c.bot.SendAudio(ctx, params)
@@ -733,7 +758,7 @@ func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMe
 			params := &telego.SendVideoParams{
 				ChatID:          tu.ID(chatID),
 				MessageThreadID: threadID,
-				Video:           telego.InputFile{File: file},
+				Video:           inputFile,
 				Caption:         part.Caption,
 			}
 			tgResult, err = c.bot.SendVideo(ctx, params)
@@ -741,7 +766,7 @@ func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMe
 			params := &telego.SendDocumentParams{
 				ChatID:          tu.ID(chatID),
 				MessageThreadID: threadID,
-				Document:        telego.InputFile{File: file},
+				Document:        inputFile,
 				Caption:         part.Caption,
 			}
 			tgResult, err = c.bot.SendDocument(ctx, params)
@@ -750,7 +775,9 @@ func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMe
 		if tgResult != nil {
 			messageIDs = append(messageIDs, strconv.Itoa(tgResult.MessageID))
 		}
-		file.Close()
+		if localFile != nil {
+			localFile.Close()
+		}
 
 		if err != nil {
 			logger.ErrorCF("telegram", "Failed to send media", map[string]any{
