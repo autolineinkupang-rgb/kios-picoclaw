@@ -1465,6 +1465,37 @@ func TestJenisOrDefault(t *testing.T) {
 	}
 }
 
+func TestBackupRestoreHargaSupplier(t *testing.T) {
+	ctx := context.Background()
+	src := newTestStore(t)
+	if err := src.SetHargaSupplier(ctx, "002", "Toko Jaya", 54000); err != nil {
+		t.Fatalf("set harga supplier: %v", err)
+	}
+	b, err := BuildBackup(ctx, src)
+	if err != nil {
+		t.Fatalf("build backup: %v", err)
+	}
+	if b.Versi != "1.1" {
+		t.Errorf("versi=%q want 1.1", b.Versi)
+	}
+	if len(b.HargaSupplier) != 1 {
+		t.Fatalf("harga_supplier in backup=%d want 1", len(b.HargaSupplier))
+	}
+	// Restore ke store kosong dan pastikan override pulih.
+	dst := newTestStore(t)
+	if err := dst.RestoreBackup(ctx, b); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	m, err := dst.GetAllHargaSupplier(ctx)
+	if err != nil {
+		t.Fatalf("get harga supplier: %v", err)
+	}
+	field := hargaSupplierField("002", "Toko Jaya")
+	if m[field] != 54000 {
+		t.Errorf("restored harga=%d want 54000 (map=%v)", m[field], m)
+	}
+}
+
 func TestPerformJualJenisBiasaRoute(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

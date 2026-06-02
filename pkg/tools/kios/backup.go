@@ -18,22 +18,23 @@ import (
 // free tier wipes data 30 days after credits run out, so the only durable copy
 // is the file we send to Telegram.
 type BackupData struct {
-	Versi        string          `json:"versi"`
-	Dibuat       string          `json:"dibuat"` // WITA timestamp
-	Produk       []*Produk       `json:"produk"`
-	Transaksi    []*Transaksi    `json:"transaksi"`
-	Pembelian    []*Pembelian    `json:"pembelian"`
-	PriceHistory []*PriceHistory `json:"price_history"`
-	Supplier     []*Supplier     `json:"supplier"`
-	Promo        []*Promo        `json:"promo"`
-	Pustaka      []*Pustaka      `json:"pustaka"`
-	Users        []*UserKios     `json:"users"`
-	Shift        *Shift          `json:"shift,omitempty"`
+	Versi         string          `json:"versi"`
+	Dibuat        string          `json:"dibuat"` // WITA timestamp
+	Produk        []*Produk       `json:"produk"`
+	Transaksi     []*Transaksi    `json:"transaksi"`
+	Pembelian     []*Pembelian    `json:"pembelian"`
+	PriceHistory  []*PriceHistory `json:"price_history"`
+	Supplier      []*Supplier     `json:"supplier"`
+	Promo         []*Promo        `json:"promo"`
+	Pustaka       []*Pustaka      `json:"pustaka"`
+	Users         []*UserKios     `json:"users"`
+	Shift         *Shift          `json:"shift,omitempty"`
+	HargaSupplier map[string]int  `json:"harga_supplier,omitempty"`
 }
 
 // BuildBackup reads every kios dataset from Redis into a single snapshot.
 func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
-	b := &BackupData{Versi: "1.0", Dibuat: NowWITA().Format("2006-01-02 15:04:05")}
+	b := &BackupData{Versi: "1.1", Dibuat: NowWITA().Format("2006-01-02 15:04:05")}
 	var err error
 	if b.Produk, err = store.GetAllProduk(ctx); err != nil {
 		return nil, err
@@ -62,14 +63,17 @@ func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
 	if b.Shift, err = store.GetShift(ctx); err != nil {
 		return nil, err
 	}
+	if b.HargaSupplier, err = store.GetAllHargaSupplier(ctx); err != nil {
+		return nil, err
+	}
 	return b, nil
 }
 
 // Ringkas returns a short human summary of the snapshot's contents.
 func (b *BackupData) Ringkas() string {
-	return fmt.Sprintf("%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna",
+	return fmt.Sprintf("%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier",
 		len(b.Produk), len(b.Transaksi), len(b.Pembelian), len(b.PriceHistory),
-		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users))
+		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users), len(b.HargaSupplier))
 }
 
 // backupKeep is the number of most-recent backup files retained on disk.
@@ -169,7 +173,7 @@ func ParseBackup(raw []byte) (*BackupData, error) {
 // HasAnyData reports whether any core dataset currently holds records. Used to
 // guard the destructive restore so existing data isn't clobbered by accident.
 func (s *Store) HasAnyData(ctx context.Context) (bool, error) {
-	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers} {
+	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers, keyHargaSupplier} {
 		n, err := s.rdb.HLen(ctx, k).Result()
 		if err != nil {
 			return false, err
@@ -202,6 +206,7 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		keyProduk, keyTransaksi, keySeqTrx, keyPembelian, keySeqPem,
 		keyPriceHist, keySeqPhg, keyShift, keyUsers,
 		keySupplier, keySeqSup, keyPromo, keySeqPromo, keyPustaka, keySeqPus,
+		keyHargaSupplier,
 	}
 	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
 		return err
@@ -255,6 +260,14 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 	}
 	if err := rpushAll(keyPriceHist, anySlice(b.PriceHistory)); err != nil {
 		return err
+	}
+	// harga_supplier is a flat map[field]int (not JSON structs), so it doesn't
+	// fit the hsetAll helper; restore each override field directly, encoding the
+	// value exactly as SetHargaSupplier does (strconv.Itoa).
+	for field, harga := range b.HargaSupplier {
+		if err := s.rdb.HSet(ctx, keyHargaSupplier, field, strconv.Itoa(harga)).Err(); err != nil {
+			return err
+		}
 	}
 	if b.Shift != nil {
 		raw, err := json.Marshal(b.Shift)
