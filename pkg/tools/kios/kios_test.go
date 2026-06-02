@@ -1464,3 +1464,22 @@ func TestJenisOrDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestPerformJualJenisBiasaRoute(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	// Produk dengan Jenis eksplisit "biasa" harus berperilaku sama dgn produk lama.
+	if err := s.SetProduk(ctx, &Produk{
+		ID: "010", Nama: "Minyak Goreng 1L", Kategori: "umum", Satuan: "pcs",
+		Jenis: "biasa", Stok: 6, HargaBeli: 16000, HargaJual: 18000, StokMinimum: 5, StokKritis: 2,
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	tx, _, sisa, err := performJual(ctx, s, "minyak", 2, "tunai", "ken", 0)
+	if err != nil {
+		t.Fatalf("performJual: %v", err)
+	}
+	if tx.Total != 36000 || sisa != 4 {
+		t.Errorf("total=%d sisa=%d want 36000/4", tx.Total, sisa)
+	}
+}
