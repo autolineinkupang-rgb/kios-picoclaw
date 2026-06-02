@@ -1454,3 +1454,13 @@ func TestSupplierTool_KasirCanAddNotDelete(t *testing.T) {
 		t.Errorf("kasir should NOT delete supplier")
 	}
 }
+
+func TestJenisOrDefault(t *testing.T) {
+	cases := map[string]string{"": "biasa", "biasa": "biasa", "pulsa": "pulsa", "bensin": "bensin"}
+	for in, want := range cases {
+		p := &Produk{Jenis: in}
+		if got := p.JenisOrDefault(); got != want {
+			t.Errorf("JenisOrDefault(%q)=%q want %q", in, got, want)
+		}
+	}
+}

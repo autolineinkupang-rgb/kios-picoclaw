@@ -18,6 +18,8 @@ export interface Produk {
   has_exp: boolean;
   exp_date: string;
   image_url: string;
+  jenis?: string;        // "" | "biasa" | "pulsa" | "bensin"
+  supplier_id?: string;
 }
 
 export interface Transaksi {

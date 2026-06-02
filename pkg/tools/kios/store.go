@@ -34,6 +34,17 @@ type Produk struct {
 	HasExp      bool   `json:"has_exp"`
 	ExpDate     string `json:"exp_date"`
 	ImageURL    string `json:"image_url"`
+	Jenis       string `json:"jenis,omitempty"`       // "" | "biasa" | "pulsa" | "bensin"
+	SupplierID  string `json:"supplier_id,omitempty"` // FK stabil ke Supplier.ID
+}
+
+// JenisOrDefault returns the product kind, defaulting to "biasa" when unset so
+// pre-existing products (which have no jenis field) behave as ordinary stock items.
+func (p *Produk) JenisOrDefault() string {
+	if p.Jenis == "" {
+		return "biasa"
+	}
+	return p.Jenis
 }
 
 // Transaksi represents a sales transaction.
