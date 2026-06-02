@@ -48,6 +48,8 @@ deploy/.env
 onboard
 sessions/
 .picoclaw/
+# local dev runtime (rendered config, may contain secrets)
+.picoclaw-dev/
 
 # =============================================================================
 # Logs & temp files
