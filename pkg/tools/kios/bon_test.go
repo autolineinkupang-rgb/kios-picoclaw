@@ -277,3 +277,41 @@ func TestHapusPiutangOwnerOnly(t *testing.T) {
 		t.Errorf("owner harus bisa hapus: %s", r2.ForLLM)
 	}
 }
+
+func TestBackupRestoreBonRoundtrip(t *testing.T) {
+	ctx := context.Background()
+	src := newTestStore(t)
+	seedProduct(t, src, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = src.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	bon := NewBonTool(src)
+	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	allPiu, _ := src.GetAllPiutang(ctx)
+	piuID := allPiu[0].ID
+	bon.Execute(ctx, map[string]any{"action": "bayar", "id": piuID, "jumlah": float64(1000), "metode": "tunai"})
+
+	b, err := BuildBackup(ctx, src)
+	if err != nil {
+		t.Fatalf("BuildBackup: %v", err)
+	}
+	if len(b.Piutang) != 1 {
+		t.Fatalf("piutang dalam backup=%d want 1", len(b.Piutang))
+	}
+	if len(b.Pembayaran) != 1 {
+		t.Fatalf("pembayaran dalam backup=%d want 1", len(b.Pembayaran))
+	}
+
+	dst := newTestStore(t)
+	if err := dst.RestoreBackup(ctx, b); err != nil {
+		t.Fatalf("RestoreBackup: %v", err)
+	}
+
+	piu, err := dst.GetPiutang(ctx, piuID)
+	if err != nil || piu == nil || piu.Sisa != 5000 {
+		t.Errorf("restored piutang sisa want 5000, got: %+v err=%v", piu, err)
+	}
+	pays, _ := dst.GetAllPembayaran(ctx)
+	if len(pays) != 1 || pays[0].Jumlah != 1000 {
+		t.Errorf("restored pembayaran: %+v", pays)
+	}
+}
