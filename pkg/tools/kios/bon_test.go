@@ -2,8 +2,10 @@ package kios
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/sipeed/picoclaw/pkg/commands"
 	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
 )
 
@@ -203,6 +205,38 @@ func TestDelPelangganSafeDenganPiutangDiblokir(t *testing.T) {
 	err := s.DelPelangganSafe(ctx, "628123456789")
 	if err == nil {
 		t.Error("harus error — pelanggan masih punya piutang terbuka")
+	}
+}
+
+func TestSlashUtangCommand(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+	NewBonTool(s).Execute(ctx, map[string]any{
+		"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789",
+	})
+
+	defs := CommandsBon(s)
+	found := false
+	for _, d := range defs {
+		if d.Name == "utang" {
+			found = true
+			var out string
+			req := commands.Request{
+				Channel: "telegram", SenderID: "owner1", Text: "/utang",
+				Reply: func(s string) error { out = s; return nil },
+			}
+			if err := d.Handler(ctx, req, nil); err != nil {
+				t.Fatalf("/utang error: %v", err)
+			}
+			if !strings.Contains(out, "PIU-") {
+				t.Errorf("/utang output: %q", out)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("command /utang tidak ditemukan di CommandsBon")
 	}
 }
 

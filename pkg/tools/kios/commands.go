@@ -93,7 +93,7 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 		return toolshared.WithToolContext(ctx, req.Channel, req.SenderID)
 	}
 
-	return []commands.Definition{
+	defs := []commands.Definition{
 		{
 			Name:        "stok",
 			Description: "Lihat daftar stok / cari produk (tanpa AI)",
@@ -367,6 +367,8 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 			},
 		},
 	}
+	defs = append(defs, CommandsBon(store)...)
+	return defs
 }
 
 // parseJualArgs parses "/jual <produk multi-kata> <jumlah>": the last token is
