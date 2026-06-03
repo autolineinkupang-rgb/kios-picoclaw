@@ -127,6 +127,22 @@ func TestBayarOverpaymentDitolak(t *testing.T) {
 	}
 }
 
+func TestJualBonBypassBayarGuard(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	// Jual bon tanpa arg bayar harus tetap berhasil (bypass guard bayar<total)
+	bon := NewBonTool(s)
+	r := bon.Execute(ctx, map[string]any{
+		"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789",
+	})
+	if r.IsError {
+		t.Errorf("jual_bon harus bypass guard bayar<total: %s", r.ForLLM)
+	}
+}
+
 func TestHapusPiutangOwnerOnly(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

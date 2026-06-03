@@ -54,6 +54,7 @@ type Transaksi struct {
 	Kasir       string `json:"kasir"`
 	Catatan     string `json:"catatan"`
 	SessionID   string `json:"session_id"`
+	PiutangID   string `json:"piutang_id,omitempty"` // diisi saat jual bon
 }
 
 // Pembelian represents a restocking purchase.

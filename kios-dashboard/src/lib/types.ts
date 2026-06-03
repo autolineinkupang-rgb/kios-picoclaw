@@ -36,6 +36,7 @@ export interface Transaksi {
   kasir: string;
   catatan: string;
   session_id: string;
+  piutang_id?: string;  // diisi saat jual bon
 }
 
 export interface Pembelian {
