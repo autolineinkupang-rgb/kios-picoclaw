@@ -118,3 +118,19 @@ func (s *Store) GetAllPelanggan(ctx context.Context) ([]*Pelanggan, error) {
 func (s *Store) DelPelanggan(ctx context.Context, phone string) error {
 	return s.rdb.HDel(ctx, keyPelanggan, phone).Err()
 }
+
+// DelPelangganSafe removes a customer only when there are no open piutang records.
+// Returns an error describing the first blocking piutang if one exists.
+func (s *Store) DelPelangganSafe(ctx context.Context, phone string) error {
+	allPiu, err := s.GetAllPiutang(ctx)
+	if err != nil {
+		return err
+	}
+	for _, p := range allPiu {
+		if p.Phone == phone && p.Status == "terbuka" {
+			return fmt.Errorf("pelanggan masih punya piutang terbuka %s (%s) — lunasi atau write-off dulu kak",
+				p.ID, FormatRupiah(p.Sisa))
+		}
+	}
+	return s.DelPelanggan(ctx, phone)
+}

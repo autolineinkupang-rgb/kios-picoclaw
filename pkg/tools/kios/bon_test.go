@@ -191,6 +191,36 @@ func TestBatalkanTxBonDenganCicilan(t *testing.T) {
 	}
 }
 
+func TestDelPelangganSafeDenganPiutangDiblokir(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	bon := NewBonTool(s)
+	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"})
+
+	err := s.DelPelangganSafe(ctx, "628123456789")
+	if err == nil {
+		t.Error("harus error — pelanggan masih punya piutang terbuka")
+	}
+}
+
+func TestDelPelangganSafeTanpaPiutangOK(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	err := s.DelPelangganSafe(ctx, "628123456789")
+	if err != nil {
+		t.Errorf("hapus tanpa piutang harus OK: %v", err)
+	}
+	got, _ := s.GetPelanggan(ctx, "628123456789")
+	if got != nil {
+		t.Error("pelanggan harus sudah terhapus")
+	}
+}
+
 func TestHapusPiutangOwnerOnly(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
