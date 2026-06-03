@@ -111,3 +111,34 @@ func TestUpsertPelangganInvalidPhone(t *testing.T) {
 		t.Error("expected error for invalid phone")
 	}
 }
+
+func TestBackupRestorePelanggan(t *testing.T) {
+	ctx := context.Background()
+	src := newTestStore(t)
+
+	if _, err := src.UpsertPelanggan(ctx, "Rina", "08512345678"); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	b, err := BuildBackup(ctx, src)
+	if err != nil {
+		t.Fatalf("build backup: %v", err)
+	}
+	if len(b.Pelanggan) != 1 {
+		t.Fatalf("pelanggan in backup=%d want 1", len(b.Pelanggan))
+	}
+
+	dst := newTestStore(t)
+	if err := dst.RestoreBackup(ctx, b); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+
+	phone := NormalizePhone("08512345678")
+	got, err := dst.GetPelanggan(ctx, phone)
+	if err != nil {
+		t.Fatalf("get setelah restore: %v", err)
+	}
+	if got == nil || got.Nama != "Rina" {
+		t.Errorf("restored pelanggan=%v want Rina", got)
+	}
+}
