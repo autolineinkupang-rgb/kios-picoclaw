@@ -192,7 +192,10 @@ func (t *SupplierTool) hapus(ctx context.Context, args map[string]any) *tools.To
 		return tools.NewToolResult("Supplier nggak ketemu kak 🔍")
 	}
 	// Guard: blokir hapus bila ada hutang terbuka ke supplier ini
-	allHut, _ := t.store.GetAllHutang(ctx)
+	allHut, err := t.store.GetAllHutang(ctx)
+	if err != nil {
+		return tools.ErrorResult("Aduh, gagal baca hutang kak 😣 Coba lagi sebentar ya.").WithError(err)
+	}
 	for _, h := range allHut {
 		if h.SupplierID == sup.ID && h.Status == "terbuka" {
 			return tools.ErrorResult(fmt.Sprintf(
