@@ -141,6 +141,48 @@ export interface Pelanggan {
   last_order: string;    // "YYYY-MM-DD"
 }
 
+export type StatusBon = "terbuka" | "lunas" | "dihapus";
+
+export interface Piutang {
+  id: string;
+  pelanggan_id: string;
+  phone: string;
+  transaksi_id?: string;
+  pokok: number;
+  dibayar: number;
+  sisa: number;
+  status: StatusBon;
+  tanggal: string;
+  jam: string;
+  kasir: string;
+  catatan: string;
+}
+
+export interface Hutang {
+  id: string;
+  supplier_id: string;
+  pembelian_id?: string;
+  pokok: number;
+  dibayar: number;
+  sisa: number;
+  status: StatusBon;
+  jatuh_tempo?: string;
+  tanggal: string;
+  catatan: string;
+}
+
+export interface Pembayaran {
+  id: string;
+  ledger_id: string;
+  jenis: "piutang" | "hutang";
+  jumlah: number;
+  metode: string;
+  tanggal: string;
+  jam: string;
+  kasir: string;
+  catatan: string;
+}
+
 export interface KiosConfig {
   auto_learn_enabled: boolean;
   learn_model: string;

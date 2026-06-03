@@ -143,6 +143,49 @@ type Pelanggan struct {
 	LastOrder    string `json:"last_order"` // tanggal YYYY-MM-DD terakhir order
 }
 
+// Piutang adalah catatan kredit pembeli (pembeli ngutang ke kios).
+type Piutang struct {
+	ID          string `json:"id"` // "PIU-0001"
+	PelangganID string `json:"pelanggan_id"`
+	Phone       string `json:"phone"`                  // WA ternormalisasi
+	TransaksiID string `json:"transaksi_id,omitempty"` // TRX-xxxx dari jual bon
+	Pokok       int    `json:"pokok"`
+	Dibayar     int    `json:"dibayar"`
+	Sisa        int    `json:"sisa"`
+	Status      string `json:"status"` // "terbuka" | "lunas" | "dihapus"
+	Tanggal     string `json:"tanggal"`
+	Jam         string `json:"jam"`
+	Kasir       string `json:"kasir"`
+	Catatan     string `json:"catatan"`
+}
+
+// Hutang adalah catatan kios berutang ke supplier.
+type Hutang struct {
+	ID          string `json:"id"` // "HUT-0001"
+	SupplierID  string `json:"supplier_id"`
+	PembelianID string `json:"pembelian_id,omitempty"` // PEM-xxxx dari restock
+	Pokok       int    `json:"pokok"`
+	Dibayar     int    `json:"dibayar"`
+	Sisa        int    `json:"sisa"`
+	Status      string `json:"status"` // "terbuka" | "lunas" | "dihapus"
+	JatuhTempo  string `json:"jatuh_tempo,omitempty"`
+	Tanggal     string `json:"tanggal"`
+	Catatan     string `json:"catatan"`
+}
+
+// Pembayaran adalah satu event cicilan/lunas terhadap Piutang atau Hutang.
+type Pembayaran struct {
+	ID       string `json:"id"`        // "PAY-0001"
+	LedgerID string `json:"ledger_id"` // PIU-xxxx atau HUT-xxxx
+	Jenis    string `json:"jenis"`     // "piutang" | "hutang"
+	Jumlah   int    `json:"jumlah"`
+	Metode   string `json:"metode"` // tunai | transfer | qris
+	Tanggal  string `json:"tanggal"`
+	Jam      string `json:"jam"`
+	Kasir    string `json:"kasir"`
+	Catatan  string `json:"catatan"`
+}
+
 // Redis key constants.
 const (
 	keyProduk            = "kios:produk"
@@ -175,6 +218,12 @@ const (
 	keyNotifPesananLast  = "kios:notif:pesanan_last"  // highest PSN seq notified to owners
 	keyNotifPendingState = "kios:notif:pending_state" // "alerted" | "clear"
 	keyPelanggan         = "kios:pelanggan"           // HASH: field = no. WA ternormalisasi; value = Pelanggan JSON
+	keyPiutang           = "kios:piutang"
+	keyHutang            = "kios:hutang"
+	keyPembayaran        = "kios:pembayaran"
+	keySeqPiu            = "kios:seq:piu"
+	keySeqHut            = "kios:seq:hut"
+	keySeqPay            = "kios:seq:pay"
 )
 
 // loginCodeTTL is how long a /login code stays valid.

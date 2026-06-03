@@ -39,4 +39,10 @@ export const KEY = {
   seqSup: "kios:seq:sup",
   hargaSupplier: "kios:harga_supplier",
   pelanggan: "kios:pelanggan",
+  piutang: "kios:piutang",
+  hutang: "kios:hutang",
+  pembayaran: "kios:pembayaran",
+  seqPiu: "kios:seq:piu",
+  seqHut: "kios:seq:hut",
+  seqPay: "kios:seq:pay",
 } as const;

@@ -11,6 +11,9 @@ import type {
   Pesanan,
   Supplier,
   Pelanggan,
+  Piutang,
+  Hutang,
+  Pembayaran,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -313,4 +316,41 @@ export async function bumpLoginAttempts(ip: string): Promise<number> {
   const n = await redis().incr(key);
   if (n === 1) await redis().expire(key, 300);
   return n;
+}
+
+// ── Bon / Hutang ──────────────────────────────────────────────────────────────
+
+export async function getAllPiutang(): Promise<Piutang[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.piutang);
+  if (!map) return [];
+  return normalizeList<Piutang>(Object.values(map));
+}
+export async function getPiutang(id: string): Promise<Piutang | null> {
+  return normalize<Piutang>(await redis().hget<unknown>(KEY.piutang, id));
+}
+export async function setPiutang(p: Piutang): Promise<void> {
+  await redis().hset(KEY.piutang, { [p.id]: p });
+}
+export async function getAllHutang(): Promise<Hutang[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.hutang);
+  if (!map) return [];
+  return normalizeList<Hutang>(Object.values(map));
+}
+export async function getHutang(id: string): Promise<Hutang | null> {
+  return normalize<Hutang>(await redis().hget<unknown>(KEY.hutang, id));
+}
+export async function setHutang(h: Hutang): Promise<void> {
+  await redis().hset(KEY.hutang, { [h.id]: h });
+}
+export async function getAllPembayaran(): Promise<Pembayaran[]> {
+  const list = await redis().lrange<unknown>(KEY.pembayaran, 0, -1);
+  if (!list) return [];
+  return normalizeList<Pembayaran>(list);
+}
+export async function appendPembayaran(p: Pembayaran): Promise<void> {
+  await redis().rpush(KEY.pembayaran, p);
+}
+export async function nextPayId(): Promise<string> {
+  const n = await redis().incr(KEY.seqPay);
+  return `PAY-${String(n).padStart(4, "0")}`;
 }
