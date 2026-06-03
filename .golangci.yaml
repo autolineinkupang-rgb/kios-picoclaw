@@ -61,100 +61,83 @@ linters:
     - unparam
     - usestdlibvars
     - usetesting
-  # (removed nested `settings:` from here — moved to top-level `linters-settings`)
-
-linters-settings:
-  gomoddirectives:
-    replace-allow-list:
-      - github.com/bwmarrin/discordgo
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  exhaustive:
-    default-signifies-exhaustive: true
-  funlen:
-    lines: 120
-    statements: 40
-  gocognit:
-    min-complexity: 25
-  gocyclo:
-    min-complexity: 20
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-  lll:
-    line-length: 120
-    tab-width: 4
-  misspell:
-    locale: US
-    # corrected key: ignore-words (was ignore-list)
-    ignore-words:
-      - teh       # Indonesian: tea (e.g. "Teh Botol", "teh celup")
-      - strategis # Indonesian: strategic
-  mnd:
-    checks:
-      - argument
-      - assign
-      - case
-      - condition
-      - operation
-      - return
-  nakedret:
-    max-func-lines: 3
-  revive:
-    enable-all-rules: true
-    rules:
-      - name: add-constant
-        disabled: true
-      - name: argument-limit
-        arguments:
-          - 7
-        severity: warning
-      - name: banned-characters
-        disabled: true
-      - name: cognitive-complexity
-        disabled: true
-      - name: comment-spacings
-        arguments:
-          - nolint
-        severity: warning
-      - name: cyclomatic
-        disabled: true
-      - name: file-header
-        disabled: true
-      - name: function-result-limit
-        arguments:
-          - 3
-        severity: warning
-      - name: function-length
-        disabled: true
-      - name: line-length-limit
-        disabled: true
-      - name: max-public-structs
-        disabled: true
-      - name: modifies-value-receiver
-        disabled: true
-      - name: package-comments
-        disabled: true
-      - name: unused-receiver
-        disabled: true
-
-exclusions:
-  generated: lax
-  rules:
-    - linters:
-        - lll
-      source: '^//go:generate '
-    - linters:
-        - funlen
-        - maintidx
-        - gocognit
-        - gocyclo
-      path: _test\.go$
-    - linters:
-        - nolintlint
-      path: 'pkg/tools/(i2c\.go|spi\.go)$'
+  settings:
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/bwmarrin/discordgo
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    exhaustive:
+      default-signifies-exhaustive: true
+    funlen:
+      lines: 120
+      statements: 40
+    gocognit:
+      min-complexity: 25
+    gocyclo:
+      min-complexity: 20
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    lll:
+      line-length: 120
+      tab-width: 4
+    misspell:
+      locale: US
+      extra-words:
+        - typo: teh
+          correction: the
+        - typo: strategis
+          correction: strategic
+    mnd:
+      checks:
+        - argument
+        - assign
+        - case
+        - condition
+        - operation
+        - return
+    nakedret:
+      max-func-lines: 3
+    revive:
+      enable-all-rules: true
+      rules:
+        - name: add-constant
+          disabled: true
+        - name: argument-limit
+          arguments:
+            - 7
+          severity: warning
+        - name: banned-characters
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: comment-spacings
+          arguments:
+            - nolint
+          severity: warning
+        - name: cyclomatic
+          disabled: true
+        - name: file-header
+          disabled: true
+        - name: function-result-limit
+          arguments:
+            - 3
+          severity: warning
+        - name: function-length
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: modifies-value-receiver
+          disabled: true
+        - name: package-comments
+          disabled: true
+        - name: unused-receiver
+          disabled: true
 
 issues:
   max-issues-per-linter: 0
