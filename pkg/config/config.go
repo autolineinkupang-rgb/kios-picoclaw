@@ -356,10 +356,10 @@ type SessionConfig struct {
 // requiring any keyword matching — all scoring is language-agnostic.
 type RoutingConfig struct {
 	Enabled        bool    `json:"enabled"`
-	LightModel     string  `json:"light_model"`      // model_name for simple tasks (score < threshold)
-	MediumModel    string  `json:"medium_model"`     // model_name for medium tasks (threshold <= score < heavy_threshold); empty = no medium tier
-	Threshold      float64 `json:"threshold"`        // low cutoff; below → light model
-	HeavyThreshold float64 `json:"heavy_threshold"`  // high cutoff; at or above → primary (heavy) model
+	LightModel     string  `json:"light_model"`     // model_name for simple tasks (score < threshold)
+	MediumModel    string  `json:"medium_model"`    // model_name for medium tasks (threshold <= score < heavy_threshold); empty = no medium tier
+	Threshold      float64 `json:"threshold"`       // low cutoff; below → light model
+	HeavyThreshold float64 `json:"heavy_threshold"` // high cutoff; at or above → primary (heavy) model
 }
 
 // SubTurnConfig configures the SubTurn execution system.

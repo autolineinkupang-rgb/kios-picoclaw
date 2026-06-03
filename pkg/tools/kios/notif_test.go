@@ -36,7 +36,7 @@ func TestShouldAlertPileup(t *testing.T) {
 		wantAlert          bool
 		wantState          string
 	}{
-		{5, 5, "clear", true, "alerted"},   // mencapai ambang → alert
+		{5, 5, "clear", true, "alerted"},    // mencapai ambang → alert
 		{6, 5, "alerted", false, "alerted"}, // masih menumpuk → tidak spam
 		{2, 5, "alerted", false, "clear"},   // turun di bawah ambang → reset
 		{1, 5, "clear", false, "clear"},     // aman → diam
