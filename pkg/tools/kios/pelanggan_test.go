@@ -16,6 +16,8 @@ func TestNormalizePhone(t *testing.T) {
 		{"8123456789", "628123456789"},
 		{"", ""},
 		{"abc", ""},
+		{"+16504004000", ""},       // non-Indonesian country code must be rejected
+		{"628123456789012345", ""}, // too long (>15 digits) must be rejected
 	}
 	for _, c := range cases {
 		got := NormalizePhone(c.in)

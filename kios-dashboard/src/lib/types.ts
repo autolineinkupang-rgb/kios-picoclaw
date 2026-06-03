@@ -129,6 +129,18 @@ export interface Pesanan {
   created_at: number; // unix seconds
 }
 
+export interface Pelanggan {
+  id: string;            // "PLG-<phone>"
+  phone: string;         // no. WA ternormalisasi "62..." (= HASH field key)
+  nama: string;
+  total_utang: number;   // cache dari piutang terbuka; ditulis oleh bon ledger
+  total_pesanan: number;
+  total_belanja: number;
+  catatan: string;
+  created_at: number;    // unix seconds
+  last_order: string;    // "YYYY-MM-DD"
+}
+
 export interface KiosConfig {
   auto_learn_enabled: boolean;
   learn_model: string;

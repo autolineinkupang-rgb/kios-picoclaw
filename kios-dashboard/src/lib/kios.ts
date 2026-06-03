@@ -1,5 +1,5 @@
 import { KEY, redis } from "./redis";
-import { formatSuplierId } from "./format";
+import { formatSuplierId, todayWITA } from "./format";
 import type {
   Produk,
   Transaksi,
@@ -10,6 +10,7 @@ import type {
   KiosConfig,
   Pesanan,
   Supplier,
+  Pelanggan,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -169,6 +170,70 @@ export async function getAllPesanan(): Promise<Pesanan[]> {
   const list = normalizeList<Pesanan>(Object.values(map));
   list.sort((a, b) => b.created_at - a.created_at); // newest first
   return list;
+}
+
+// ── Pelanggan (customer registry) ────────────────────────────────────────────
+
+// normalizeWaTs converts a raw phone input to canonical "62..." with the same
+// guards as Go's NormalizePhone: Indonesian numbers only (must start "62"),
+// length 10–15 chars. Uses normalizeWaNumber from wa.ts for the base conversion.
+function normalizeWaTs(raw: string): string {
+  const d = (raw || "").replace(/\D/g, "");
+  if (!d) return "";
+  let n = d;
+  if (n.startsWith("0")) n = "62" + n.slice(1);
+  else if (n.startsWith("8")) n = "62" + n;
+  if (n.length < 10 || n.length > 15) return "";
+  if (!n.startsWith("62")) return "";
+  return n;
+}
+
+export async function getPelanggan(phone: string): Promise<Pelanggan | null> {
+  return normalize<Pelanggan>(await redis().hget<unknown>(KEY.pelanggan, phone));
+}
+
+export async function getAllPelanggan(): Promise<Pelanggan[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.pelanggan);
+  if (!map) return [];
+  return normalizeList<Pelanggan>(Object.values(map));
+}
+
+export async function setPelanggan(p: Pelanggan): Promise<void> {
+  await redis().hset(KEY.pelanggan, { [p.phone]: p });
+}
+
+export async function upsertPelanggan(
+  nama: string,
+  rawPhone: string,
+): Promise<Pelanggan> {
+  const phone = normalizeWaTs(rawPhone);
+  if (!phone) throw new Error("Nomor WhatsApp tidak valid");
+
+  const existing = await getPelanggan(phone);
+  const now = Math.floor(Date.now() / 1000);
+  const today = todayWITA(); // WITA date, consistent with Go's NowWITA()
+
+  const updated: Pelanggan = existing
+    ? {
+        ...existing,
+        nama: nama.trim(),
+        total_pesanan: existing.total_pesanan + 1,
+        last_order: today,
+      }
+    : {
+        id: `PLG-${phone}`,
+        phone,
+        nama: nama.trim(),
+        total_utang: 0,
+        total_pesanan: 1,
+        total_belanja: 0,
+        catatan: "",
+        created_at: now,
+        last_order: today,
+      };
+
+  await setPelanggan(updated);
+  return updated;
 }
 
 /** Generic per-IP rate limiter (sliding window via INCR+EXPIRE). */
