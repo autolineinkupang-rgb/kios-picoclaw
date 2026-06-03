@@ -86,7 +86,7 @@ linters:
       tab-width: 4
     misspell:
       locale: US
-      ignore-words:
+      ignore-list:
         - teh       # Indonesian: tea (e.g. "Teh Botol", "teh celup")
         - strategis # Indonesian: strategic
     mnd:
