@@ -3,6 +3,8 @@ package kios
 import (
 	"context"
 	"testing"
+
+	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
 )
 
 func TestNextPiutangID(t *testing.T) {
@@ -45,5 +47,105 @@ func TestAppendGetPembayaran(t *testing.T) {
 	all, err := s.GetAllPembayaran(ctx)
 	if err != nil || len(all) != 1 || all[0].Jumlah != 10000 {
 		t.Fatalf("GetAllPembayaran: %v %+v", err, all)
+	}
+}
+
+// ---- Test helpers ----
+// withKasirCtx: tambah user kasir ke store, pakai ID-nya di context
+func withKasirCtx(t *testing.T, s *Store, ctx context.Context) context.Context {
+	t.Helper()
+	id := "kasir-test-001"
+	_ = s.SetUser(ctx, &UserKios{Phone: id, Nama: "TestKasir", Role: "kasir", Aktif: true})
+	return toolshared.WithToolContext(ctx, "telegram", id)
+}
+
+func TestJualBon(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	if _, err := s.UpsertPelanggan(ctx, "Budi", "08123456789"); err != nil {
+		t.Fatalf("upsert pelanggan: %v", err)
+	}
+
+	bon := NewBonTool(s)
+	result := bon.Execute(ctx, map[string]any{
+		"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789",
+	})
+	if result.IsError {
+		t.Fatalf("jual_bon error: %s", result.ForLLM)
+	}
+	all, _ := s.GetAllPiutang(ctx)
+	if len(all) != 1 || all[0].Pokok != 6000 || all[0].Status != "terbuka" {
+		t.Fatalf("piutang: %+v", all)
+	}
+	p, _ := s.GetPelanggan(ctx, "628123456789")
+	if p == nil || p.TotalBelanja != 6000 {
+		t.Errorf("pelanggan total_belanja=%d want 6000", p.TotalBelanja)
+	}
+}
+
+func TestBayarPiutang(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	bon := NewBonTool(s)
+	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	all, _ := s.GetAllPiutang(ctx)
+	piuID := all[0].ID
+
+	r := bon.Execute(ctx, map[string]any{"action": "bayar", "id": piuID, "jumlah": float64(3000), "metode": "tunai"})
+	if r.IsError {
+		t.Fatalf("bayar error: %s", r.ForLLM)
+	}
+	piu, _ := s.GetPiutang(ctx, piuID)
+	if piu.Dibayar != 3000 || piu.Sisa != 3000 || piu.Status != "terbuka" {
+		t.Errorf("setelah cicil: %+v", piu)
+	}
+
+	bon.Execute(ctx, map[string]any{"action": "bayar", "id": piuID, "jumlah": float64(3000), "metode": "tunai"})
+	piu, _ = s.GetPiutang(ctx, piuID)
+	if piu.Status != "lunas" {
+		t.Errorf("setelah lunas status=%q want lunas", piu.Status)
+	}
+}
+
+func TestBayarOverpaymentDitolak(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	bon := NewBonTool(s)
+	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"})
+	all, _ := s.GetAllPiutang(ctx)
+
+	r := bon.Execute(ctx, map[string]any{"action": "bayar", "id": all[0].ID, "jumlah": float64(99999), "metode": "tunai"})
+	if !r.IsError {
+		t.Error("overpayment harus ditolak")
+	}
+}
+
+func TestHapusPiutangOwnerOnly(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	bon := NewBonTool(s)
+	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"})
+	all, _ := s.GetAllPiutang(ctx)
+
+	// kasir tidak bisa hapus
+	ctxKasir := withKasirCtx(t, s, ctx)
+	r := bon.Execute(ctxKasir, map[string]any{"action": "hapus", "id": all[0].ID})
+	if !r.IsError {
+		t.Error("kasir tidak boleh hapus piutang")
+	}
+	// owner (ctx default) bisa hapus
+	r2 := bon.Execute(ctx, map[string]any{"action": "hapus", "id": all[0].ID})
+	if r2.IsError {
+		t.Errorf("owner harus bisa hapus: %s", r2.ForLLM)
 	}
 }
