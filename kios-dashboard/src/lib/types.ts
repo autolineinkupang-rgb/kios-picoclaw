@@ -20,6 +20,9 @@ export interface Produk {
   image_url: string;
   jenis?: string;        // "" | "biasa" | "pulsa" | "bensin"
   supplier_id?: string;
+  saldo_modal?: number;
+  stok_ml?: number;
+  stok_kritis_ml?: number;
 }
 
 export interface Transaksi {
@@ -37,6 +40,8 @@ export interface Transaksi {
   catatan: string;
   session_id: string;
   piutang_id?: string;  // diisi saat jual bon
+  modal?: number;
+  liter?: number;
 }
 
 export interface Pembelian {
@@ -193,6 +198,23 @@ export interface KiosConfig {
   qris_nama: string;
   qris_image_url: string;
   wa_number: string; // kios WhatsApp number (buyer contact / order confirmation)
+}
+
+export interface PulsaDenom {
+  nominal: number;
+  harga_modal: number;
+  harga_jual: number;
+  aktif: boolean;
+}
+
+export interface PulsaTopup {
+  id: string;
+  tanggal: string;
+  jam: string;
+  jumlah: number;
+  saldo_sesudah: number;
+  kasir: string;
+  catatan: string;
 }
 
 export type Role = "owner" | "kasir";

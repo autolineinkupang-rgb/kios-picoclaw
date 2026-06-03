@@ -14,6 +14,8 @@ import type {
   Piutang,
   Hutang,
   Pembayaran,
+  PulsaDenom,
+  PulsaTopup,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -353,4 +355,26 @@ export async function appendPembayaran(p: Pembayaran): Promise<void> {
 export async function nextPayId(): Promise<string> {
   const n = await redis().incr(KEY.seqPay);
   return `PAY-${String(n).padStart(4, "0")}`;
+}
+
+// ── Pulsa Denom ───────────────────────────────────────────────────────────────
+
+export async function getAllPulsaDenom(): Promise<PulsaDenom[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.pulsaDenom);
+  if (!map) return [];
+  return normalizeList<PulsaDenom>(Object.values(map));
+}
+
+export async function setPulsaDenom(d: PulsaDenom): Promise<void> {
+  await redis().hset(KEY.pulsaDenom, { [String(d.nominal)]: d });
+}
+
+export async function getAllPulsaTopup(): Promise<PulsaTopup[]> {
+  const vals = await redis().lrange<unknown>(KEY.pulsaTopup, 0, -1);
+  return normalizeList<PulsaTopup>(vals);
+}
+
+export async function getPulsaAnchor(): Promise<Produk | null> {
+  const all = await getAllProduk();
+  return all.find((p) => p.jenis === "pulsa") ?? null;
 }

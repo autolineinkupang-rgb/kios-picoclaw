@@ -26,8 +26,11 @@ type Produk struct {
 	HasExp      bool   `json:"has_exp"`
 	ExpDate     string `json:"exp_date"`
 	ImageURL    string `json:"image_url"`
-	Jenis       string `json:"jenis,omitempty"`       // "" | "biasa" | "pulsa" | "bensin"
-	SupplierID  string `json:"supplier_id,omitempty"` // FK stabil ke Supplier.ID
+	Jenis        string `json:"jenis,omitempty"`        // "" | "biasa" | "pulsa" | "bensin"
+	SupplierID   string `json:"supplier_id,omitempty"`  // FK stabil ke Supplier.ID
+	SaldoModal   int    `json:"saldo_modal,omitempty"`  // pulsa: saldo modal rupiah
+	StokMl       int    `json:"stok_ml,omitempty"`      // bensin: stok mili-liter
+	StokKritisMl int    `json:"stok_kritis_ml,omitempty"` // bensin: ambang kritis (default 40000 = 40L)
 }
 
 // JenisOrDefault returns the product kind, defaulting to "biasa" when unset so
@@ -53,8 +56,10 @@ type Transaksi struct {
 	MetodeBayar string `json:"metode_bayar"`
 	Kasir       string `json:"kasir"`
 	Catatan     string `json:"catatan"`
-	SessionID   string `json:"session_id"`
-	PiutangID   string `json:"piutang_id,omitempty"` // diisi saat jual bon
+	SessionID   string  `json:"session_id"`
+	PiutangID   string  `json:"piutang_id,omitempty"` // diisi saat jual bon
+	Modal       int     `json:"modal,omitempty"`      // modal dikunci saat jual → laba akurat & historis
+	Liter       float64 `json:"liter,omitempty"`      // volume bensin yang terjual (display)
 }
 
 // Pembelian represents a restocking purchase.
@@ -225,6 +230,9 @@ const (
 	keySeqPiu            = "kios:seq:piu"
 	keySeqHut            = "kios:seq:hut"
 	keySeqPay            = "kios:seq:pay"
+	keyPulsaDenom        = "kios:pulsa:denom" // HASH field=nominal string, value=PulsaDenom JSON
+	keyPulsaTopup        = "kios:pulsa:topup" // LIST append-only, value=PulsaTopup JSON
+	keySeqPtu            = "kios:seq:ptu"     // INCR counter untuk PTU-NNNN
 )
 
 // loginCodeTTL is how long a /login code stays valid.
@@ -250,6 +258,28 @@ type KiosConfig struct {
 	QrisImageURL string `json:"qris_image_url"`
 	// WaNumber adalah nomor WhatsApp kios (untuk konfirmasi pesanan & kontak pembeli).
 	WaNumber string `json:"wa_number"`
+}
+
+// PulsaDenom menyimpan konfigurasi harga satu nominal pulsa.
+type PulsaDenom struct {
+	Nominal    int  `json:"nominal"`
+	HargaModal int  `json:"harga_modal"`
+	HargaJual  int  `json:"harga_jual"`
+	Aktif      bool `json:"aktif"`
+}
+
+// Margin mengembalikan selisih harga jual − modal per denom.
+func (d *PulsaDenom) Margin() int { return d.HargaJual - d.HargaModal }
+
+// PulsaTopup mencatat satu event top-up saldo modal pulsa (append-only).
+type PulsaTopup struct {
+	ID           string `json:"id"`
+	Tanggal      string `json:"tanggal"`
+	Jam          string `json:"jam"`
+	Jumlah       int    `json:"jumlah"`
+	SaldoSesudah int    `json:"saldo_sesudah"`
+	Kasir        string `json:"kasir"`
+	Catatan      string `json:"catatan"`
 }
 
 // Store holds the Redis client used by all kios data-access methods

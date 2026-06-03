@@ -45,4 +45,7 @@ export const KEY = {
   seqPiu: "kios:seq:piu",
   seqHut: "kios:seq:hut",
   seqPay: "kios:seq:pay",
+  pulsaDenom: "kios:pulsa:denom",
+  pulsaTopup: "kios:pulsa:topup",
+  seqPtu: "kios:seq:ptu",
 } as const;
