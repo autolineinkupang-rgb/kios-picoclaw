@@ -439,19 +439,63 @@ func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.T
 	if id == "" {
 		return tools.ErrorResult("ID transaksi-nya diisi dulu ya kak 🙏")
 	}
-	tx, err := t.store.RemoveTransaksi(ctx, id)
+
+	// Cek dahulu sebelum remove (irreversible)
+	allTx, err := t.store.GetAllTransaksi(ctx)
 	if err != nil {
-		return tools.ErrorResult("Aduh, gagal batalkan transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
+		return tools.ErrorResult("Gagal baca transaksi kak 😣").WithError(err)
+	}
+	var tx *Transaksi
+	for _, t2 := range allTx {
+		if t2.ID == id {
+			tx = t2
+			break
+		}
 	}
 	if tx == nil {
 		return tools.NewToolResult(fmt.Sprintf("Transaksi %s nggak ketemu kak 🔍", id))
 	}
-	if item, _ := t.store.GetProduk(ctx, tx.ProdukID); item != nil {
-		item.Stok += tx.Qty
-		item.LastUpdate = NowWITA().Format("2006-01-02")
-		t.store.SetProduk(ctx, item)
+
+	// Guard: bon dengan cicilan tidak bisa dibatalkan
+	if tx.MetodeBayar == "bon" {
+		allPiu, _ := t.store.GetAllPiutang(ctx)
+		for _, piu := range allPiu {
+			if piu.TransaksiID == id && piu.Dibayar > 0 {
+				return tools.ErrorResult(fmt.Sprintf(
+					"Transaksi %s tidak bisa dibatalkan kak 🙏 — piutang %s sudah ada cicilan %s. Gunakan write-off.",
+					id, piu.ID, FormatRupiah(piu.Dibayar)))
+			}
+		}
 	}
-	return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, stok %s dikembalikan (+%d).", tx.ID, tx.NamaProduk, tx.Qty))
+
+	// Aman untuk remove
+	removed, err := t.store.RemoveTransaksi(ctx, id)
+	if err != nil {
+		return tools.ErrorResult("Aduh, gagal batalkan transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
+	}
+	if removed == nil {
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s nggak ketemu kak 🔍", id))
+	}
+
+	// Restore stok
+	if item, _ := t.store.GetProduk(ctx, removed.ProdukID); item != nil {
+		item.Stok += removed.Qty
+		item.LastUpdate = NowWITA().Format("2006-01-02")
+		_ = t.store.SetProduk(ctx, item)
+	}
+
+	// Void piutang bila bon dan belum ada cicilan
+	if removed.MetodeBayar == "bon" {
+		allPiu, _ := t.store.GetAllPiutang(ctx)
+		for _, piu := range allPiu {
+			if piu.TransaksiID == id {
+				piu.Status = "dihapus"
+				_ = t.store.SetPiutang(ctx, piu)
+			}
+		}
+	}
+
+	return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, stok %s dikembalikan (+%d).", removed.ID, removed.NamaProduk, removed.Qty))
 }
 
 func (t *StokTool) stokMenipis(ctx context.Context) *tools.ToolResult {

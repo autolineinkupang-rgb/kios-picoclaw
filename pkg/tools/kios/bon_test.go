@@ -143,6 +143,54 @@ func TestJualBonBypassBayarGuard(t *testing.T) {
 	}
 }
 
+func TestBatalkanTxBonTanpaCicilan(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	bon := NewBonTool(s)
+	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	allTx, _ := s.GetAllTransaksi(ctx)
+	txID := allTx[0].ID
+	allPiu, _ := s.GetAllPiutang(ctx)
+	piuID := allPiu[0].ID
+
+	// Batal tanpa cicilan -> piutang harus void (Status="dihapus")
+	stok := NewStokTool(s)
+	r := stok.Execute(ctx, map[string]any{"action": "batalkan_tx", "id": txID})
+	if r.IsError {
+		t.Fatalf("batalkan_tx error: %s", r.ForLLM)
+	}
+	piu, _ := s.GetPiutang(ctx, piuID)
+	if piu == nil || piu.Status != "dihapus" {
+		t.Errorf("piutang harus dihapus, got: %+v", piu)
+	}
+}
+
+func TestBatalkanTxBonDenganCicilan(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedProduct(t, s, "001", "Mie Goreng", 20, 2000, 3000, 3)
+	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
+
+	bon := NewBonTool(s)
+	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	allTx, _ := s.GetAllTransaksi(ctx)
+	txID := allTx[0].ID
+	allPiu, _ := s.GetAllPiutang(ctx)
+
+	// Cicil dulu
+	bon.Execute(ctx, map[string]any{"action": "bayar", "id": allPiu[0].ID, "jumlah": float64(1000), "metode": "tunai"})
+
+	// Batal dengan cicilan -> harus error
+	stok := NewStokTool(s)
+	r := stok.Execute(ctx, map[string]any{"action": "batalkan_tx", "id": txID})
+	if !r.IsError {
+		t.Error("batalkan dengan cicilan harus error")
+	}
+}
+
 func TestHapusPiutangOwnerOnly(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
