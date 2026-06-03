@@ -75,10 +75,8 @@ func (t *PromoTool) buat(ctx context.Context, args map[string]any) *tools.ToolRe
 	if tipe != "persen" && tipe != "fixed" {
 		return tools.ErrorResult("Tipe harus 'persen' atau 'fixed'.")
 	}
-	nilai := 0.0
-	if v, ok := args["nilai"].(float64); ok {
-		nilai = v
-	} else {
+	nilai, ok := args["nilai"].(float64)
+	if !ok {
 		nilai = float64(argInt(args, "nilai"))
 	}
 	if nilai <= 0 {

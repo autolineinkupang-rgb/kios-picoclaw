@@ -2087,7 +2087,8 @@ func TestLoadConfig_FileRefNotSealed(t *testing.T) {
 		secPath,
 		&Config{ModelList: SecureModelList{
 			&ModelConfig{ModelName: "test", APIKeys: SimpleSecureStrings("file://openai.key")},
-		}}); err != nil {
+		}},
+	); err != nil {
 		t.Fatalf("saveSecurityConfig: %v", err)
 	}
 

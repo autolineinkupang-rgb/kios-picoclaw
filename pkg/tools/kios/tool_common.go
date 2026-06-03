@@ -136,7 +136,9 @@ func resolveRole(ctx context.Context, store *Store) (role string, kasir string, 
 	if id != "" {
 		if u, err := store.GetUser(ctx, id); err == nil && u != nil {
 			if !u.Aktif {
-				return "", "", tools.ErrorResult("Duh, akun kamu lagi nonaktif kak 😔 Coba minta pemilik kios buat aktifin dulu ya.")
+				return "", "", tools.ErrorResult(
+					"Duh, akun kamu lagi nonaktif kak 😔 Coba minta pemilik kios buat aktifin dulu ya.",
+				)
 			}
 			nama := u.Nama
 			if nama == "" {
@@ -183,7 +185,14 @@ func findOne(ctx context.Context, store *Store, query string) (*Produk, error) {
 // performJual executes a sale. It validates inputs, then dispatches by product
 // kind. Ordinary unit-stock products go through sellBiasa (the historical path);
 // special kinds (pulsa/bensin) are added in later plans.
-func performJual(ctx context.Context, store *Store, query string, qty int, metode, kasir string, diskonPerUnit int) (*Transaksi, *Produk, int, error) {
+func performJual(
+	ctx context.Context,
+	store *Store,
+	query string,
+	qty int,
+	metode, kasir string,
+	diskonPerUnit int,
+) (*Transaksi, *Produk, int, error) {
 	if qty <= 0 {
 		return nil, nil, 0, fmt.Errorf("jumlahnya harus lebih dari 0 ya kak 🙏")
 	}
@@ -192,7 +201,10 @@ func performJual(ctx context.Context, store *Store, query string, qty int, metod
 		return nil, nil, 0, err
 	}
 	if item == nil {
-		return nil, nil, 0, fmt.Errorf("produk \"%s\" nggak ketemu kak 🔍 coba ketik /stok buat lihat daftarnya ya", query)
+		return nil, nil, 0, fmt.Errorf(
+			"produk \"%s\" nggak ketemu kak 🔍 coba ketik /stok buat lihat daftarnya ya",
+			query,
+		)
 	}
 	if metode == "" {
 		metode = "tunai"
@@ -210,9 +222,20 @@ func performJual(ctx context.Context, store *Store, query string, qty int, metod
 // decrements it, and appends the transaction at the effective unit price
 // (list price minus diskonPerUnit). Returns the transaction, updated product, and
 // remaining stock.
-func sellBiasa(ctx context.Context, store *Store, item *Produk, qty int, metode, kasir string, diskonPerUnit int) (*Transaksi, *Produk, int, error) {
+func sellBiasa(
+	ctx context.Context,
+	store *Store,
+	item *Produk,
+	qty int,
+	metode, kasir string,
+	diskonPerUnit int,
+) (*Transaksi, *Produk, int, error) {
 	if item.Stok < qty {
-		return nil, nil, 0, fmt.Errorf("yah, stok %s tinggal %d kak 😅 nggak cukup buat jual segitu", item.Nama, item.Stok)
+		return nil, nil, 0, fmt.Errorf(
+			"yah, stok %s tinggal %d kak 😅 nggak cukup buat jual segitu",
+			item.Nama,
+			item.Stok,
+		)
 	}
 	hargaEfektif := item.HargaJual - diskonPerUnit
 	if hargaEfektif < 0 {

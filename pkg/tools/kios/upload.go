@@ -54,12 +54,15 @@ func (t *UploadTool) Execute(ctx context.Context, args map[string]any) *tools.To
 
 	path, fname := t.findUploadedTable(toolshared.ToolMedia(ctx))
 	if path == "" {
-		return tools.NewToolResult("Belum ada file Excel/CSV yang diunggah kak 📎 Kirim filenya dulu sebagai lampiran, lalu minta import ya.")
+		return tools.NewToolResult(
+			"Belum ada file Excel/CSV yang diunggah kak 📎 Kirim filenya dulu sebagai lampiran, lalu minta import ya.",
+		)
 	}
 
 	rows, err := ReadTableFile(path)
 	if err != nil {
-		return tools.ErrorResult("Aduh, gagal baca file-nya kak 😣 Pastikan formatnya Excel (.xlsx) atau CSV yang benar.").WithError(err)
+		return tools.ErrorResult("Aduh, gagal baca file-nya kak 😣 Pastikan formatnya Excel (.xlsx) atau CSV yang benar.").
+			WithError(err)
 	}
 	if len(rows) == 0 {
 		return tools.NewToolResult("File-nya kosong atau cuma berisi header kak 😊 Isi datanya dulu ya.")

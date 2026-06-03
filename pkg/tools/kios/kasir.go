@@ -92,8 +92,10 @@ func (t *KasirTool) jual(ctx context.Context, args map[string]any, kasir string)
 				total := qty * hargaEfektif
 				if *bayarPtr < total {
 					kurang := total - *bayarPtr
-					return tools.ErrorResult(fmt.Sprintf("Uang kurang %s kak 🙏 Total %s, dibayar %s — transaksi belum dicatat ya.",
-						FormatRupiah(kurang), FormatRupiah(total), FormatRupiah(*bayarPtr)))
+					return tools.ErrorResult(
+						fmt.Sprintf("Uang kurang %s kak 🙏 Total %s, dibayar %s — transaksi belum dicatat ya.",
+							FormatRupiah(kurang), FormatRupiah(total), FormatRupiah(*bayarPtr)),
+					)
 				}
 			}
 		}

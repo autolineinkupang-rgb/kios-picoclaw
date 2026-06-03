@@ -87,9 +87,19 @@ func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
 
 // Ringkas returns a short human summary of the snapshot's contents.
 func (b *BackupData) Ringkas() string {
-	return fmt.Sprintf("%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier, %d pelanggan",
-		len(b.Produk), len(b.Transaksi), len(b.Pembelian), len(b.PriceHistory),
-		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users), len(b.HargaSupplier), len(b.Pelanggan))
+	return fmt.Sprintf(
+		"%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier, %d pelanggan",
+		len(b.Produk),
+		len(b.Transaksi),
+		len(b.Pembelian),
+		len(b.PriceHistory),
+		len(b.Supplier),
+		len(b.Promo),
+		len(b.Pustaka),
+		len(b.Users),
+		len(b.HargaSupplier),
+		len(b.Pelanggan),
+	)
 }
 
 // backupKeep is the number of most-recent backup files retained on disk.
@@ -317,11 +327,11 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		}
 	}
 
-	setSeq := func(key string, max int64) error {
-		if max <= 0 {
+	setSeq := func(key string, limit int64) error {
+		if limit <= 0 {
 			return nil
 		}
-		return s.rdb.Set(ctx, key, strconv.FormatInt(max, 10), 0).Err()
+		return s.rdb.Set(ctx, key, strconv.FormatInt(limit, 10), 0).Err()
 	}
 	for key, ids := range map[string][]string{
 		keySeqTrx:   idsTransaksi(b.Transaksi),
@@ -353,6 +363,7 @@ func hashItemsProduk(xs []*Produk) []hashItem {
 	}
 	return out
 }
+
 func hashItemsSupplier(xs []*Supplier) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -360,6 +371,7 @@ func hashItemsSupplier(xs []*Supplier) []hashItem {
 	}
 	return out
 }
+
 func hashItemsPromo(xs []*Promo) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -367,6 +379,7 @@ func hashItemsPromo(xs []*Promo) []hashItem {
 	}
 	return out
 }
+
 func hashItemsPustaka(xs []*Pustaka) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -374,6 +387,7 @@ func hashItemsPustaka(xs []*Pustaka) []hashItem {
 	}
 	return out
 }
+
 func hashItemsUser(xs []*UserKios) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -397,6 +411,7 @@ func idsTransaksi(xs []*Transaksi) []string {
 	}
 	return ids
 }
+
 func idsPembelian(xs []*Pembelian) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -404,6 +419,7 @@ func idsPembelian(xs []*Pembelian) []string {
 	}
 	return ids
 }
+
 func idsPriceHist(xs []*PriceHistory) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -411,6 +427,7 @@ func idsPriceHist(xs []*PriceHistory) []string {
 	}
 	return ids
 }
+
 func idsSupplier(xs []*Supplier) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -418,6 +435,7 @@ func idsSupplier(xs []*Supplier) []string {
 	}
 	return ids
 }
+
 func idsPromo(xs []*Promo) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -425,6 +443,7 @@ func idsPromo(xs []*Promo) []string {
 	}
 	return ids
 }
+
 func idsPustaka(xs []*Pustaka) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -440,6 +459,7 @@ func idsPiutang(xs []*Piutang) []string {
 	}
 	return ids
 }
+
 func idsHutang(xs []*Hutang) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -447,6 +467,7 @@ func idsHutang(xs []*Hutang) []string {
 	}
 	return ids
 }
+
 func idsPembayaran(xs []*Pembayaran) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {

@@ -241,7 +241,8 @@ func (n *NotifService) tryNotifyPendingPileup(ctx context.Context) {
 	if alert {
 		n.sendToOwners(ctx, fmt.Sprintf(
 			"🛑 *Pesanan Menumpuk* — %s WITA\n\n%d pesanan masih pending. Mohon segera diproses ya kak 🙏",
-			NowWITA().Format("02 Jan 2006 15:04"), pending))
+			NowWITA().Format("02 Jan 2006 15:04"), pending,
+		))
 	}
 	if next != state {
 		_ = n.store.rdb.Set(ctx, keyNotifPendingState, next, 0).Err()

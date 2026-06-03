@@ -23,7 +23,10 @@ func (t *BonTool) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"action":       map[string]any{"type": "string", "description": "Aksi: jual_bon|catat_hutang_supplier|bayar|lunasi|hapus|daftar_piutang|daftar_hutang|detail"},
+			"action": map[string]any{
+				"type":        "string",
+				"description": "Aksi: jual_bon|catat_hutang_supplier|bayar|lunasi|hapus|daftar_piutang|daftar_hutang|detail",
+			},
 			"produk":       map[string]any{"type": "string"},
 			"qty":          map[string]any{"type": "integer"},
 			"pelanggan":    map[string]any{"type": "string", "description": "nomor WA atau nama pelanggan"},
@@ -122,7 +125,8 @@ func (t *BonTool) jualBon(ctx context.Context, args map[string]any, kasir string
 	return tools.NewToolResult(fmt.Sprintf(
 		"Bon kredit dicatat kak ✅\n%s [%s] %s × %d = %s\nPiutang: %s (sisa %s). Pembayaran nanti ya.",
 		tx.NamaProduk, tx.ID, FormatRupiah(tx.HargaSatuan), qty, FormatRupiah(tx.Total),
-		piuID, FormatRupiah(piu.Sisa)))
+		piuID, FormatRupiah(piu.Sisa),
+	))
 }
 
 func (t *BonTool) catatHutangSupplier(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
@@ -156,7 +160,8 @@ func (t *BonTool) catatHutangSupplier(ctx context.Context, args map[string]any, 
 	_ = kasir
 	return tools.NewToolResult(fmt.Sprintf(
 		"Hutang ke %s dicatat: %s — %s\nID: %s. Bayar nanti sesuai jadwal.",
-		sup.Nama, hutID, FormatRupiah(pokok), hutID))
+		sup.Nama, hutID, FormatRupiah(pokok), hutID,
+	))
 }
 
 func (t *BonTool) bayar(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
@@ -329,7 +334,9 @@ func (t *BonTool) daftarPiutang(ctx context.Context, args map[string]any) *tools
 		fmt.Fprintf(&sb, "- %s [%s] sisa %s (dari %s)\n", p.ID, p.Phone, FormatRupiah(p.Sisa), p.Tanggal)
 		total += p.Sisa
 	}
-	return tools.NewToolResult(fmt.Sprintf("%d piutang terbuka — total %s:\n%s", len(open), FormatRupiah(total), sb.String()))
+	return tools.NewToolResult(
+		fmt.Sprintf("%d piutang terbuka — total %s:\n%s", len(open), FormatRupiah(total), sb.String()),
+	)
 }
 
 func (t *BonTool) daftarHutang(ctx context.Context, args map[string]any) *tools.ToolResult {
@@ -361,7 +368,9 @@ func (t *BonTool) daftarHutang(ctx context.Context, args map[string]any) *tools.
 		fmt.Fprintf(&sb, "- %s [%s] sisa %s%s\n", h.ID, h.SupplierID, FormatRupiah(h.Sisa), jt)
 		total += h.Sisa
 	}
-	return tools.NewToolResult(fmt.Sprintf("%d hutang terbuka — total %s:\n%s", len(open), FormatRupiah(total), sb.String()))
+	return tools.NewToolResult(
+		fmt.Sprintf("%d hutang terbuka — total %s:\n%s", len(open), FormatRupiah(total), sb.String()),
+	)
 }
 
 func (t *BonTool) detail(ctx context.Context, args map[string]any) *tools.ToolResult {

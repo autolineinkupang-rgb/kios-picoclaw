@@ -134,12 +134,16 @@ func (t *SupplierTool) edit(ctx context.Context, args map[string]any) *tools.Too
 		changed = append(changed, "catatan")
 	}
 	if len(changed) == 0 {
-		return tools.ErrorResult("Tidak ada field yang diubah. Sebutkan nama_baru/kontak/alamat/produk_utama/pic/catatan.")
+		return tools.ErrorResult(
+			"Tidak ada field yang diubah. Sebutkan nama_baru/kontak/alamat/produk_utama/pic/catatan.",
+		)
 	}
 	if err := t.store.SetSupplier(ctx, sup); err != nil {
 		return tools.ErrorResult("Aduh, gagal simpan supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
-	return tools.NewToolResult(fmt.Sprintf("Supplier %s ([%s]) diperbarui: %s.", sup.Nama, sup.ID, strings.Join(changed, ", ")))
+	return tools.NewToolResult(
+		fmt.Sprintf("Supplier %s ([%s]) diperbarui: %s.", sup.Nama, sup.ID, strings.Join(changed, ", ")),
+	)
 }
 
 func (t *SupplierTool) daftar(ctx context.Context) *tools.ToolResult {
@@ -200,7 +204,8 @@ func (t *SupplierTool) hapus(ctx context.Context, args map[string]any) *tools.To
 		if h.SupplierID == sup.ID && h.Status == "terbuka" {
 			return tools.ErrorResult(fmt.Sprintf(
 				"Supplier %s masih punya hutang terbuka %s (%s) — lunasi atau write-off dulu kak.",
-				sup.Nama, h.ID, FormatRupiah(h.Sisa)))
+				sup.Nama, h.ID, FormatRupiah(h.Sisa),
+			))
 		}
 	}
 	if err := t.store.DelSupplier(ctx, sup.ID); err != nil {

@@ -27,12 +27,14 @@ type fakeMediaStore struct {
 }
 
 func (f *fakeMediaStore) Store(string, media.MediaMeta, string) (string, error) { return f.ref, nil }
+
 func (f *fakeMediaStore) Resolve(ref string) (string, error) {
 	if ref == f.ref {
 		return f.path, nil
 	}
 	return "", fmt.Errorf("not found")
 }
+
 func (f *fakeMediaStore) ResolveWithMeta(ref string) (string, media.MediaMeta, error) {
 	if ref == f.ref {
 		return f.path, f.meta, nil
@@ -68,7 +70,10 @@ func TestUploadTool(t *testing.T) {
 	tool.SetMediaStore(&fakeMediaStore{
 		ref:  "media://x",
 		path: p,
-		meta: media.MediaMeta{Filename: "daftar-produk.xlsx", ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+		meta: media.MediaMeta{
+			Filename:    "daftar-produk.xlsx",
+			ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		},
 	})
 	ctx := tools.WithToolMedia(context.Background(), []string{"media://x"})
 	res := tool.Execute(ctx, map[string]any{}) // tipe auto-detected
@@ -155,8 +160,13 @@ func TestSlashCommands(t *testing.T) {
 		t.Errorf("/produk should list Beras, got: %s", got)
 	}
 	// /suplier: add a supplier first, then list + comparison subcommand.
-	NewSupplierTool(s).Execute(context.Background(), map[string]any{"action": "tambah", "nama": "UD Maju", "kontak": "0812"})
-	s.AppendPembelian(context.Background(), &Pembelian{NamaProduk: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "UD Maju"})
+	NewSupplierTool(
+		s,
+	).Execute(context.Background(), map[string]any{"action": "tambah", "nama": "UD Maju", "kontak": "0812"})
+	s.AppendPembelian(
+		context.Background(),
+		&Pembelian{NamaProduk: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "UD Maju"},
+	)
 	if got := run("suplier", "/suplier"); !strings.Contains(got, "UD Maju") {
 		t.Errorf("/suplier should list UD Maju, got: %s", got)
 	}
@@ -208,7 +218,8 @@ func TestImportProdukCSV(t *testing.T) {
 			beras = p
 		}
 	}
-	if beras == nil || beras.HargaJual != 62000 || beras.Stok != 20 || beras.Supplier != "UD Maju" || beras.Barcode != "8991234500015" {
+	if beras == nil || beras.HargaJual != 62000 || beras.Stok != 20 || beras.Supplier != "UD Maju" ||
+		beras.Barcode != "8991234500015" {
 		t.Errorf("beras fields wrong: %+v", beras)
 	}
 	// Re-import updates existing (matched by name), no duplicates.
@@ -225,7 +236,12 @@ func TestImportPustakaRows(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	rows := []map[string]string{
-		{"judul": "Panel Harga", "info": "harga harian", "url": "https://panelharga.badanpangan.go.id", "kategori": "harga"},
+		{
+			"judul":    "Panel Harga",
+			"info":     "harga harian",
+			"url":      "https://panelharga.badanpangan.go.id",
+			"kategori": "harga",
+		},
 		{"judul": "Sumber Jahat", "url": "http://1.2.3.4/malware?exec=1"}, // unsafe -> skipped
 		{"judul": "Catatan tanpa URL", "info": "info lokal"},              // ok, no url
 		{"info": "tanpa judul tanpa url"},                                 // skipped
@@ -457,8 +473,10 @@ func TestBatalCommand(t *testing.T) {
 	// Sell 2 to create TRX-0001 (stok 10 -> 8).
 	sell := byName["jual"]
 	var sellOut string
-	sellReq := commands.Request{Channel: "telegram", SenderID: "owner1", Text: "/jual beras 2",
-		Reply: func(s string) error { sellOut = s; return nil }}
+	sellReq := commands.Request{
+		Channel: "telegram", SenderID: "owner1", Text: "/jual beras 2",
+		Reply: func(s string) error { sellOut = s; return nil },
+	}
 	if err := sell.Handler(ctx, sellReq, nil); err != nil {
 		t.Fatalf("/jual: %v", err)
 	}
@@ -532,7 +550,10 @@ func TestAutoHabitTracking(t *testing.T) {
 	if res := NewStokTool(s).Execute(ctx, map[string]any{"action": "jual", "produk": "beras", "qty": float64(1)}); res.IsError {
 		t.Fatalf("jual: %s", res.ForLLM)
 	}
-	if res := NewBelajarTool(s).Execute(ctx, map[string]any{"action": "habit"}); !strings.Contains(res.ForLLM, "Beras") {
+	if res := NewBelajarTool(s).Execute(ctx, map[string]any{"action": "habit"}); !strings.Contains(
+		res.ForLLM,
+		"Beras",
+	) {
 		t.Errorf("sale should auto-populate habit, got: %s", res.ForLLM)
 	}
 
@@ -566,11 +587,17 @@ func TestBelajarTool(t *testing.T) {
 	tool := NewBelajarTool(s)
 
 	tool.Execute(ctx, map[string]any{"action": "alias_set", "alias": "im", "target": "Indomie Goreng"})
-	if res := tool.Execute(ctx, map[string]any{"action": "alias_get", "alias": "im"}); !strings.Contains(res.ForLLM, "Indomie") {
+	if res := tool.Execute(ctx, map[string]any{"action": "alias_get", "alias": "im"}); !strings.Contains(
+		res.ForLLM,
+		"Indomie",
+	) {
 		t.Errorf("alias_get should resolve to Indomie, got: %s", res.ForLLM)
 	}
 	tool.Execute(ctx, map[string]any{"action": "shortcut_set", "nama": "paket hemat", "items": "beras, gula, minyak"})
-	if res := tool.Execute(ctx, map[string]any{"action": "shortcut_get", "nama": "paket hemat"}); !strings.Contains(res.ForLLM, "minyak") {
+	if res := tool.Execute(ctx, map[string]any{"action": "shortcut_get", "nama": "paket hemat"}); !strings.Contains(
+		res.ForLLM,
+		"minyak",
+	) {
 		t.Errorf("shortcut_get should list items, got: %s", res.ForLLM)
 	}
 	tool.Execute(ctx, map[string]any{"action": "habit_track", "tipe": "sale", "value": "Beras"})
@@ -625,7 +652,10 @@ func TestPustakaTool(t *testing.T) {
 	if res := tool.Execute(ctx, map[string]any{"action": "daftar"}); !strings.Contains(res.ForLLM, "Harga pangan") {
 		t.Errorf("daftar missing entry: %s", res.ForLLM)
 	}
-	if res := tool.Execute(ctx, map[string]any{"action": "cek_url", "url": "https://bit.ly/x"}); !strings.Contains(res.ForLLM, "TIDAK AMAN") {
+	if res := tool.Execute(ctx, map[string]any{"action": "cek_url", "url": "https://bit.ly/x"}); !strings.Contains(
+		res.ForLLM,
+		"TIDAK AMAN",
+	) {
 		t.Errorf("cek_url should flag shortener unsafe: %s", res.ForLLM)
 	}
 	if res := tool.Execute(ctx, map[string]any{"action": "hapus", "id": all[0].ID}); res.IsError {
@@ -801,11 +831,17 @@ func TestPromoTool(t *testing.T) {
 		t.Fatalf("buat: %s", res.ForLLM)
 	}
 	// qty below min_qty -> no promo.
-	if res := tool.Execute(ctx, map[string]any{"action": "cek", "produk": "gula", "qty": float64(1)}); !strings.Contains(res.ForLLM, "Tidak ada promo") {
+	if res := tool.Execute(ctx, map[string]any{"action": "cek", "produk": "gula", "qty": float64(1)}); !strings.Contains(
+		res.ForLLM,
+		"Tidak ada promo",
+	) {
 		t.Errorf("qty<min should yield no promo: %s", res.ForLLM)
 	}
 	// qty meets min -> 10%% of 15000 = 1500, final 13500.
-	if res := tool.Execute(ctx, map[string]any{"action": "cek", "produk": "gula", "qty": float64(2)}); !strings.Contains(res.ForLLM, "Rp 13.500") {
+	if res := tool.Execute(ctx, map[string]any{"action": "cek", "produk": "gula", "qty": float64(2)}); !strings.Contains(
+		res.ForLLM,
+		"Rp 13.500",
+	) {
 		t.Errorf("expected final price Rp 13.500: %s", res.ForLLM)
 	}
 	if res := tool.Execute(ctx, map[string]any{"action": "daftar"}); !strings.Contains(res.ForLLM, "Gula") {
@@ -817,9 +853,13 @@ func TestKasirPromoApplied(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
-	NewPromoTool(s).Execute(ctx, map[string]any{"action": "buat", "produk": "gula", "tipe": "persen", "nilai": float64(10), "min_qty": float64(2)})
+	NewPromoTool(
+		s,
+	).Execute(ctx, map[string]any{"action": "buat", "produk": "gula", "tipe": "persen", "nilai": float64(10), "min_qty": float64(2)})
 
-	res := NewKasirTool(s).Execute(ctx, map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(30000)})
+	res := NewKasirTool(
+		s,
+	).Execute(ctx, map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(30000)})
 	if res.IsError {
 		t.Fatalf("kasir jual: %s", res.ForLLM)
 	}
@@ -1065,7 +1105,8 @@ func TestRestoreBackupRoundTrip(t *testing.T) {
 	}
 
 	dst := newTestStore(t)
-	if err := dst.RestoreBackup(ctx, data); err != nil {
+	err = dst.RestoreBackup(ctx, data)
+	if err != nil {
 		t.Fatalf("RestoreBackup: %v", err)
 	}
 
@@ -1274,7 +1315,16 @@ func TestStokToolTambahAutoCreate(t *testing.T) {
 	ctx := context.Background()
 	tool := NewStokTool(s)
 
-	res := tool.Execute(ctx, map[string]any{"action": "tambah", "produk": "Indomie Goreng", "qty": float64(20), "harga": float64(2800), "auto_create": true})
+	res := tool.Execute(
+		ctx,
+		map[string]any{
+			"action":      "tambah",
+			"produk":      "Indomie Goreng",
+			"qty":         float64(20),
+			"harga":       float64(2800),
+			"auto_create": true,
+		},
+	)
 	if res.IsError {
 		t.Fatalf("auto-create restock error: %s", res.ForLLM)
 	}
@@ -1299,7 +1349,10 @@ func TestKasirStrukAndShift(t *testing.T) {
 	seedProduct(t, s, "003", "Gula Pasir 1kg", 10, 13500, 15000, 2)
 	tool := NewKasirTool(s)
 
-	res := tool.Execute(ctx, map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(50000)})
+	res := tool.Execute(
+		ctx,
+		map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(50000)},
+	)
 	if res.IsError {
 		t.Fatalf("kasir jual error: %s", res.ForLLM)
 	}
@@ -1311,10 +1364,12 @@ func TestKasirStrukAndShift(t *testing.T) {
 	}
 
 	// Shift open/close
-	if res := tool.Execute(ctx, map[string]any{"action": "buka_shift", "saldo_awal": float64(100000)}); res.IsError {
+	res = tool.Execute(ctx, map[string]any{"action": "buka_shift", "saldo_awal": float64(100000)})
+	if res.IsError {
 		t.Fatalf("buka_shift error: %s", res.ForLLM)
 	}
-	if res := tool.Execute(ctx, map[string]any{"action": "buka_shift"}); !res.IsError {
+	res = tool.Execute(ctx, map[string]any{"action": "buka_shift"})
+	if !res.IsError {
 		t.Error("expected error opening a second shift")
 	}
 	res = tool.Execute(ctx, map[string]any{"action": "status_shift"})
@@ -1332,7 +1387,10 @@ func TestKasirJualBayarKurangDitolak(t *testing.T) {
 	tool := NewKasirTool(s)
 
 	// total = 2 * 15000 = 30000; bayar 20000 < total -> reject.
-	res := tool.Execute(ctx, map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(20000)})
+	res := tool.Execute(
+		ctx,
+		map[string]any{"action": "jual", "produk": "gula", "qty": float64(2), "bayar": float64(20000)},
+	)
 	if !res.IsError {
 		t.Fatalf("bayar 20000 < total 30000 must be an error, got (err=%v): %s", res.IsError, res.ForLLM)
 	}
@@ -1432,7 +1490,10 @@ func TestBandingHarga_OverrideWins(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	_ = s.SetProduk(ctx, &Produk{ID: "P1", Nama: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "Toko Beta"})
-	s.AppendPembelian(ctx, &Pembelian{ProdukID: "P1", NamaProduk: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "Toko Beta"})
+	s.AppendPembelian(
+		ctx,
+		&Pembelian{ProdukID: "P1", NamaProduk: "Beras Medium 5kg", HargaBeli: 55000, Supplier: "Toko Beta"},
+	)
 	// Override manual: UD Maju menawarkan 50000 (termurah)
 	_ = s.SetHargaSupplier(ctx, "P1", "UD Maju", 50000)
 
@@ -1483,7 +1544,8 @@ func TestBackupRestoreHargaSupplier(t *testing.T) {
 	}
 	// Restore ke store kosong dan pastikan override pulih.
 	dst := newTestStore(t)
-	if err := dst.RestoreBackup(ctx, b); err != nil {
+	err = dst.RestoreBackup(ctx, b)
+	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 	m, err := dst.GetAllHargaSupplier(ctx)

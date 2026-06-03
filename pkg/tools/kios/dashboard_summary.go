@@ -99,7 +99,7 @@ func formatDashboardSummary(s *DashboardSummary, base string, latencyMS int64) s
 		}
 	}
 	if len(s.JamRamai) > 0 {
-		var jam []string
+		jam := make([]string, 0, len(s.JamRamai))
 		for _, j := range s.JamRamai {
 			jam = append(jam, fmt.Sprintf("%s.00 (%dx)", j.Jam, j.Transaksi))
 		}

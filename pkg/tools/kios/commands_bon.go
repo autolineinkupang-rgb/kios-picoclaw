@@ -59,7 +59,10 @@ func CommandsBon(store *Store) []commands.Definition {
 				id := strings.ToUpper(parts[1])
 				jumlah, err := strconv.Atoi(parts[2])
 				if err != nil || jumlah <= 0 {
-					return replyText(req, fmt.Sprintf("Jumlah %q tidak valid kak. Contoh: /bayar %s 15000", parts[2], id))
+					return replyText(
+						req,
+						fmt.Sprintf("Jumlah %q tidak valid kak. Contoh: /bayar %s 15000", parts[2], id),
+					)
 				}
 				return replyText(req, bon.Execute(ctx, map[string]any{
 					"action": "bayar", "id": id,
@@ -74,7 +77,10 @@ func CommandsBon(store *Store) []commands.Definition {
 			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
 				parts := strings.Fields(req.Text)
 				if len(parts) < 4 {
-					return replyText(req, "Format: /jualutang <produk> <qty> <nomor-WA>\nContoh: /jualutang mie 2 08123456789")
+					return replyText(
+						req,
+						"Format: /jualutang <produk> <qty> <nomor-WA>\nContoh: /jualutang mie 2 08123456789",
+					)
 				}
 				phone := parts[len(parts)-1]
 				qtyStr := parts[len(parts)-2]

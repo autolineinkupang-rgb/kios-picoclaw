@@ -75,7 +75,8 @@ func TestGetPelanggan(t *testing.T) {
 		t.Errorf("got non-nil want nil (belum ada)")
 	}
 
-	if _, err := s.UpsertPelanggan(ctx, "Siti", "08123456789"); err != nil {
+	_, err = s.UpsertPelanggan(ctx, "Siti", "08123456789")
+	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	got, err = s.GetPelanggan(ctx, "628123456789")
@@ -131,7 +132,8 @@ func TestBackupRestorePelanggan(t *testing.T) {
 	}
 
 	dst := newTestStore(t)
-	if err := dst.RestoreBackup(ctx, b); err != nil {
+	err = dst.RestoreBackup(ctx, b)
+	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 

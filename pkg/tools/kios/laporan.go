@@ -24,13 +24,25 @@ func (t *LaporanTool) Parameters() map[string]any {
 		"type": "object",
 		"properties": map[string]any{
 			"action": map[string]any{
-				"type":        "string",
-				"enum":        []string{"ringkas", "mingguan", "bulanan", "laba", "riwayat", "terlaris", "riwayat_harga"},
+				"type": "string",
+				"enum": []string{
+					"ringkas",
+					"mingguan",
+					"bulanan",
+					"laba",
+					"riwayat",
+					"terlaris",
+					"riwayat_harga",
+				},
 				"description": "Jenis laporan.",
 			},
-			"periode": map[string]any{"type": "string", "enum": []string{"hari_ini", "minggu", "bulan"}, "description": "periode untuk laba/riwayat/terlaris"},
-			"produk":  map[string]any{"type": "string", "description": "filter produk (riwayat_harga)"},
-			"top":     map[string]any{"type": "integer", "description": "jumlah produk terlaris (default 10)"},
+			"periode": map[string]any{
+				"type":        "string",
+				"enum":        []string{"hari_ini", "minggu", "bulan"},
+				"description": "periode untuk laba/riwayat/terlaris",
+			},
+			"produk": map[string]any{"type": "string", "description": "filter produk (riwayat_harga)"},
+			"top":    map[string]any{"type": "integer", "description": "jumlah produk terlaris (default 10)"},
 		},
 		"required": []string{"action"},
 	}
@@ -143,7 +155,7 @@ func topProduk(txs []*Transaksi, n int) []string {
 		arr = append(arr, kv{k, v})
 	}
 	sort.Slice(arr, func(i, j int) bool { return arr[i].q > arr[j].q })
-	var out []string
+	out := make([]string, 0, min(len(arr), n))
 	for i := 0; i < len(arr) && i < n; i++ {
 		out = append(out, arr[i].nama)
 	}
@@ -195,7 +207,16 @@ func (t *LaporanTool) riwayat(ctx context.Context, periode string) *tools.ToolRe
 	var b strings.Builder
 	fmt.Fprintf(&b, "Riwayat transaksi (%d terbaru):\n", len(txs)-start)
 	for _, tx := range txs[start:] {
-		fmt.Fprintf(&b, "- %s %s: %s x%d = %s (%s)\n", tx.ID, tx.Jam, tx.NamaProduk, tx.Qty, FormatRupiah(tx.Total), tx.MetodeBayar)
+		fmt.Fprintf(
+			&b,
+			"- %s %s: %s x%d = %s (%s)\n",
+			tx.ID,
+			tx.Jam,
+			tx.NamaProduk,
+			tx.Qty,
+			FormatRupiah(tx.Total),
+			tx.MetodeBayar,
+		)
 	}
 	return tools.NewToolResult(b.String())
 }
@@ -263,7 +284,15 @@ func (t *LaporanTool) riwayatHarga(ctx context.Context, produk string) *tools.To
 	var b strings.Builder
 	b.WriteString("Riwayat perubahan harga:\n")
 	for _, h := range filtered[start:] {
-		fmt.Fprintf(&b, "- %s %s: %s → %s (%+d)\n", h.Tanggal, h.NamaProduk, FormatRupiah(h.HargaLama), FormatRupiah(h.HargaBaru), h.Selisih)
+		fmt.Fprintf(
+			&b,
+			"- %s %s: %s → %s (%+d)\n",
+			h.Tanggal,
+			h.NamaProduk,
+			FormatRupiah(h.HargaLama),
+			FormatRupiah(h.HargaBaru),
+			h.Selisih,
+		)
 	}
 	return tools.NewToolResult(b.String())
 }

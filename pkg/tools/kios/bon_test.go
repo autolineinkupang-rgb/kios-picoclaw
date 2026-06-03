@@ -93,7 +93,10 @@ func TestBayarPiutang(t *testing.T) {
 	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
 
 	bon := NewBonTool(s)
-	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	bon.Execute(
+		ctx,
+		map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"},
+	)
 	all, _ := s.GetAllPiutang(ctx)
 	piuID := all[0].ID
 
@@ -120,10 +123,16 @@ func TestBayarOverpaymentDitolak(t *testing.T) {
 	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
 
 	bon := NewBonTool(s)
-	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"})
+	bon.Execute(
+		ctx,
+		map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"},
+	)
 	all, _ := s.GetAllPiutang(ctx)
 
-	r := bon.Execute(ctx, map[string]any{"action": "bayar", "id": all[0].ID, "jumlah": float64(99999), "metode": "tunai"})
+	r := bon.Execute(
+		ctx,
+		map[string]any{"action": "bayar", "id": all[0].ID, "jumlah": float64(99999), "metode": "tunai"},
+	)
 	if !r.IsError {
 		t.Error("overpayment harus ditolak")
 	}
@@ -152,7 +161,10 @@ func TestBatalkanTxBonTanpaCicilan(t *testing.T) {
 	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
 
 	bon := NewBonTool(s)
-	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	bon.Execute(
+		ctx,
+		map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"},
+	)
 	allTx, _ := s.GetAllTransaksi(ctx)
 	txID := allTx[0].ID
 	allPiu, _ := s.GetAllPiutang(ctx)
@@ -177,7 +189,10 @@ func TestBatalkanTxBonDenganCicilan(t *testing.T) {
 	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
 
 	bon := NewBonTool(s)
-	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	bon.Execute(
+		ctx,
+		map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"},
+	)
 	allTx, _ := s.GetAllTransaksi(ctx)
 	txID := allTx[0].ID
 	allPiu, _ := s.GetAllPiutang(ctx)
@@ -200,7 +215,10 @@ func TestDelPelangganSafeDenganPiutangDiblokir(t *testing.T) {
 	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
 
 	bon := NewBonTool(s)
-	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"})
+	bon.Execute(
+		ctx,
+		map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"},
+	)
 
 	err := s.DelPelangganSafe(ctx, "628123456789")
 	if err == nil {
@@ -262,7 +280,10 @@ func TestHapusPiutangOwnerOnly(t *testing.T) {
 	_, _ = s.UpsertPelanggan(ctx, "Budi", "08123456789")
 
 	bon := NewBonTool(s)
-	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"})
+	bon.Execute(
+		ctx,
+		map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(1), "pelanggan": "08123456789"},
+	)
 	all, _ := s.GetAllPiutang(ctx)
 
 	// kasir tidak bisa hapus
@@ -285,7 +306,10 @@ func TestBackupRestoreBonRoundtrip(t *testing.T) {
 	_, _ = src.UpsertPelanggan(ctx, "Budi", "08123456789")
 
 	bon := NewBonTool(src)
-	bon.Execute(ctx, map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"})
+	bon.Execute(
+		ctx,
+		map[string]any{"action": "jual_bon", "produk": "mie", "qty": float64(2), "pelanggan": "08123456789"},
+	)
 	allPiu, _ := src.GetAllPiutang(ctx)
 	piuID := allPiu[0].ID
 	bon.Execute(ctx, map[string]any{"action": "bayar", "id": piuID, "jumlah": float64(1000), "metode": "tunai"})
@@ -302,7 +326,8 @@ func TestBackupRestoreBonRoundtrip(t *testing.T) {
 	}
 
 	dst := newTestStore(t)
-	if err := dst.RestoreBackup(ctx, b); err != nil {
+	err = dst.RestoreBackup(ctx, b)
+	if err != nil {
 		t.Fatalf("RestoreBackup: %v", err)
 	}
 

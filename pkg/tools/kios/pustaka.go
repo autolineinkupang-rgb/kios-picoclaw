@@ -93,7 +93,9 @@ func (t *PustakaTool) tambah(ctx context.Context, args map[string]any) *tools.To
 	if u != "" {
 		s := SkorAman(u)
 		if !s.Aman {
-			return tools.ErrorResult(fmt.Sprintf("URL ditolak (tidak aman, skor %d/100): %s. Sumber tidak disimpan.", s.Skor, s.Alasan))
+			return tools.ErrorResult(
+				fmt.Sprintf("URL ditolak (tidak aman, skor %d/100): %s. Sumber tidak disimpan.", s.Skor, s.Alasan),
+			)
 		}
 		skor = s.Skor
 	}

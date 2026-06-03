@@ -65,7 +65,9 @@ func (t *HargaTool) cek(ctx context.Context, args map[string]any) *tools.ToolRes
 	if item == nil {
 		return tools.NewToolResult("Produk nggak ketemu kak 🔍")
 	}
-	return tools.NewToolResult(fmt.Sprintf("%s — jual %s, beli %s.", item.Nama, FormatRupiah(item.HargaJual), FormatRupiah(item.HargaBeli)))
+	return tools.NewToolResult(
+		fmt.Sprintf("%s — jual %s, beli %s.", item.Nama, FormatRupiah(item.HargaJual), FormatRupiah(item.HargaBeli)),
+	)
 }
 
 func (t *HargaTool) update(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
@@ -97,7 +99,9 @@ func (t *HargaTool) update(ctx context.Context, args map[string]any, kasir strin
 			HargaLama: lama, HargaBaru: hargaJual, Selisih: hargaJual - lama, Kasir: kasir,
 		})
 	}
-	return tools.NewToolResult(fmt.Sprintf("Harga jual %s: %s → %s.", item.Nama, FormatRupiah(lama), FormatRupiah(hargaJual)))
+	return tools.NewToolResult(
+		fmt.Sprintf("Harga jual %s: %s → %s.", item.Nama, FormatRupiah(lama), FormatRupiah(hargaJual)),
+	)
 }
 
 func (t *HargaTool) estimasi(ctx context.Context, args map[string]any) *tools.ToolResult {
@@ -121,7 +125,13 @@ func (t *HargaTool) estimasi(ctx context.Context, args map[string]any) *tools.To
 	m25 := int(float64(hargaBeli) * 1.25)
 	return tools.NewToolResult(fmt.Sprintf(
 		"Estimasi harga jual %s (beli %s):\n- margin 10%%: %s\n- margin 15%%: %s (saran)\n- margin 20%%: %s\n- margin 25%%: %s",
-		item.Nama, FormatRupiah(hargaBeli), FormatRupiah(m10), FormatRupiah(m15), FormatRupiah(m20), FormatRupiah(m25)))
+		item.Nama,
+		FormatRupiah(hargaBeli),
+		FormatRupiah(m10),
+		FormatRupiah(m15),
+		FormatRupiah(m20),
+		FormatRupiah(m25),
+	))
 }
 
 func (t *HargaTool) prediksi(ctx context.Context, args map[string]any) *tools.ToolResult {
@@ -144,7 +154,13 @@ func (t *HargaTool) prediksi(ctx context.Context, args map[string]any) *tools.To
 	}
 	sort.Slice(riwayat, func(i, j int) bool { return riwayat[i].Tanggal < riwayat[j].Tanggal })
 	if len(riwayat) < 2 {
-		return tools.NewToolResult(fmt.Sprintf("Belum cukup data untuk prediksi %s (butuh minimal 2 riwayat, ada %d).", item.Nama, len(riwayat)))
+		return tools.NewToolResult(
+			fmt.Sprintf(
+				"Belum cukup data untuk prediksi %s (butuh minimal 2 riwayat, ada %d).",
+				item.Nama,
+				len(riwayat),
+			),
+		)
 	}
 	var sumPct float64
 	var cnt int

@@ -24,7 +24,10 @@ func main() {
 		os.Exit(1)
 	}
 	if os.Getenv("KIOS_SEED_DIR") == "" {
-		fmt.Fprintln(os.Stderr, "FATAL: set KIOS_SEED_DIR to the folder with stok.csv, transaksi.csv, pembelian.csv, price-history.csv")
+		fmt.Fprintln(
+			os.Stderr,
+			"FATAL: set KIOS_SEED_DIR to the folder with stok.csv, transaksi.csv, pembelian.csv, price-history.csv",
+		)
 		os.Exit(1)
 	}
 
