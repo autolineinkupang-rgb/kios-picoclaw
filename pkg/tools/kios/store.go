@@ -128,6 +128,21 @@ type Pesanan struct {
 	CreatedAt   int64         `json:"created_at"`
 }
 
+// Pelanggan adalah pembeli yang terdaftar dari storefront. Diidentifikasi oleh
+// nomor WA yang dinormalisasi (format "62..."). Dipakai oleh piutang (bon) dan
+// storefront checkout.
+type Pelanggan struct {
+	ID           string `json:"id"`    // "PLG-<phone>"
+	Phone        string `json:"phone"` // no. WA ternormalisasi "62..." (= HASH field key)
+	Nama         string `json:"nama"`
+	TotalUtang   int    `json:"total_utang"`   // cache dari piutang terbuka; ditulis oleh bon ledger
+	TotalPesanan int    `json:"total_pesanan"` // jumlah order seumur hidup
+	TotalBelanja int    `json:"total_belanja"` // total rupiah seumur hidup
+	Catatan      string `json:"catatan"`
+	CreatedAt    int64  `json:"created_at"` // unix seconds
+	LastOrder    string `json:"last_order"` // tanggal YYYY-MM-DD terakhir order
+}
+
 // Redis key constants.
 const (
 	keyProduk            = "kios:produk"
@@ -159,6 +174,7 @@ const (
 	keyPesanan           = "kios:pesanan"
 	keyNotifPesananLast  = "kios:notif:pesanan_last"  // highest PSN seq notified to owners
 	keyNotifPendingState = "kios:notif:pending_state" // "alerted" | "clear"
+	keyPelanggan         = "kios:pelanggan"           // HASH: field = no. WA ternormalisasi; value = Pelanggan JSON
 )
 
 // loginCodeTTL is how long a /login code stays valid.
