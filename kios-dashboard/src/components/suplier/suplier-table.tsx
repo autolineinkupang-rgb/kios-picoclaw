@@ -114,67 +114,134 @@ export function SuplierTable({
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full min-w-[700px] text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="p-3 font-medium">Nama</th>
-                <th className="p-3 font-medium">Kontak</th>
-                <th className="p-3 font-medium">Alamat</th>
-                <th className="p-3 font-medium">PIC</th>
-                <th className="p-3 font-medium">Produk Utama</th>
-                <th className="p-3 font-medium">Catatan</th>
-                {(canManage || canDelete) && (
-                  <th className="p-3 text-right font-medium">Aksi</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => (
-                <tr
-                  key={s.id}
-                  className="border-b transition-colors last:border-0 hover:bg-muted/40"
-                >
-                  <td className="p-3">
+        <>
+          {/* Mobile card list */}
+          <ul className="space-y-2 md:hidden">
+            {rows.map((s) => (
+              <li key={s.id} className="rounded-xl border bg-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
                     <p className="font-medium">{s.nama}</p>
                     <p className="font-mono text-xs text-muted-foreground">{s.id}</p>
-                  </td>
-                  <td className="p-3 text-muted-foreground">{s.kontak || "–"}</td>
-                  <td className="p-3 text-muted-foreground">{s.alamat || "–"}</td>
-                  <td className="p-3 text-muted-foreground">{s.pic || "–"}</td>
-                  <td className="p-3 text-muted-foreground">{s.produk_utama || "–"}</td>
-                  <td className="p-3 text-muted-foreground">{s.catatan || "–"}</td>
+                  </div>
                   {(canManage || canDelete) && (
-                    <td className="p-3">
-                      <div className="flex justify-end gap-1">
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={() => setDialog({ mode: "edit", suplier: s })}
-                            aria-label={`Edit ${s.nama}`}
-                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(s)}
-                            aria-label={`Hapus ${s.nama}`}
-                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                    <div className="flex shrink-0 gap-1">
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ mode: "edit", suplier: s })}
+                          aria-label={`Edit ${s.nama}`}
+                          className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(s)}
+                          aria-label={`Hapus ${s.nama}`}
+                          className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  {s.kontak && (
+                    <>
+                      <dt className="text-muted-foreground">Kontak</dt>
+                      <dd>{s.kontak}</dd>
+                    </>
+                  )}
+                  {s.alamat && (
+                    <>
+                      <dt className="text-muted-foreground">Alamat</dt>
+                      <dd>{s.alamat}</dd>
+                    </>
+                  )}
+                  {s.produk_utama && (
+                    <>
+                      <dt className="text-muted-foreground">Produk Utama</dt>
+                      <dd>{s.produk_utama}</dd>
+                    </>
+                  )}
+                  {s.catatan && (
+                    <>
+                      <dt className="text-muted-foreground">Catatan</dt>
+                      <dd>{s.catatan}</dd>
+                    </>
+                  )}
+                </dl>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="p-3 font-medium">Nama</th>
+                  <th className="p-3 font-medium">Kontak</th>
+                  <th className="p-3 font-medium">Alamat</th>
+                  <th className="p-3 font-medium">PIC</th>
+                  <th className="p-3 font-medium">Produk Utama</th>
+                  <th className="p-3 font-medium">Catatan</th>
+                  {(canManage || canDelete) && (
+                    <th className="p-3 text-right font-medium">Aksi</th>
                   )}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
+                  <tr
+                    key={s.id}
+                    className="border-b transition-colors last:border-0 hover:bg-muted/40"
+                  >
+                    <td className="p-3">
+                      <p className="font-medium">{s.nama}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{s.id}</p>
+                    </td>
+                    <td className="p-3 text-muted-foreground">{s.kontak || "–"}</td>
+                    <td className="p-3 text-muted-foreground">{s.alamat || "–"}</td>
+                    <td className="p-3 text-muted-foreground">{s.pic || "–"}</td>
+                    <td className="p-3 text-muted-foreground">{s.produk_utama || "–"}</td>
+                    <td className="p-3 text-muted-foreground">{s.catatan || "–"}</td>
+                    {(canManage || canDelete) && (
+                      <td className="p-3">
+                        <div className="flex justify-end gap-1">
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={() => setDialog({ mode: "edit", suplier: s })}
+                              aria-label={`Edit ${s.nama}`}
+                              className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              <Pencil className="size-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(s)}
+                              aria-label={`Hapus ${s.nama}`}
+                              className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Add / edit dialog */}

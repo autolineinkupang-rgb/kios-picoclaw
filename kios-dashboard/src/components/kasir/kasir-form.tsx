@@ -94,9 +94,9 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
       {/* Product picker */}
-      <Card className="lg:col-span-3">
+      <Card className="md:col-span-1 lg:col-span-3">
         <CardHeader>
           <CardTitle>Pilih Produk</CardTitle>
         </CardHeader>
@@ -157,7 +157,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
       </Card>
 
       {/* Cart */}
-      <Card className="lg:col-span-2">
+      <Card className="md:col-span-1 lg:col-span-2">
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Keranjang</CardTitle>
           {cart.length > 0 && (

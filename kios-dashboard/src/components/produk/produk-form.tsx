@@ -163,7 +163,7 @@ export function ProdukForm({
         {numField("harga_jual", "Harga Jual (Rp)")}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {numField("stok", "Stok")}
         {numField("stok_minimum", "Stok Min")}
         {numField("stok_kritis", "Stok Kritis")}
