@@ -89,7 +89,35 @@ export function PenjualanView({ transaksi }: { transaksi: Transaksi[] }) {
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border bg-card">
+          {/* Mobile card list */}
+          <ul className="space-y-2 sm:hidden">
+            {shown.map((t) => (
+              <li key={t.id} className="rounded-xl border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate font-medium">{t.nama_produk}</p>
+                  <p className="font-mono text-sm font-semibold tabular-nums whitespace-nowrap">
+                    {formatRupiah(t.total)}
+                  </p>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="font-mono">{t.id}</span>
+                  <span>
+                    {t.tanggal} · {t.jam?.slice(0, 5)}
+                  </span>
+                  <span className="tabular-nums">
+                    {t.qty}× {formatRupiah(t.harga_satuan)}
+                  </span>
+                  <Badge variant={METODE_VARIANT[t.metode_bayar] ?? "secondary"} className="capitalize">
+                    {t.metode_bayar || "tunai"}
+                  </Badge>
+                  {t.kasir && <span>{t.kasir}</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto rounded-xl border bg-card sm:block">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
@@ -129,6 +157,7 @@ export function PenjualanView({ transaksi }: { transaksi: Transaksi[] }) {
               </tbody>
             </table>
           </div>
+
           {filtered.length > MAX_ROWS && (
             <p className="text-center text-xs text-muted-foreground">
               Menampilkan {MAX_ROWS} transaksi terbaru dari {formatNumber(filtered.length)}.
