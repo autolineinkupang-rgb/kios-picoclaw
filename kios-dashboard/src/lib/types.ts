@@ -23,6 +23,7 @@ export interface Produk {
   saldo_modal?: number;
   stok_ml?: number;
   stok_kritis_ml?: number;
+  pack_defs?: Kemasan[];
 }
 
 export interface Transaksi {
@@ -57,6 +58,16 @@ export interface Pembelian {
   supplier: string;
   kasir: string;
   catatan: string;
+  kemasan?: string;
+  isi?: number;
+  qty_pack?: number;
+  harga_pack?: number;
+  supplier_id?: string;
+}
+
+export interface Kemasan {
+  nama: string;
+  isi: number;
 }
 
 export interface Supplier {

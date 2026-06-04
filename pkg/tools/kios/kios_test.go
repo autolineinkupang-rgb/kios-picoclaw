@@ -1576,3 +1576,11 @@ func TestPerformJualJenisBiasaRoute(t *testing.T) {
 		t.Errorf("total=%d sisa=%d want 36000/4", tx.Total, sisa)
 	}
 }
+
+// withOwnerCtx mendaftarkan user owner ke store dan menyuntikkan ID-nya ke context.
+func withOwnerCtx(t *testing.T, s *Store, ctx context.Context) context.Context {
+	t.Helper()
+	id := "owner-test-001"
+	_ = s.SetUser(ctx, &UserKios{Phone: id, Nama: "TestOwner", Role: "owner", Aktif: true})
+	return toolshared.WithToolContext(ctx, "telegram", id)
+}

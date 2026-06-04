@@ -31,6 +31,7 @@ type Produk struct {
 	SaldoModal   int    `json:"saldo_modal,omitempty"`  // pulsa: saldo modal rupiah
 	StokMl       int    `json:"stok_ml,omitempty"`      // bensin: stok mili-liter
 	StokKritisMl int    `json:"stok_kritis_ml,omitempty"` // bensin: ambang kritis (default 40000 = 40L)
+	PackDefs     []Kemasan `json:"pack_defs,omitempty"` // kemasan-kemasan restock yang dikenal
 }
 
 // JenisOrDefault returns the product kind, defaulting to "biasa" when unset so
@@ -76,6 +77,12 @@ type Pembelian struct {
 	Supplier   string `json:"supplier"`
 	Kasir      string `json:"kasir"`
 	Catatan    string `json:"catatan"`
+	// Pack fields — diisi saat restock menggunakan satuan kemasan.
+	Kemasan    string `json:"kemasan,omitempty"`    // mis. "dos", "lusin"
+	Isi        int    `json:"isi,omitempty"`         // pcs per kemasan
+	QtyPack    int    `json:"qty_pack,omitempty"`    // jumlah kemasan dibeli
+	HargaPack  int    `json:"harga_pack,omitempty"`  // harga total satu kemasan (rupiah)
+	SupplierID string `json:"supplier_id,omitempty"` // FK ke Supplier.ID
 }
 
 // PriceHistory represents a price change event.
@@ -230,9 +237,10 @@ const (
 	keySeqPiu            = "kios:seq:piu"
 	keySeqHut            = "kios:seq:hut"
 	keySeqPay            = "kios:seq:pay"
-	keyPulsaDenom        = "kios:pulsa:denom" // HASH field=nominal string, value=PulsaDenom JSON
-	keyPulsaTopup        = "kios:pulsa:topup" // LIST append-only, value=PulsaTopup JSON
-	keySeqPtu            = "kios:seq:ptu"     // INCR counter untuk PTU-NNNN
+	keyPulsaDenom        = "kios:pulsa:denom"         // HASH field=nominal string, value=PulsaDenom JSON
+	keyPulsaTopup        = "kios:pulsa:topup"         // LIST append-only, value=PulsaTopup JSON
+	keySeqPtu            = "kios:seq:ptu"             // INCR counter untuk PTU-NNNN
+	keyHargaSupplierLast = "kios:harga_supplier_last" // HASH: field=produkID|supplierID, value=HargaSupplierLast JSON
 )
 
 // loginCodeTTL is how long a /login code stays valid.

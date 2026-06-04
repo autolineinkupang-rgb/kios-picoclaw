@@ -29,8 +29,9 @@ type BackupData struct {
 	Pustaka       []*Pustaka      `json:"pustaka"`
 	Users         []*UserKios     `json:"users"`
 	Shift         *Shift          `json:"shift,omitempty"`
-	HargaSupplier map[string]int  `json:"harga_supplier,omitempty"`
-	Pelanggan     []*Pelanggan    `json:"pelanggan,omitempty"`
+	HargaSupplier     map[string]int                `json:"harga_supplier,omitempty"`
+	HargaSupplierLast map[string]HargaSupplierLast `json:"harga_supplier_last,omitempty"`
+	Pelanggan         []*Pelanggan                 `json:"pelanggan,omitempty"`
 	Piutang       []*Piutang      `json:"piutang,omitempty"`
 	Hutang        []*Hutang       `json:"hutang,omitempty"`
 	Pembayaran    []*Pembayaran   `json:"pembayaran,omitempty"`
@@ -72,6 +73,9 @@ func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
 	if b.HargaSupplier, err = store.GetAllHargaSupplier(ctx); err != nil {
 		return nil, err
 	}
+	if b.HargaSupplierLast, err = store.GetAllHargaSupplierLast(ctx); err != nil {
+		return nil, err
+	}
 	if b.Pelanggan, err = store.GetAllPelanggan(ctx); err != nil {
 		return nil, err
 	}
@@ -96,9 +100,10 @@ func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
 // Ringkas returns a short human summary of the snapshot's contents.
 func (b *BackupData) Ringkas() string {
 	return fmt.Sprintf(
-		"%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier, %d pelanggan, %d denom pulsa, %d topup pulsa",
+		"%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier, %d snapshot harga suplier, %d pelanggan, %d denom pulsa, %d topup pulsa",
 		len(b.Produk), len(b.Transaksi), len(b.Pembelian), len(b.PriceHistory),
-		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users), len(b.HargaSupplier),
+		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users),
+		len(b.HargaSupplier), len(b.HargaSupplierLast),
 		len(b.Pelanggan), len(b.PulsaDenom), len(b.PulsaTopup),
 	)
 }
@@ -200,7 +205,7 @@ func ParseBackup(raw []byte) (*BackupData, error) {
 // HasAnyData reports whether any core dataset currently holds records. Used to
 // guard the destructive restore so existing data isn't clobbered by accident.
 func (s *Store) HasAnyData(ctx context.Context) (bool, error) {
-	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers, keyHargaSupplier, keyPelanggan, keyPiutang, keyHutang, keyPulsaDenom} {
+	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers, keyHargaSupplier, keyHargaSupplierLast, keyPelanggan, keyPiutang, keyHutang, keyPulsaDenom} {
 		n, err := s.rdb.HLen(ctx, k).Result()
 		if err != nil {
 			return false, err
@@ -233,7 +238,7 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		keyProduk, keyTransaksi, keySeqTrx, keyPembelian, keySeqPem,
 		keyPriceHist, keySeqPhg, keyShift, keyUsers,
 		keySupplier, keySeqSup, keyPromo, keySeqPromo, keyPustaka, keySeqPus,
-		keyHargaSupplier,
+		keyHargaSupplier, keyHargaSupplierLast,
 		keyPelanggan,
 		keyPiutang, keySeqPiu, keyHutang, keySeqHut, keyPembayaran, keySeqPay,
 		keyPulsaDenom, keyPulsaTopup, keySeqPtu,
@@ -296,6 +301,15 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 	// value exactly as SetHargaSupplier does (strconv.Itoa).
 	for field, harga := range b.HargaSupplier {
 		if err := s.rdb.HSet(ctx, keyHargaSupplier, field, strconv.Itoa(harga)).Err(); err != nil {
+			return err
+		}
+	}
+	for field, v := range b.HargaSupplierLast {
+		raw, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		if err := s.rdb.HSet(ctx, keyHargaSupplierLast, field, string(raw)).Err(); err != nil {
 			return err
 		}
 	}
