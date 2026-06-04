@@ -24,13 +24,25 @@ func (t *LaporanTool) Parameters() map[string]any {
 		"type": "object",
 		"properties": map[string]any{
 			"action": map[string]any{
-				"type":        "string",
-				"enum":        []string{"ringkas", "mingguan", "bulanan", "laba", "riwayat", "terlaris", "riwayat_harga"},
+				"type": "string",
+				"enum": []string{
+					"ringkas",
+					"mingguan",
+					"bulanan",
+					"laba",
+					"riwayat",
+					"terlaris",
+					"riwayat_harga",
+				},
 				"description": "Jenis laporan.",
 			},
-			"periode": map[string]any{"type": "string", "enum": []string{"hari_ini", "minggu", "bulan"}, "description": "periode untuk laba/riwayat/terlaris"},
-			"produk":  map[string]any{"type": "string", "description": "filter produk (riwayat_harga)"},
-			"top":     map[string]any{"type": "integer", "description": "jumlah produk terlaris (default 10)"},
+			"periode": map[string]any{
+				"type":        "string",
+				"enum":        []string{"hari_ini", "minggu", "bulan"},
+				"description": "periode untuk laba/riwayat/terlaris",
+			},
+			"produk": map[string]any{"type": "string", "description": "filter produk (riwayat_harga)"},
+			"top":    map[string]any{"type": "integer", "description": "jumlah produk terlaris (default 10)"},
 		},
 		"required": []string{"action"},
 	}
@@ -104,7 +116,9 @@ func (t *LaporanTool) txPeriode(ctx context.Context, periode string) ([]*Transak
 	return out, nil
 }
 
-// hitungLaba computes omzet, modal, laba for a transaction set.
+// hitungLaba computes omzet, modal, laba for a set of transactions.
+// Uses tx.Modal when > 0 (locked at sale time for pulsa and bensin);
+// falls back to Qty * HargaBeli from the current catalog.
 func (t *LaporanTool) hitungLaba(ctx context.Context, txs []*Transaksi) (omzet, modal, laba int) {
 	all, _ := t.store.GetAllProduk(ctx)
 	beli := make(map[string]int, len(all))
@@ -113,7 +127,11 @@ func (t *LaporanTool) hitungLaba(ctx context.Context, txs []*Transaksi) (omzet, 
 	}
 	for _, tx := range txs {
 		omzet += tx.Total
-		modal += tx.Qty * beli[tx.ProdukID]
+		if tx.Modal > 0 {
+			modal += tx.Modal
+		} else {
+			modal += tx.Qty * beli[tx.ProdukID]
+		}
 	}
 	return omzet, modal, omzet - modal
 }
@@ -122,8 +140,19 @@ func (t *LaporanTool) stokKritis(ctx context.Context) []string {
 	all, _ := t.store.GetAllProduk(ctx)
 	var out []string
 	for _, p := range all {
-		if p.Stok <= p.StokKritis {
-			out = append(out, p.Nama)
+		switch p.JenisOrDefault() {
+		case "bensin":
+			kritisMl := p.StokKritisMl
+			if kritisMl == 0 {
+				kritisMl = 40000 // default 40L
+			}
+			if p.StokMl <= kritisMl {
+				out = append(out, fmt.Sprintf("%s (%.1fL)", p.Nama, float64(p.StokMl)/1000))
+			}
+		default:
+			if p.Stok <= p.StokKritis {
+				out = append(out, p.Nama)
+			}
 		}
 	}
 	return out
@@ -143,7 +172,7 @@ func topProduk(txs []*Transaksi, n int) []string {
 		arr = append(arr, kv{k, v})
 	}
 	sort.Slice(arr, func(i, j int) bool { return arr[i].q > arr[j].q })
-	var out []string
+	out := make([]string, 0, min(len(arr), n))
 	for i := 0; i < len(arr) && i < n; i++ {
 		out = append(out, arr[i].nama)
 	}
@@ -195,7 +224,16 @@ func (t *LaporanTool) riwayat(ctx context.Context, periode string) *tools.ToolRe
 	var b strings.Builder
 	fmt.Fprintf(&b, "Riwayat transaksi (%d terbaru):\n", len(txs)-start)
 	for _, tx := range txs[start:] {
-		fmt.Fprintf(&b, "- %s %s: %s x%d = %s (%s)\n", tx.ID, tx.Jam, tx.NamaProduk, tx.Qty, FormatRupiah(tx.Total), tx.MetodeBayar)
+		fmt.Fprintf(
+			&b,
+			"- %s %s: %s x%d = %s (%s)\n",
+			tx.ID,
+			tx.Jam,
+			tx.NamaProduk,
+			tx.Qty,
+			FormatRupiah(tx.Total),
+			tx.MetodeBayar,
+		)
 	}
 	return tools.NewToolResult(b.String())
 }
@@ -263,7 +301,15 @@ func (t *LaporanTool) riwayatHarga(ctx context.Context, produk string) *tools.To
 	var b strings.Builder
 	b.WriteString("Riwayat perubahan harga:\n")
 	for _, h := range filtered[start:] {
-		fmt.Fprintf(&b, "- %s %s: %s → %s (%+d)\n", h.Tanggal, h.NamaProduk, FormatRupiah(h.HargaLama), FormatRupiah(h.HargaBaru), h.Selisih)
+		fmt.Fprintf(
+			&b,
+			"- %s %s: %s → %s (%+d)\n",
+			h.Tanggal,
+			h.NamaProduk,
+			FormatRupiah(h.HargaLama),
+			FormatRupiah(h.HargaBaru),
+			h.Selisih,
+		)
 	}
 	return tools.NewToolResult(b.String())
 }

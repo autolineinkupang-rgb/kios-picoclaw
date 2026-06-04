@@ -18,6 +18,12 @@ export interface Produk {
   has_exp: boolean;
   exp_date: string;
   image_url: string;
+  jenis?: string;        // "" | "biasa" | "pulsa" | "bensin"
+  supplier_id?: string;
+  saldo_modal?: number;
+  stok_ml?: number;
+  stok_kritis_ml?: number;
+  pack_defs?: Kemasan[];
 }
 
 export interface Transaksi {
@@ -34,6 +40,9 @@ export interface Transaksi {
   kasir: string;
   catatan: string;
   session_id: string;
+  piutang_id?: string;  // diisi saat jual bon
+  modal?: number;
+  liter?: number;
 }
 
 export interface Pembelian {
@@ -49,6 +58,16 @@ export interface Pembelian {
   supplier: string;
   kasir: string;
   catatan: string;
+  kemasan?: string;
+  isi?: number;
+  qty_pack?: number;
+  harga_pack?: number;
+  supplier_id?: string;
+}
+
+export interface Kemasan {
+  nama: string;
+  isi: number;
 }
 
 export interface Supplier {
@@ -125,6 +144,61 @@ export interface Pesanan {
   metode_bayar: string; // tunai | qris
   status: PesananStatus;
   created_at: number; // unix seconds
+  pelanggan_id?: string; // FK ke Pelanggan.ID; undefined = pembeli anonim (data lama)
+}
+
+export interface Pelanggan {
+  id: string;            // "PLG-<phone>"
+  phone: string;         // no. WA ternormalisasi "62..." (= HASH field key)
+  nama: string;
+  total_utang: number;   // cache dari piutang terbuka; ditulis oleh bon ledger
+  total_pesanan: number;
+  total_belanja: number;
+  catatan: string;
+  created_at: number;    // unix seconds
+  last_order: string;    // "YYYY-MM-DD"
+}
+
+export type StatusBon = "terbuka" | "lunas" | "dihapus";
+
+export interface Piutang {
+  id: string;
+  pelanggan_id: string;
+  phone: string;
+  transaksi_id?: string;
+  pokok: number;
+  dibayar: number;
+  sisa: number;
+  status: StatusBon;
+  tanggal: string;
+  jam: string;
+  kasir: string;
+  catatan: string;
+}
+
+export interface Hutang {
+  id: string;
+  supplier_id: string;
+  pembelian_id?: string;
+  pokok: number;
+  dibayar: number;
+  sisa: number;
+  status: StatusBon;
+  jatuh_tempo?: string;
+  tanggal: string;
+  catatan: string;
+}
+
+export interface Pembayaran {
+  id: string;
+  ledger_id: string;
+  jenis: "piutang" | "hutang";
+  jumlah: number;
+  metode: string;
+  tanggal: string;
+  jam: string;
+  kasir: string;
+  catatan: string;
 }
 
 export interface KiosConfig {
@@ -136,6 +210,23 @@ export interface KiosConfig {
   qris_nama: string;
   qris_image_url: string;
   wa_number: string; // kios WhatsApp number (buyer contact / order confirmation)
+}
+
+export interface PulsaDenom {
+  nominal: number;
+  harga_modal: number;
+  harga_jual: number;
+  aktif: boolean;
+}
+
+export interface PulsaTopup {
+  id: string;
+  tanggal: string;
+  jam: string;
+  jumlah: number;
+  saldo_sesudah: number;
+  kasir: string;
+  catatan: string;
 }
 
 export type Role = "owner" | "kasir";

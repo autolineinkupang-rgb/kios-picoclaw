@@ -26,8 +26,10 @@ func (t *StokTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type": "string",
-				"enum": []string{"cek", "cari", "jual", "tambah", "tambah_produk", "edit_produk",
-					"tambah_massal", "edit_massal", "hapus", "set_stok", "update_exp", "batalkan_tx", "stok_menipis"},
+				"enum": []string{
+					"cek", "cari", "jual", "tambah", "tambah_produk", "edit_produk",
+					"tambah_massal", "edit_massal", "hapus", "set_stok", "update_exp", "batalkan_tx", "stok_menipis", "atur_kemasan",
+				},
 				"description": "Aksi yang dijalankan.",
 			},
 			"items": map[string]any{
@@ -35,14 +37,27 @@ func (t *StokTool) Parameters() map[string]any {
 				"description": "daftar item untuk tambah_massal/edit_massal (tiap item berisi field yang sama seperti tambah/edit_produk)",
 				"items":       map[string]any{"type": "object"},
 			},
-			"produk":       map[string]any{"type": "string", "description": "id atau nama produk"},
-			"qty":          map[string]any{"type": "integer", "description": "jumlah (jual/restock)"},
-			"metode":       map[string]any{"type": "string", "enum": []string{"tunai", "transfer", "qris"}, "description": "metode bayar saat jual"},
-			"harga":        map[string]any{"type": "integer", "description": "harga beli (restock)"},
-			"supplier":     map[string]any{"type": "string"},
-			"auto_create":  map[string]any{"type": "boolean", "description": "buat produk otomatis saat restock bila belum ada"},
-			"nama":         map[string]any{"type": "string", "description": "nama produk (tambah_produk) / nama baru (edit_produk)"},
-			"barcode":      map[string]any{"type": "string", "description": "kode barcode produk (opsional, untuk scan)"},
+			"produk": map[string]any{"type": "string", "description": "id atau nama produk"},
+			"qty":    map[string]any{"type": "integer", "description": "jumlah (jual/restock)"},
+			"metode": map[string]any{
+				"type":        "string",
+				"enum":        []string{"tunai", "transfer", "qris"},
+				"description": "metode bayar saat jual",
+			},
+			"harga":    map[string]any{"type": "integer", "description": "harga beli (restock)"},
+			"supplier": map[string]any{"type": "string"},
+			"auto_create": map[string]any{
+				"type":        "boolean",
+				"description": "buat produk otomatis saat restock bila belum ada",
+			},
+			"nama": map[string]any{
+				"type":        "string",
+				"description": "nama produk (tambah_produk) / nama baru (edit_produk)",
+			},
+			"barcode": map[string]any{
+				"type":        "string",
+				"description": "kode barcode produk (opsional, untuk scan)",
+			},
 			"kategori":     map[string]any{"type": "string"},
 			"satuan":       map[string]any{"type": "string"},
 			"harga_beli":   map[string]any{"type": "integer"},
@@ -53,6 +68,10 @@ func (t *StokTool) Parameters() map[string]any {
 			"stok_kritis":  map[string]any{"type": "integer"},
 			"exp_date":     map[string]any{"type": "string", "description": "tanggal kedaluwarsa YYYY-MM-DD"},
 			"id":           map[string]any{"type": "string", "description": "id transaksi (batalkan_tx)"},
+			"kemasan":      map[string]any{"type": "string", "description": "nama kemasan (dos/lusin/box/renteng/dll) untuk restock"},
+			"qty_pack":     map[string]any{"type": "integer", "description": "jumlah kemasan yang dibeli (restock pack)"},
+			"harga_pack":   map[string]any{"type": "integer", "description": "harga satu kemasan (rupiah)"},
+			"isi":          map[string]any{"type": "integer", "description": "pcs per kemasan — wajib bila kemasan tidak dikenal otomatis"},
 		},
 		"required": []string{"action"},
 	}
@@ -111,6 +130,11 @@ func (t *StokTool) Execute(ctx context.Context, args map[string]any) *tools.Tool
 		return t.batalkanTx(ctx, args)
 	case "stok_menipis":
 		return t.stokMenipis(ctx)
+	case "atur_kemasan":
+		if r := requireOwner(role); r != nil {
+			return r
+		}
+		return t.aturKemasan(ctx, args)
 	default:
 		return tools.ErrorResult("Hmm, aksi stok belum dikenal kak 🤔")
 	}
@@ -150,7 +174,16 @@ func (t *StokTool) cari(ctx context.Context, args map[string]any) *tools.ToolRes
 }
 
 func (t *StokTool) jual(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
-	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), argInt(args, "qty"), argStr(args, "metode"), kasir, 0)
+	tx, item, sisa, err := performJual(
+		ctx,
+		t.store,
+		argStr(args, "produk"),
+		argInt(args, "qty"),
+		argStr(args, "metode"),
+		kasir,
+		0,
+		nil,
+	)
 	if err != nil {
 		return tools.ErrorResult(err.Error())
 	}
@@ -164,11 +197,42 @@ func (t *StokTool) jual(ctx context.Context, args map[string]any, kasir string) 
 	return tools.NewToolResult(msg)
 }
 
+// pembelianOpt membawa field pack opsional ke recordPembelian.
+type pembelianOpt struct {
+	Kemasan    string
+	Isi        int
+	QtyPack    int
+	HargaPack  int
+	SupplierID string
+}
+
 func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
 	nama := argStr(args, "produk")
 	qty := argInt(args, "qty")
 	hargaBeli := argInt(args, "harga")
 	supplier := argStr(args, "supplier")
+
+	// --- Branch satuan beli (pack) ---
+	kemasanArg := argStr(args, "kemasan")
+	qtyPack := argInt(args, "qty_pack")
+	hargaPack := argInt(args, "harga_pack")
+	if kemasanArg != "" && qtyPack > 0 && hargaPack > 0 {
+		isiArg := argInt(args, "isi")
+		itemForLookup, _ := findOne(ctx, t.store, nama)
+		isi := isiArg
+		if isi <= 0 && itemForLookup != nil {
+			isi = lookupIsi(itemForLookup, kemasanArg)
+		}
+		if isi <= 0 {
+			return tools.ErrorResult("Isi per kemasan belum diketahui kak, sebutkan jumlah isinya ya (mis. isi=12 berarti 12 pcs per " + kemasanArg + " 😊)")
+		}
+		computedQty, computedHarga := computeFromPack(kemasanArg, qtyPack, hargaPack, isi)
+		qty = computedQty
+		if computedHarga > 0 {
+			hargaBeli = computedHarga
+		}
+	}
+
 	if qty <= 0 {
 		return tools.ErrorResult("Jumlah restock-nya harus lebih dari 0 ya kak 🙏")
 	}
@@ -183,7 +247,12 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 
 	if item == nil {
 		if !argBool(args, "auto_create") {
-			return tools.ErrorResult(fmt.Sprintf("Produk \"%s\" belum terdaftar kak 😊 Daftarkan dulu ya, atau set auto_create kalau mau langsung dibuat.", nama))
+			return tools.ErrorResult(
+				fmt.Sprintf(
+					"Produk \"%s\" belum terdaftar kak 😊 Daftarkan dulu ya, atau set auto_create kalau mau langsung dibuat.",
+					nama,
+				),
+			)
 		}
 		id, err := t.store.NextProdukID(ctx)
 		if err != nil {
@@ -201,7 +270,18 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 		if err := t.store.SetProduk(ctx, item); err != nil {
 			return tools.ErrorResult("Aduh, gagal simpan produk baru kak 😣 Coba lagi sebentar ya.").WithError(err)
 		}
-		t.recordPembelian(ctx, item, qty, hargaBeli, supplier, kasir, "auto-create")
+		opt := pembelianOpt{}
+		if kemasanArg != "" {
+			opt.Kemasan = kemasanArg
+			opt.Isi = argInt(args, "isi")
+			if opt.Isi <= 0 {
+				opt.Isi = lookupIsi(item, kemasanArg)
+			}
+			opt.QtyPack = qtyPack
+			opt.HargaPack = hargaPack
+			opt.SupplierID = item.SupplierID
+		}
+		t.recordPembelian(ctx, item, qty, hargaBeli, supplier, kasir, "auto-create", opt)
 		return tools.NewToolResult(fmt.Sprintf("Produk baru dibuat: [%s] %s, stok %d, harga jual %s (margin 15%%).",
 			item.ID, item.Nama, item.Stok, FormatRupiah(hargaJual)))
 	}
@@ -227,7 +307,18 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 	if err := t.store.SetProduk(ctx, item); err != nil {
 		return tools.ErrorResult("Aduh, gagal update stok kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
-	t.recordPembelian(ctx, item, qty, hargaBeli, item.Supplier, kasir, "")
+	packOpt := pembelianOpt{}
+	if kemasanArg != "" {
+		packOpt.Kemasan = kemasanArg
+		packOpt.Isi = argInt(args, "isi")
+		if packOpt.Isi <= 0 {
+			packOpt.Isi = lookupIsi(item, kemasanArg)
+		}
+		packOpt.QtyPack = qtyPack
+		packOpt.HargaPack = hargaPack
+		packOpt.SupplierID = item.SupplierID
+	}
+	t.recordPembelian(ctx, item, qty, hargaBeli, item.Supplier, kasir, "", packOpt)
 	msg := fmt.Sprintf("Restock %s +%d, stok jadi %d.", item.Nama, qty, item.Stok)
 	if priceChanged {
 		msg += fmt.Sprintf(" Harga beli berubah %s → %s.", FormatRupiah(hargaLama), FormatRupiah(hargaBeli))
@@ -235,13 +326,36 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 	return tools.NewToolResult(msg)
 }
 
-func (t *StokTool) recordPembelian(ctx context.Context, item *Produk, qty, hargaBeli int, supplier, kasir, catatan string) {
+func (t *StokTool) recordPembelian(
+	ctx context.Context,
+	item *Produk,
+	qty, hargaBeli int,
+	supplier, kasir, catatan string,
+	opt pembelianOpt,
+) {
 	now := NowWITA()
-	t.store.AppendPembelian(ctx, &Pembelian{
+	pem := &Pembelian{
 		Tanggal: now.Format("2006-01-02"), Jam: now.Format("15:04:05"),
 		ProdukID: item.ID, NamaProduk: item.Nama, Qty: qty, HargaBeli: hargaBeli,
 		Subtotal: qty * hargaBeli, Supplier: supplier, Kasir: kasir, Catatan: catatan,
-	})
+	}
+	if opt.Kemasan != "" {
+		pem.Kemasan = opt.Kemasan
+		pem.Isi = opt.Isi
+		pem.QtyPack = opt.QtyPack
+		pem.HargaPack = opt.HargaPack
+		pem.SupplierID = opt.SupplierID
+		if opt.SupplierID != "" {
+			_ = t.store.SetHargaSupplierLast(ctx, item.ID, opt.SupplierID, HargaSupplierLast{
+				Harga:     hargaBeli,
+				Kemasan:   opt.Kemasan,
+				Isi:       opt.Isi,
+				HargaPack: opt.HargaPack,
+				Tanggal:   now.Format("2006-01-02"),
+			})
+		}
+	}
+	t.store.AppendPembelian(ctx, pem)
 }
 
 func (t *StokTool) tambahProduk(ctx context.Context, args map[string]any) *tools.ToolResult {
@@ -332,13 +446,17 @@ func (t *StokTool) editProduk(ctx context.Context, args map[string]any) *tools.T
 		changed = append(changed, "stok_kritis")
 	}
 	if len(changed) == 0 {
-		return tools.ErrorResult("Tidak ada field yang diubah. Sebutkan nama/kategori/satuan/supplier/harga_jual/harga_beli/stok_minimum/stok_kritis.")
+		return tools.ErrorResult(
+			"Tidak ada field yang diubah. Sebutkan nama/kategori/satuan/supplier/harga_jual/harga_beli/stok_minimum/stok_kritis.",
+		)
 	}
 	item.LastUpdate = NowWITA().Format("2006-01-02")
 	if err := t.store.SetProduk(ctx, item); err != nil {
 		return tools.ErrorResult("Aduh, gagal simpan perubahan kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
-	return tools.NewToolResult(fmt.Sprintf("Produk %s ([%s]) diperbarui: %s.", item.Nama, item.ID, strings.Join(changed, ", ")))
+	return tools.NewToolResult(
+		fmt.Sprintf("Produk %s ([%s]) diperbarui: %s.", item.Nama, item.ID, strings.Join(changed, ", ")),
+	)
 }
 
 func (t *StokTool) tambahMassal(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
@@ -439,19 +557,101 @@ func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.T
 	if id == "" {
 		return tools.ErrorResult("ID transaksi-nya diisi dulu ya kak 🙏")
 	}
-	tx, err := t.store.RemoveTransaksi(ctx, id)
+
+	// Cek dahulu sebelum remove (irreversible)
+	allTx, err := t.store.GetAllTransaksi(ctx)
 	if err != nil {
-		return tools.ErrorResult("Aduh, gagal batalkan transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
+		return tools.ErrorResult("Gagal baca transaksi kak 😣").WithError(err)
+	}
+	var tx *Transaksi
+	for _, t2 := range allTx {
+		if t2.ID == id {
+			tx = t2
+			break
+		}
 	}
 	if tx == nil {
 		return tools.NewToolResult(fmt.Sprintf("Transaksi %s nggak ketemu kak 🔍", id))
 	}
-	if item, _ := t.store.GetProduk(ctx, tx.ProdukID); item != nil {
-		item.Stok += tx.Qty
-		item.LastUpdate = NowWITA().Format("2006-01-02")
-		t.store.SetProduk(ctx, item)
+
+	// Guard: bon dengan cicilan tidak bisa dibatalkan
+	if tx.MetodeBayar == "bon" {
+		allPiu, _ := t.store.GetAllPiutang(ctx)
+		for _, piu := range allPiu {
+			if piu.TransaksiID == id && piu.Dibayar > 0 {
+				return tools.ErrorResult(fmt.Sprintf(
+					"Transaksi %s tidak bisa dibatalkan kak 🙏 — piutang %s sudah ada cicilan %s. Gunakan write-off.",
+					id, piu.ID, FormatRupiah(piu.Dibayar),
+				))
+			}
+		}
 	}
-	return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, stok %s dikembalikan (+%d).", tx.ID, tx.NamaProduk, tx.Qty))
+
+	// Aman untuk remove
+	removed, err := t.store.RemoveTransaksi(ctx, id)
+	if err != nil {
+		return tools.ErrorResult("Aduh, gagal batalkan transaksi kak 😣 Coba lagi sebentar ya.").WithError(err)
+	}
+	if removed == nil {
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s nggak ketemu kak 🔍", id))
+	}
+
+	// Void piutang bila bon dan belum ada cicilan (dilakukan sebelum restore stok agar konsisten)
+	if removed.MetodeBayar == "bon" {
+		allPiu, _ := t.store.GetAllPiutang(ctx)
+		for _, piu := range allPiu {
+			if piu.TransaksiID == id {
+				piu.Status = "dihapus"
+				_ = t.store.SetPiutang(ctx, piu)
+			}
+		}
+	}
+
+	// Restore stok/saldo berdasarkan jenis produk
+	item, _ := t.store.GetProduk(ctx, removed.ProdukID)
+	if item == nil {
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan (produk tidak ditemukan, stok tidak dikembalikan).", removed.ID))
+	}
+
+	switch item.JenisOrDefault() {
+	case "pulsa":
+		if removed.Modal > 0 {
+			_ = t.store.IncrSaldoModal(ctx, item.ID, removed.Modal)
+			reloaded, _ := t.store.GetProduk(ctx, item.ID)
+			saldoKini := 0
+			if reloaded != nil {
+				saldoKini = reloaded.SaldoModal
+			}
+			return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, saldo modal pulsa dikembalikan (+%s, saldo kini %s).",
+				removed.ID, FormatRupiah(removed.Modal), FormatRupiah(saldoKini)))
+		}
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan (modal tidak tercatat, saldo tidak dikembalikan).", removed.ID))
+
+	case "bensin":
+		if removed.Liter > 0 {
+			mlKembali := int(math.Round(removed.Liter * 1000))
+			item.StokMl += mlKembali
+			item.Stok = item.StokMl / 1000
+			item.LastUpdate = NowWITA().Format("2006-01-02")
+			_ = t.store.SetProduk(ctx, item)
+			return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, stok bensin %s dikembalikan (+%.3fL, sisa %.1fL).",
+				removed.ID, item.Nama, removed.Liter, float64(item.StokMl)/1000))
+		}
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan (volume tidak tercatat, stok tidak dikembalikan).", removed.ID))
+
+	default:
+		item.Stok += removed.Qty
+		item.LastUpdate = NowWITA().Format("2006-01-02")
+		_ = t.store.SetProduk(ctx, item)
+		return tools.NewToolResult(
+			fmt.Sprintf(
+				"Transaksi %s dibatalkan, stok %s dikembalikan (+%d).",
+				removed.ID,
+				removed.NamaProduk,
+				removed.Qty,
+			),
+		)
+	}
 }
 
 func (t *StokTool) stokMenipis(ctx context.Context) *tools.ToolResult {
@@ -475,4 +675,43 @@ func (t *StokTool) stokMenipis(ctx context.Context) *tools.ToolResult {
 		return tools.NewToolResult("Semua stok aman, tidak ada yang menipis.")
 	}
 	return tools.NewToolResult(fmt.Sprintf("%d produk menipis:\n%s", count, b.String()))
+}
+
+// aturKemasan memperbarui PackDefs produk (owner-only).
+// args: produk (id/nama), kemasan ([]any of {nama, isi} objects).
+func (t *StokTool) aturKemasan(ctx context.Context, args map[string]any) *tools.ToolResult {
+	produkQ := argStr(args, "produk")
+	if produkQ == "" {
+		return tools.ErrorResult("Sebutkan produknya ya kak 🙏")
+	}
+	item, err := findOne(ctx, t.store, produkQ)
+	if err != nil || item == nil {
+		return tools.ErrorResult(fmt.Sprintf("Produk %q nggak ketemu kak 🔍", produkQ))
+	}
+	rawList, ok := args["kemasan"].([]any)
+	if !ok || len(rawList) == 0 {
+		return tools.ErrorResult("Sebutkan daftar kemasan ya kak, mis. [{\"nama\":\"dos\",\"isi\":48}]")
+	}
+	newPacks := make([]Kemasan, 0, len(rawList))
+	for _, r := range rawList {
+		m, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		nama := argStr(m, "nama")
+		isi := argInt(m, "isi")
+		if nama == "" || isi <= 0 {
+			return tools.ErrorResult("Tiap kemasan harus punya nama dan isi > 0 ya kak.")
+		}
+		newPacks = append(newPacks, Kemasan{Nama: nama, Isi: isi})
+	}
+	item.PackDefs = newPacks
+	if err := t.store.SetProduk(ctx, item); err != nil {
+		return tools.ErrorResult("Aduh, gagal simpan kemasan kak 😣 Coba lagi ya.").WithError(err)
+	}
+	var names []string
+	for _, k := range newPacks {
+		names = append(names, fmt.Sprintf("%s=%d", k.Nama, k.Isi))
+	}
+	return tools.NewToolResult(fmt.Sprintf("PackDefs %s diperbarui: %s.", item.Nama, strings.Join(names, ", ")))
 }

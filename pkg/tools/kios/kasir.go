@@ -3,6 +3,7 @@ package kios
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	tools "github.com/sipeed/picoclaw/pkg/tools"
@@ -45,6 +46,14 @@ func (t *KasirTool) Parameters() map[string]any {
 			"bayar":       map[string]any{"type": "integer", "description": "nominal uang yang dibayar pelanggan"},
 			"saldo_awal":  map[string]any{"type": "integer", "description": "modal kas saat buka shift"},
 			"saldo_akhir": map[string]any{"type": "integer", "description": "kas terhitung saat tutup shift"},
+			"nominal": map[string]any{
+				"type":        "integer",
+				"description": "nominal pulsa yang dijual (5000/10000/15000/20000/25000/50000/100000)",
+			},
+			"liter": map[string]any{
+				"type":        "number",
+				"description": "volume bensin dalam liter (mis. 2 atau 1.5)",
+			},
 		},
 		"required": []string{"action"},
 	}
@@ -75,36 +84,96 @@ func (t *KasirTool) Execute(ctx context.Context, args map[string]any) *tools.Too
 func (t *KasirTool) jual(ctx context.Context, args map[string]any, kasir string) *tools.ToolResult {
 	qty := argInt(args, "qty")
 	bayarPtr := argIntPtr(args, "bayar")
-
-	// Apply an active promo automatically (before recording the sale).
 	diskon, promoID := 0, ""
-	if pre, _ := findOne(ctx, t.store, argStr(args, "produk")); pre != nil {
-		diskon, promoID = activePromoDiskon(ctx, t.store, pre.ID, qty, pre.HargaJual)
-		// Spec (KIOS_BUILD_SPEC.md:81): error if bayar<total. Reject the sale
-		// BEFORE it is recorded — no stock decrement, no transaction.
-		if bayarPtr != nil && qty > 0 {
-			hargaEfektif := pre.HargaJual - diskon
-			if hargaEfektif < 0 {
-				hargaEfektif = 0
+
+	var extras map[string]int
+	pre, _ := findOne(ctx, t.store, argStr(args, "produk"))
+	if pre != nil {
+		switch pre.JenisOrDefault() {
+		case "pulsa":
+			nominal := argInt(args, "nominal")
+			if nominal == 0 {
+				return tools.ErrorResult("Nominal pulsa wajib diisi kak 🙏 (contoh: nominal=10000)")
 			}
-			total := qty * hargaEfektif
-			if *bayarPtr < total {
-				kurang := total - *bayarPtr
-				return tools.ErrorResult(fmt.Sprintf("Uang kurang %s kak 🙏 Total %s, dibayar %s — transaksi belum dicatat ya.",
-					FormatRupiah(kurang), FormatRupiah(total), FormatRupiah(*bayarPtr)))
+			extras = map[string]int{"nominal": nominal}
+			if argStr(args, "metode") != "bon" {
+				if bayarPtr != nil {
+					denom, _ := t.store.GetPulsaDenom(ctx, nominal)
+					if denom != nil && *bayarPtr < denom.HargaJual {
+						kurang := denom.HargaJual - *bayarPtr
+						return tools.ErrorResult(fmt.Sprintf("Uang kurang %s kak 🙏 Total pulsa %s, dibayar %s — transaksi belum dicatat ya.",
+							FormatRupiah(kurang), FormatRupiah(denom.HargaJual), FormatRupiah(*bayarPtr)))
+					}
+				}
+			}
+		case "bensin":
+			literArg := argFloat(args, "liter")
+			if literArg <= 0 {
+				return tools.ErrorResult("Volume bensin wajib diisi kak 🙏 (contoh: liter=2)")
+			}
+			ml := int(math.Round(literArg * 1000))
+			extras = map[string]int{"ml": ml}
+			if argStr(args, "metode") != "bon" {
+				if bayarPtr != nil && pre.HargaJual > 0 {
+					total := int(math.Round(float64(pre.HargaJual) * literArg))
+					if *bayarPtr < total {
+						kurang := total - *bayarPtr
+						return tools.ErrorResult(fmt.Sprintf("Uang kurang %s kak 🙏 Total bensin %s, dibayar %s — transaksi belum dicatat ya.",
+							FormatRupiah(kurang), FormatRupiah(total), FormatRupiah(*bayarPtr)))
+					}
+				}
+			}
+		default:
+			diskon, promoID = activePromoDiskon(ctx, t.store, pre.ID, qty, pre.HargaJual)
+			// Spec (KIOS_BUILD_SPEC.md:81): error if bayar<total. Reject the sale
+			// BEFORE it is recorded — no stock decrement, no transaction.
+			// Exception: metode "bon" skips the guard (buyer pays later via piutang).
+			if argStr(args, "metode") != "bon" {
+				if bayarPtr != nil && qty > 0 {
+					hargaEfektif := pre.HargaJual - diskon
+					if hargaEfektif < 0 {
+						hargaEfektif = 0
+					}
+					total := qty * hargaEfektif
+					if *bayarPtr < total {
+						kurang := total - *bayarPtr
+						return tools.ErrorResult(
+							fmt.Sprintf("Uang kurang %s kak 🙏 Total %s, dibayar %s — transaksi belum dicatat ya.",
+								FormatRupiah(kurang), FormatRupiah(total), FormatRupiah(*bayarPtr)),
+						)
+					}
+				}
 			}
 		}
 	}
 
-	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), qty, argStr(args, "metode"), kasir, diskon)
+	tx, item, sisa, err := performJual(ctx, t.store, argStr(args, "produk"), qty, argStr(args, "metode"), kasir, diskon, extras)
 	if err != nil {
 		return tools.ErrorResult(err.Error())
 	}
 	out := t.struk(tx, item, bayarPtr, promoID)
-	if sisa <= 0 {
-		out += fmt.Sprintf("\n⚠️ %s HABIS!", item.Nama)
-	} else if sisa <= item.StokKritis {
-		out += fmt.Sprintf("\n⚠️ Stok %s menipis (sisa %d).", item.Nama, sisa)
+
+	switch item.JenisOrDefault() {
+	case "pulsa":
+		if item.StokMinimum > 0 && sisa <= item.StokMinimum {
+			out += fmt.Sprintf("\n⚠️ Saldo modal pulsa menipis (%s).", FormatRupiah(sisa))
+		}
+	case "bensin":
+		kritisMl := item.StokKritisMl
+		if kritisMl == 0 {
+			kritisMl = 40000
+		}
+		if sisa <= 0 {
+			out += fmt.Sprintf("\n⚠️ Stok bensin %s HABIS!", item.Nama)
+		} else if sisa <= kritisMl {
+			out += fmt.Sprintf("\n⚠️ Stok bensin %s menipis (sisa %.1fL).", item.Nama, float64(sisa)/1000)
+		}
+	default:
+		if sisa <= 0 {
+			out += fmt.Sprintf("\n⚠️ %s HABIS!", item.Nama)
+		} else if sisa <= item.StokKritis {
+			out += fmt.Sprintf("\n⚠️ Stok %s menipis (sisa %d).", item.Nama, sisa)
+		}
 	}
 	return tools.UserResult(out)
 }
@@ -127,7 +196,7 @@ func (t *KasirTool) jualMassal(ctx context.Context, args map[string]any, kasir s
 		if pre, _ := findOne(ctx, t.store, produk); pre != nil {
 			diskon, _ = activePromoDiskon(ctx, t.store, pre.ID, qty, pre.HargaJual)
 		}
-		tx, item, _, err := performJual(ctx, t.store, produk, qty, metode, kasir, diskon)
+		tx, item, _, err := performJual(ctx, t.store, produk, qty, metode, kasir, diskon, nil)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %s", produk, err.Error()))
 			continue

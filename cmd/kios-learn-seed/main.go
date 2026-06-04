@@ -34,16 +34,16 @@ func main() {
 
 	fmt.Println("Menyimpan alias produk umum...")
 	aliases := map[string]string{
-		"beras":      "beras medium 5kg",
-		"minyak":     "minyak goreng 1L",
-		"gula":       "gula pasir 1kg",
-		"sabun":      "sabun mandi",
-		"susu":       "susu kental manis",
-		"rokok":      "rokok surya 12",
-		"aqua":       "air mineral 600ml",
-		"indomie":    "mie instan goreng",
-		"kopi":       "kopi sachet",
-		"detergen":   "detergen bubuk 1kg",
+		"beras":    "beras medium 5kg",
+		"minyak":   "minyak goreng 1L",
+		"gula":     "gula pasir 1kg",
+		"sabun":    "sabun mandi",
+		"susu":     "susu kental manis",
+		"rokok":    "rokok surya 12",
+		"aqua":     "air mineral 600ml",
+		"indomie":  "mie instan goreng",
+		"kopi":     "kopi sachet",
+		"detergen": "detergen bubuk 1kg",
 	}
 	for alias, target := range aliases {
 		if err := store.SaveAlias(ctx, alias, target); err != nil {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { bumpRate, getAllProduk, nextPesananId, setPesanan } from "@/lib/kios";
+import { bumpRate, getAllProduk, nextPesananId, setPesanan, upsertPelanggan } from "@/lib/kios";
+import { isValidWaNumber, normalizeWaNumber } from "@/lib/wa";
 import { timeWITA, todayWITA } from "@/lib/format";
 import type { Pesanan, PesananItem } from "@/lib/types";
 
@@ -16,6 +17,7 @@ export async function POST(req: NextRequest) {
   let body: {
     items?: { produkId?: string; qty?: number }[];
     nama?: string;
+    kontak_wa?: string;
     kontak?: string;
     catatan?: string;
     metode?: string;
@@ -40,6 +42,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validasi identitas pembeli (server-authoritative)
+    const namaTrimmed = clip(body.nama, 60);
+    if (namaTrimmed.length < 2) {
+      return NextResponse.json(
+        { ok: false, error: "Nama wajib diisi (minimal 2 huruf)." },
+        { status: 400 },
+      );
+    }
+
+    const waRaw = String(body.kontak_wa || body.kontak || "");
+    if (!isValidWaNumber(waRaw)) {
+      return NextResponse.json(
+        { ok: false, error: "Nomor WhatsApp tidak valid (contoh: 08123456789)." },
+        { status: 400 },
+      );
+    }
+    const waCanon = normalizeWaNumber(waRaw);
+
+    // Validasi items
     const wanted = new Map<string, number>();
     for (const it of body.items ?? []) {
       const q = Math.trunc(Number(it?.qty));
@@ -68,20 +89,25 @@ export async function POST(req: NextRequest) {
       total += subtotal;
     }
 
+    // Upsert Pelanggan
+    const pelanggan = await upsertPelanggan(namaTrimmed, waRaw);
+
+    // Simpan pesanan
     const metode = body.metode === "qris" ? "qris" : "tunai";
     const id = await nextPesananId();
     const pesanan: Pesanan = {
       id,
       tanggal: todayWITA(),
       jam: timeWITA(),
-      nama_pembeli: clip(body.nama, 60) || "Pembeli",
-      kontak: clip(body.kontak, 40),
+      nama_pembeli: namaTrimmed,
+      kontak: waCanon,
       items,
       total,
       catatan: clip(body.catatan, 200),
       metode_bayar: metode,
       status: "pending",
       created_at: Math.floor(Date.now() / 1000),
+      pelanggan_id: pelanggan.id,
     };
     await setPesanan(pesanan);
 

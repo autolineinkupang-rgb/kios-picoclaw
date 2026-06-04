@@ -19,7 +19,9 @@ var trustedDomains = map[string]bool{
 }
 
 var (
-	reShortener  = regexp.MustCompile(`(?i)^(bit\.ly|tinyurl\.com|goo\.gl|ow\.ly|t\.co|tiny\.cc|rb\.gy|cutt\.ly|shorturl\.at)$`)
+	reShortener = regexp.MustCompile(
+		`(?i)^(bit\.ly|tinyurl\.com|goo\.gl|ow\.ly|t\.co|tiny\.cc|rb\.gy|cutt\.ly|shorturl\.at)$`,
+	)
 	reIPHost     = regexp.MustCompile(`(\d{1,3}\.){3}\d{1,3}`)
 	reCyrillic   = regexp.MustCompile(`[\x{0400}-\x{04FF}]`)
 	reSuspPath   = regexp.MustCompile(`(?i)(phish|malware|hack|exploit|payload|shell|cmd=|exec=|eval\()`)

@@ -32,10 +32,14 @@ PERINTAH CEPAT (tanpa AI):
 /produk [nama] — daftar / detail produk
 /suplier [nama | banding <produk>] — info supplier
 /qris — tampilkan QRIS kios untuk pembayaran
+/pulsa [nominal] — cek saldo/nominal atau jual pulsa
+/bensin [nama liter] — cek stok atau jual bensin
 
 PERINTAH OWNER:
 /backup — export data ke JSON (owner)
 /template — download template Excel untuk import data
+/isipulsa <jumlah> — top-up saldo modal pulsa (owner)
+/isibensin <nama> <liter> <harga> — restock bensin (owner)
 
 TANYA AI (ketik bebas):
 • "stok beras berapa?"
@@ -93,7 +97,7 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 		return toolshared.WithToolContext(ctx, req.Channel, req.SenderID)
 	}
 
-	return []commands.Definition{
+	return append([]commands.Definition{
 		{
 			Name:        "stok",
 			Description: "Lihat daftar stok / cari produk (tanpa AI)",
@@ -140,7 +144,10 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 				if !ok {
 					return reply(req, "Pakai: /jual <produk> <jumlah>. Contoh: /jual beras 2")
 				}
-				res := kasir.Execute(withSender(ctx, req), map[string]any{"action": "jual", "produk": produk, "qty": float64(qty)})
+				res := kasir.Execute(
+					withSender(ctx, req),
+					map[string]any{"action": "jual", "produk": produk, "qty": float64(qty)},
+				)
 				out := res.ForUser
 				if out == "" {
 					out = res.ForLLM
@@ -199,7 +206,10 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
 				items := parseMassalItems(argAfter(req.Text))
 				if len(items) == 0 {
-					return reply(req, "Pakai: /jualmassal <produk> <jml>, <produk> <jml>. Contoh: /jualmassal beras 2, gula 3")
+					return reply(
+						req,
+						"Pakai: /jualmassal <produk> <jml>, <produk> <jml>. Contoh: /jualmassal beras 2, gula 3",
+					)
 				}
 				res := kasir.Execute(withSender(ctx, req), map[string]any{"action": "jual_massal", "items": items})
 				out := res.ForUser
@@ -283,7 +293,13 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 					return reply(req, supplier.Execute(ctx, map[string]any{"action": "daftar"}).ForLLM)
 				}
 				if rest, ok := strings.CutPrefix(strings.ToLower(arg), "banding "); ok {
-					return reply(req, supplier.Execute(ctx, map[string]any{"action": "banding_harga", "produk": strings.TrimSpace(rest)}).ForLLM)
+					return reply(
+						req,
+						supplier.Execute(
+							ctx,
+							map[string]any{"action": "banding_harga", "produk": strings.TrimSpace(rest)},
+						).ForLLM,
+					)
 				}
 				return reply(req, supplier.Execute(ctx, map[string]any{"action": "cari", "nama": arg}).ForLLM)
 			},
@@ -324,7 +340,10 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 					if nama == "" {
 						nama = "Kios Cerdas"
 					}
-					caption := fmt.Sprintf("💳 Pembayaran QRIS — %s\nScan QR ini untuk bayar. Setelah bayar, tunjukkan bukti ke kasir ya kak. 🙏", nama)
+					caption := fmt.Sprintf(
+						"💳 Pembayaran QRIS — %s\nScan QR ini untuk bayar. Setelah bayar, tunjukkan bukti ke kasir ya kak. 🙏",
+						nama,
+					)
 					if err := rt.SendImageURL(ctx, req.Channel, req.ChatID, cfg.QrisImageURL, caption); err == nil {
 						return nil
 					}
@@ -366,7 +385,7 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 				return reply(req, notifSvc.CheckNow(ctx))
 			},
 		},
-	}
+	}, append(CommandsBon(store), CommandsSpecial(store)...)...)
 }
 
 // parseJualArgs parses "/jual <produk multi-kata> <jumlah>": the last token is

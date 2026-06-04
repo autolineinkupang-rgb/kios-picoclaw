@@ -56,5 +56,6 @@ func AllTools(store *Store) []tools.Tool {
 		NewBelajarTool(store),
 		NewUploadTool(store),
 		NewRestoreTool(store),
+		NewBonTool(store),
 	}
 }

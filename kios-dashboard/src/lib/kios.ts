@@ -1,5 +1,5 @@
 import { KEY, redis } from "./redis";
-import { formatSuplierId } from "./format";
+import { formatSuplierId, todayWITA } from "./format";
 import type {
   Produk,
   Transaksi,
@@ -10,6 +10,12 @@ import type {
   KiosConfig,
   Pesanan,
   Supplier,
+  Pelanggan,
+  Piutang,
+  Hutang,
+  Pembayaran,
+  PulsaDenom,
+  PulsaTopup,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -171,6 +177,74 @@ export async function getAllPesanan(): Promise<Pesanan[]> {
   return list;
 }
 
+// ── Pelanggan (customer registry) ────────────────────────────────────────────
+
+// normalizeWaTs converts a raw phone input to canonical "62..." with the same
+// guards as Go's NormalizePhone: Indonesian numbers only (must start "62"),
+// length 10–15 chars. Uses normalizeWaNumber from wa.ts for the base conversion.
+function normalizeWaTs(raw: string): string {
+  const d = (raw || "").replace(/\D/g, "");
+  if (!d) return "";
+  let n = d;
+  if (n.startsWith("0")) n = "62" + n.slice(1);
+  else if (n.startsWith("8")) n = "62" + n;
+  if (n.length < 10 || n.length > 15) return "";
+  if (!n.startsWith("62")) return "";
+  return n;
+}
+
+export async function getPelanggan(phone: string): Promise<Pelanggan | null> {
+  return normalize<Pelanggan>(await redis().hget<unknown>(KEY.pelanggan, phone));
+}
+
+export async function getAllPelanggan(): Promise<Pelanggan[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.pelanggan);
+  if (!map) return [];
+  return normalizeList<Pelanggan>(Object.values(map));
+}
+
+export async function setPelanggan(p: Pelanggan): Promise<void> {
+  await redis().hset(KEY.pelanggan, { [p.phone]: p });
+}
+
+export async function delPelanggan(phone: string): Promise<void> {
+  await redis().hdel(KEY.pelanggan, phone);
+}
+
+export async function upsertPelanggan(
+  nama: string,
+  rawPhone: string,
+): Promise<Pelanggan> {
+  const phone = normalizeWaTs(rawPhone);
+  if (!phone) throw new Error("Nomor WhatsApp tidak valid");
+
+  const existing = await getPelanggan(phone);
+  const now = Math.floor(Date.now() / 1000);
+  const today = todayWITA(); // WITA date, consistent with Go's NowWITA()
+
+  const updated: Pelanggan = existing
+    ? {
+        ...existing,
+        nama: nama.trim(),
+        total_pesanan: existing.total_pesanan + 1,
+        last_order: today,
+      }
+    : {
+        id: `PLG-${phone}`,
+        phone,
+        nama: nama.trim(),
+        total_utang: 0,
+        total_pesanan: 1,
+        total_belanja: 0,
+        catatan: "",
+        created_at: now,
+        last_order: today,
+      };
+
+  await setPelanggan(updated);
+  return updated;
+}
+
 /** Generic per-IP rate limiter (sliding window via INCR+EXPIRE). */
 export async function bumpRate(scope: string, ip: string, windowSec: number): Promise<number> {
   const key = `kios:rate:${scope}:${ip}`;
@@ -228,6 +302,32 @@ export async function setHargaSupplier(
   });
 }
 
+export interface HargaSupplierLast {
+  harga: number;
+  kemasan: string;
+  isi: number;
+  harga_pack: number;
+  tanggal: string;
+}
+
+export async function getAllHargaSupplierLast(): Promise<Record<string, HargaSupplierLast>> {
+  const m = (await redis().hgetall(KEY.hargaSupplierLast)) ?? {};
+  const out: Record<string, HargaSupplierLast> = {};
+  for (const [k, v] of Object.entries(m)) {
+    const parsed = normalize<HargaSupplierLast>(v);
+    if (parsed) out[k] = parsed;
+  }
+  return out;
+}
+
+export async function setHargaSupplierLast(
+  produkId: string,
+  supplierId: string,
+  v: HargaSupplierLast,
+): Promise<void> {
+  await redis().hset(KEY.hargaSupplierLast, { [`${produkId}|${supplierId}`]: v });
+}
+
 /**
  * Look up and consume a one-time login code written by the bot's /login
  * command (key kios:login:<code>). Deletes it on read so it can't be reused.
@@ -248,4 +348,63 @@ export async function bumpLoginAttempts(ip: string): Promise<number> {
   const n = await redis().incr(key);
   if (n === 1) await redis().expire(key, 300);
   return n;
+}
+
+// ── Bon / Hutang ──────────────────────────────────────────────────────────────
+
+export async function getAllPiutang(): Promise<Piutang[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.piutang);
+  if (!map) return [];
+  return normalizeList<Piutang>(Object.values(map));
+}
+export async function getPiutang(id: string): Promise<Piutang | null> {
+  return normalize<Piutang>(await redis().hget<unknown>(KEY.piutang, id));
+}
+export async function setPiutang(p: Piutang): Promise<void> {
+  await redis().hset(KEY.piutang, { [p.id]: p });
+}
+export async function getAllHutang(): Promise<Hutang[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.hutang);
+  if (!map) return [];
+  return normalizeList<Hutang>(Object.values(map));
+}
+export async function getHutang(id: string): Promise<Hutang | null> {
+  return normalize<Hutang>(await redis().hget<unknown>(KEY.hutang, id));
+}
+export async function setHutang(h: Hutang): Promise<void> {
+  await redis().hset(KEY.hutang, { [h.id]: h });
+}
+export async function getAllPembayaran(): Promise<Pembayaran[]> {
+  const list = await redis().lrange<unknown>(KEY.pembayaran, 0, -1);
+  if (!list) return [];
+  return normalizeList<Pembayaran>(list);
+}
+export async function appendPembayaran(p: Pembayaran): Promise<void> {
+  await redis().rpush(KEY.pembayaran, p);
+}
+export async function nextPayId(): Promise<string> {
+  const n = await redis().incr(KEY.seqPay);
+  return `PAY-${String(n).padStart(4, "0")}`;
+}
+
+// ── Pulsa Denom ───────────────────────────────────────────────────────────────
+
+export async function getAllPulsaDenom(): Promise<PulsaDenom[]> {
+  const map = await redis().hgetall<Record<string, unknown>>(KEY.pulsaDenom);
+  if (!map) return [];
+  return normalizeList<PulsaDenom>(Object.values(map));
+}
+
+export async function setPulsaDenom(d: PulsaDenom): Promise<void> {
+  await redis().hset(KEY.pulsaDenom, { [String(d.nominal)]: d });
+}
+
+export async function getAllPulsaTopup(): Promise<PulsaTopup[]> {
+  const vals = await redis().lrange<unknown>(KEY.pulsaTopup, 0, -1);
+  return normalizeList<PulsaTopup>(vals);
+}
+
+export async function getPulsaAnchor(): Promise<Produk | null> {
+  const all = await getAllProduk();
+  return all.find((p) => p.jenis === "pulsa") ?? null;
 }

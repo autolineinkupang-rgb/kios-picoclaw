@@ -175,23 +175,50 @@ func (t *BelajarTool) Parameters() map[string]any {
 				},
 				"description": "Aksi belajar. config_get/config_set khusus owner.",
 			},
-			"alias":       map[string]any{"type": "string"},
-			"target":      map[string]any{"type": "string"},
-			"nama":        map[string]any{"type": "string", "description": "nama shortcut"},
-			"items":       map[string]any{"type": "string", "description": "isi shortcut, pisah koma"},
-			"tipe":        map[string]any{"type": "string", "enum": []string{"sale", "report_request"}},
-			"value":       map[string]any{"type": "string"},
-			"input":       map[string]any{"type": "string"},
-			"intent":      map[string]any{"type": "string"},
-			"cmd":         map[string]any{"type": "string"},
-			"auto_learn":    map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) belajar otomatis."},
-			"learn_model":   map[string]any{"type": "string", "description": "Nama model AI untuk tugas pembelajaran (mis. 'claude', 'groq', 'gemini'). Kosong = ikuti routing default."},
-			"notif_enabled": map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) notifikasi stok menipis otomatis."},
-			"notif_jam":     map[string]any{"type": "string", "description": "Jam WITA pengiriman notif stok menipis (format HH, mis. '07' = 07:00 WITA)."},
-			"qris_enabled":   map[string]any{"type": "string", "enum": []string{"true", "false"}, "description": "Aktifkan (true) atau nonaktifkan (false) opsi pembayaran QRIS di toko & perintah /qris."},
-			"qris_nama":      map[string]any{"type": "string", "description": "Nama merchant yang ditampilkan saat pembayaran QRIS (mis. 'Kios Cerdas')."},
-			"qris_image_url": map[string]any{"type": "string", "description": "URL gambar QR statis QRIS kios untuk dipindai pembeli."},
-			"wa_number":      map[string]any{"type": "string", "description": "Nomor WhatsApp kios untuk konfirmasi pesanan & kontak pembeli (mis. 08123456789)."},
+			"alias":  map[string]any{"type": "string"},
+			"target": map[string]any{"type": "string"},
+			"nama":   map[string]any{"type": "string", "description": "nama shortcut"},
+			"items":  map[string]any{"type": "string", "description": "isi shortcut, pisah koma"},
+			"tipe":   map[string]any{"type": "string", "enum": []string{"sale", "report_request"}},
+			"value":  map[string]any{"type": "string"},
+			"input":  map[string]any{"type": "string"},
+			"intent": map[string]any{"type": "string"},
+			"cmd":    map[string]any{"type": "string"},
+			"auto_learn": map[string]any{
+				"type":        "string",
+				"enum":        []string{"true", "false"},
+				"description": "Aktifkan (true) atau nonaktifkan (false) belajar otomatis.",
+			},
+			"learn_model": map[string]any{
+				"type":        "string",
+				"description": "Nama model AI untuk tugas pembelajaran (mis. 'claude', 'groq', 'gemini'). Kosong = ikuti routing default.",
+			},
+			"notif_enabled": map[string]any{
+				"type":        "string",
+				"enum":        []string{"true", "false"},
+				"description": "Aktifkan (true) atau nonaktifkan (false) notifikasi stok menipis otomatis.",
+			},
+			"notif_jam": map[string]any{
+				"type":        "string",
+				"description": "Jam WITA pengiriman notif stok menipis (format HH, mis. '07' = 07:00 WITA).",
+			},
+			"qris_enabled": map[string]any{
+				"type":        "string",
+				"enum":        []string{"true", "false"},
+				"description": "Aktifkan (true) atau nonaktifkan (false) opsi pembayaran QRIS di toko & perintah /qris.",
+			},
+			"qris_nama": map[string]any{
+				"type":        "string",
+				"description": "Nama merchant yang ditampilkan saat pembayaran QRIS (mis. 'Kios Cerdas').",
+			},
+			"qris_image_url": map[string]any{
+				"type":        "string",
+				"description": "URL gambar QR statis QRIS kios untuk dipindai pembeli.",
+			},
+			"wa_number": map[string]any{
+				"type":        "string",
+				"description": "Nomor WhatsApp kios untuk konfirmasi pesanan & kontak pembeli (mis. 08123456789).",
+			},
 		},
 		"required": []string{"action"},
 	}
@@ -251,7 +278,9 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 			changed = true
 		}
 		if !changed {
-			return tools.ErrorResult("Isi auto_learn, learn_model, notif_enabled, notif_jam, qris_enabled, qris_nama, qris_image_url, atau wa_number ya kak 🙏")
+			return tools.ErrorResult(
+				"Isi auto_learn, learn_model, notif_enabled, notif_jam, qris_enabled, qris_nama, qris_image_url, atau wa_number ya kak 🙏",
+			)
 		}
 		if err := t.store.SaveConfig(ctx, cfg); err != nil {
 			return tools.ErrorResult(fmt.Sprintf("Gagal simpan konfigurasi: %v", err))
@@ -263,7 +292,9 @@ func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.T
 			return tools.ErrorResult("alias dan target-nya diisi dulu ya kak 🙏")
 		}
 		t.store.SaveAlias(ctx, argStr(args, "alias"), argStr(args, "target"))
-		return tools.NewToolResult(fmt.Sprintf("Alias '%s' → '%s' disimpan.", argStr(args, "alias"), argStr(args, "target")))
+		return tools.NewToolResult(
+			fmt.Sprintf("Alias '%s' → '%s' disimpan.", argStr(args, "alias"), argStr(args, "target")),
+		)
 	case "alias_get":
 		v := t.store.ResolveAlias(ctx, argStr(args, "alias"))
 		if v == "" {
@@ -386,7 +417,7 @@ func topN(m map[string]int, n int) string {
 		arr = append(arr, kv{k, v})
 	}
 	sort.Slice(arr, func(i, j int) bool { return arr[i].v > arr[j].v })
-	var parts []string
+	parts := make([]string, 0, min(len(arr), n))
 	for i := 0; i < len(arr) && i < n; i++ {
 		parts = append(parts, fmt.Sprintf("%s (%d)", arr[i].k, arr[i].v))
 	}

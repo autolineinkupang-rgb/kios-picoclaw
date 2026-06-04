@@ -58,7 +58,9 @@ func (t *RestoreTool) Execute(ctx context.Context, args map[string]any) *tools.T
 
 	path, fname := t.findUploadedJSON(toolshared.ToolMedia(ctx))
 	if path == "" {
-		return tools.NewToolResult("Belum ada file backup (.json) yang diunggah kak 📎 Kirim dulu file hasil /backup sebagai lampiran, lalu minta pulihkan ya.")
+		return tools.NewToolResult(
+			"Belum ada file backup (.json) yang diunggah kak 📎 Kirim dulu file hasil /backup sebagai lampiran, lalu minta pulihkan ya.",
+		)
 	}
 
 	raw, err := os.ReadFile(path)

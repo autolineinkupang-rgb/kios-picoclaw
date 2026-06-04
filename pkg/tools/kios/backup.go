@@ -18,22 +18,30 @@ import (
 // free tier wipes data 30 days after credits run out, so the only durable copy
 // is the file we send to Telegram.
 type BackupData struct {
-	Versi        string          `json:"versi"`
-	Dibuat       string          `json:"dibuat"` // WITA timestamp
-	Produk       []*Produk       `json:"produk"`
-	Transaksi    []*Transaksi    `json:"transaksi"`
-	Pembelian    []*Pembelian    `json:"pembelian"`
-	PriceHistory []*PriceHistory `json:"price_history"`
-	Supplier     []*Supplier     `json:"supplier"`
-	Promo        []*Promo        `json:"promo"`
-	Pustaka      []*Pustaka      `json:"pustaka"`
-	Users        []*UserKios     `json:"users"`
-	Shift        *Shift          `json:"shift,omitempty"`
+	Versi         string          `json:"versi"`
+	Dibuat        string          `json:"dibuat"` // WITA timestamp
+	Produk        []*Produk       `json:"produk"`
+	Transaksi     []*Transaksi    `json:"transaksi"`
+	Pembelian     []*Pembelian    `json:"pembelian"`
+	PriceHistory  []*PriceHistory `json:"price_history"`
+	Supplier      []*Supplier     `json:"supplier"`
+	Promo         []*Promo        `json:"promo"`
+	Pustaka       []*Pustaka      `json:"pustaka"`
+	Users         []*UserKios     `json:"users"`
+	Shift         *Shift          `json:"shift,omitempty"`
+	HargaSupplier     map[string]int                `json:"harga_supplier,omitempty"`
+	HargaSupplierLast map[string]HargaSupplierLast `json:"harga_supplier_last,omitempty"`
+	Pelanggan         []*Pelanggan                 `json:"pelanggan,omitempty"`
+	Piutang       []*Piutang      `json:"piutang,omitempty"`
+	Hutang        []*Hutang       `json:"hutang,omitempty"`
+	Pembayaran    []*Pembayaran   `json:"pembayaran,omitempty"`
+	PulsaDenom    []*PulsaDenom   `json:"pulsa_denom,omitempty"`
+	PulsaTopup    []*PulsaTopup   `json:"pulsa_topup,omitempty"`
 }
 
 // BuildBackup reads every kios dataset from Redis into a single snapshot.
 func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
-	b := &BackupData{Versi: "1.0", Dibuat: NowWITA().Format("2006-01-02 15:04:05")}
+	b := &BackupData{Versi: "1.1", Dibuat: NowWITA().Format("2006-01-02 15:04:05")}
 	var err error
 	if b.Produk, err = store.GetAllProduk(ctx); err != nil {
 		return nil, err
@@ -62,14 +70,42 @@ func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
 	if b.Shift, err = store.GetShift(ctx); err != nil {
 		return nil, err
 	}
+	if b.HargaSupplier, err = store.GetAllHargaSupplier(ctx); err != nil {
+		return nil, err
+	}
+	if b.HargaSupplierLast, err = store.GetAllHargaSupplierLast(ctx); err != nil {
+		return nil, err
+	}
+	if b.Pelanggan, err = store.GetAllPelanggan(ctx); err != nil {
+		return nil, err
+	}
+	if b.Piutang, err = store.GetAllPiutang(ctx); err != nil {
+		return nil, fmt.Errorf("backup piutang: %w", err)
+	}
+	if b.Hutang, err = store.GetAllHutang(ctx); err != nil {
+		return nil, fmt.Errorf("backup hutang: %w", err)
+	}
+	if b.Pembayaran, err = store.GetAllPembayaran(ctx); err != nil {
+		return nil, fmt.Errorf("backup pembayaran: %w", err)
+	}
+	if b.PulsaDenom, err = store.GetAllPulsaDenom(ctx); err != nil {
+		return nil, fmt.Errorf("backup pulsa_denom: %w", err)
+	}
+	if b.PulsaTopup, err = store.GetAllPulsaTopup(ctx); err != nil {
+		return nil, fmt.Errorf("backup pulsa_topup: %w", err)
+	}
 	return b, nil
 }
 
 // Ringkas returns a short human summary of the snapshot's contents.
 func (b *BackupData) Ringkas() string {
-	return fmt.Sprintf("%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna",
+	return fmt.Sprintf(
+		"%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier, %d snapshot harga suplier, %d pelanggan, %d denom pulsa, %d topup pulsa",
 		len(b.Produk), len(b.Transaksi), len(b.Pembelian), len(b.PriceHistory),
-		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users))
+		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users),
+		len(b.HargaSupplier), len(b.HargaSupplierLast),
+		len(b.Pelanggan), len(b.PulsaDenom), len(b.PulsaTopup),
+	)
 }
 
 // backupKeep is the number of most-recent backup files retained on disk.
@@ -169,7 +205,7 @@ func ParseBackup(raw []byte) (*BackupData, error) {
 // HasAnyData reports whether any core dataset currently holds records. Used to
 // guard the destructive restore so existing data isn't clobbered by accident.
 func (s *Store) HasAnyData(ctx context.Context) (bool, error) {
-	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers} {
+	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers, keyHargaSupplier, keyHargaSupplierLast, keyPelanggan, keyPiutang, keyHutang, keyPulsaDenom} {
 		n, err := s.rdb.HLen(ctx, k).Result()
 		if err != nil {
 			return false, err
@@ -178,7 +214,7 @@ func (s *Store) HasAnyData(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 	}
-	for _, k := range []string{keyTransaksi, keyPembelian, keyPriceHist} {
+	for _, k := range []string{keyTransaksi, keyPembelian, keyPriceHist, keyPembayaran} {
 		n, err := s.rdb.LLen(ctx, k).Result()
 		if err != nil {
 			return false, err
@@ -202,6 +238,10 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		keyProduk, keyTransaksi, keySeqTrx, keyPembelian, keySeqPem,
 		keyPriceHist, keySeqPhg, keyShift, keyUsers,
 		keySupplier, keySeqSup, keyPromo, keySeqPromo, keyPustaka, keySeqPus,
+		keyHargaSupplier, keyHargaSupplierLast,
+		keyPelanggan,
+		keyPiutang, keySeqPiu, keyHutang, keySeqHut, keyPembayaran, keySeqPay,
+		keyPulsaDenom, keyPulsaTopup, keySeqPtu,
 	}
 	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
 		return err
@@ -256,6 +296,55 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 	if err := rpushAll(keyPriceHist, anySlice(b.PriceHistory)); err != nil {
 		return err
 	}
+	// harga_supplier is a flat map[field]int (not JSON structs), so it doesn't
+	// fit the hsetAll helper; restore each override field directly, encoding the
+	// value exactly as SetHargaSupplier does (strconv.Itoa).
+	for field, harga := range b.HargaSupplier {
+		if err := s.rdb.HSet(ctx, keyHargaSupplier, field, strconv.Itoa(harga)).Err(); err != nil {
+			return err
+		}
+	}
+	for field, v := range b.HargaSupplierLast {
+		raw, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		if err := s.rdb.HSet(ctx, keyHargaSupplierLast, field, string(raw)).Err(); err != nil {
+			return err
+		}
+	}
+	for _, p := range b.Pelanggan {
+		if err := s.SetPelanggan(ctx, p); err != nil {
+			return err
+		}
+	}
+	for _, p := range b.Piutang {
+		if err := s.SetPiutang(ctx, p); err != nil {
+			return fmt.Errorf("restore piutang %s: %w", p.ID, err)
+		}
+	}
+	for _, h := range b.Hutang {
+		if err := s.SetHutang(ctx, h); err != nil {
+			return fmt.Errorf("restore hutang %s: %w", h.ID, err)
+		}
+	}
+	for _, pay := range b.Pembayaran {
+		if err := s.AppendPembayaran(ctx, pay); err != nil {
+			return fmt.Errorf("restore pembayaran %s: %w", pay.ID, err)
+		}
+	}
+	for _, d := range b.PulsaDenom {
+		raw, err := json.Marshal(d)
+		if err != nil {
+			return err
+		}
+		if err := s.rdb.HSet(ctx, keyPulsaDenom, strconv.Itoa(d.Nominal), string(raw)).Err(); err != nil {
+			return err
+		}
+	}
+	if err := rpushAll(keyPulsaTopup, anySlice(b.PulsaTopup)); err != nil {
+		return err
+	}
 	if b.Shift != nil {
 		raw, err := json.Marshal(b.Shift)
 		if err != nil {
@@ -266,11 +355,11 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		}
 	}
 
-	setSeq := func(key string, max int64) error {
-		if max <= 0 {
+	setSeq := func(key string, limit int64) error {
+		if limit <= 0 {
 			return nil
 		}
-		return s.rdb.Set(ctx, key, strconv.FormatInt(max, 10), 0).Err()
+		return s.rdb.Set(ctx, key, strconv.FormatInt(limit, 10), 0).Err()
 	}
 	for key, ids := range map[string][]string{
 		keySeqTrx:   idsTransaksi(b.Transaksi),
@@ -279,6 +368,10 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		keySeqSup:   idsSupplier(b.Supplier),
 		keySeqPromo: idsPromo(b.Promo),
 		keySeqPus:   idsPustaka(b.Pustaka),
+		keySeqPiu:   idsPiutang(b.Piutang),
+		keySeqHut:   idsHutang(b.Hutang),
+		keySeqPay:   idsPembayaran(b.Pembayaran),
+		keySeqPtu:   idsPulsaTopup(b.PulsaTopup),
 	} {
 		if err := setSeq(key, maxNumericSuffix(ids)); err != nil {
 			return err
@@ -299,6 +392,7 @@ func hashItemsProduk(xs []*Produk) []hashItem {
 	}
 	return out
 }
+
 func hashItemsSupplier(xs []*Supplier) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -306,6 +400,7 @@ func hashItemsSupplier(xs []*Supplier) []hashItem {
 	}
 	return out
 }
+
 func hashItemsPromo(xs []*Promo) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -313,6 +408,7 @@ func hashItemsPromo(xs []*Promo) []hashItem {
 	}
 	return out
 }
+
 func hashItemsPustaka(xs []*Pustaka) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -320,6 +416,7 @@ func hashItemsPustaka(xs []*Pustaka) []hashItem {
 	}
 	return out
 }
+
 func hashItemsUser(xs []*UserKios) []hashItem {
 	out := make([]hashItem, len(xs))
 	for i, x := range xs {
@@ -343,6 +440,7 @@ func idsTransaksi(xs []*Transaksi) []string {
 	}
 	return ids
 }
+
 func idsPembelian(xs []*Pembelian) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -350,6 +448,7 @@ func idsPembelian(xs []*Pembelian) []string {
 	}
 	return ids
 }
+
 func idsPriceHist(xs []*PriceHistory) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -357,6 +456,7 @@ func idsPriceHist(xs []*PriceHistory) []string {
 	}
 	return ids
 }
+
 func idsSupplier(xs []*Supplier) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -364,6 +464,7 @@ func idsSupplier(xs []*Supplier) []string {
 	}
 	return ids
 }
+
 func idsPromo(xs []*Promo) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
@@ -371,7 +472,40 @@ func idsPromo(xs []*Promo) []string {
 	}
 	return ids
 }
+
 func idsPustaka(xs []*Pustaka) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+
+func idsPiutang(xs []*Piutang) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+
+func idsHutang(xs []*Hutang) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+
+func idsPembayaran(xs []*Pembayaran) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+
+func idsPulsaTopup(xs []*PulsaTopup) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
 		ids[i] = x.ID

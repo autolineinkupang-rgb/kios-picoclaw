@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   Truck,
+  Contact,
 } from "lucide-react";
 import type { Role } from "@/lib/types";
 
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/kasir", label: "Kasir", icon: ShoppingCart },
   { href: "/pesanan", label: "Pesanan", icon: ClipboardList },
+  { href: "/pelanggan", label: "Pelanggan", icon: Contact },
   { href: "/produk", label: "Produk & Stok", icon: Package },
   { href: "/suplier", label: "Supplier", icon: Truck },
   { href: "/impor", label: "Impor Data", icon: FileUp },

@@ -90,9 +90,9 @@ kios-picoclaw/
 ├── templates/               ← Template Excel untuk import data
 ├── Dockerfile               ← Multi-stage Go → Alpine
 ├── railway.json             ← Railway deploy config
-├── KIOS_BUILD_SPEC.md       ← Spesifikasi build lengkap
-├── DEPLOY-RAILWAY.md        ← Panduan deploy Railway
-└── PERINTAH.md              ← Panduan perintah untuk pengguna kios
+├── docs/kios/build-spec.md  ← Spesifikasi build lengkap
+├── docs/kios/deploy-railway.md ← Panduan deploy Railway
+└── docs/kios/perintah.md    ← Panduan perintah untuk pengguna kios
 ```
 
 ---

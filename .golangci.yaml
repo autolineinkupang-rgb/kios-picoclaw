@@ -86,6 +86,11 @@ linters:
       tab-width: 4
     misspell:
       locale: US
+      extra-words:
+        - typo: teh
+          correction: the
+        - typo: strategis
+          correction: strategic
     mnd:
       checks:
         - argument
@@ -133,21 +138,6 @@ linters:
           disabled: true
         - name: unused-receiver
           disabled: true
-  exclusions:
-    generated: lax
-    rules:
-      - linters:
-          - lll
-        source: '^//go:generate '
-      - linters:
-          - funlen
-          - maintidx
-          - gocognit
-          - gocyclo
-        path: _test\.go$
-      - linters:
-          - nolintlint
-        path: 'pkg/tools/(i2c\.go|spi\.go)$'
 
 issues:
   max-issues-per-linter: 0
