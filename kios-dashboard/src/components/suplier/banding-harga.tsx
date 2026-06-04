@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { setHargaOverrideAction } from "@/app/(app)/suplier/actions";
 import { formatRupiah } from "@/lib/format";
-import type { Produk, Pembelian } from "@/lib/types";
+import type { Produk, Pembelian, Supplier } from "@/lib/types";
+import type { HargaSupplierLast } from "@/lib/kios";
 
 interface BandingRow {
   supplier: string;
@@ -19,11 +20,15 @@ export function BandingHarga({
   produkList,
   pembelianList,
   hargaOverrides,
+  hargaSupplierLast,
+  suplierList,
   canManage,
 }: {
   produkList: Produk[];
   pembelianList: Pembelian[];
   hargaOverrides: Record<string, number>;
+  hargaSupplierLast?: Record<string, HargaSupplierLast>;
+  suplierList?: Supplier[];
   canManage: boolean;
 }) {
   const [selectedProdukId, setSelectedProdukId] = useState<string>("");
@@ -38,9 +43,22 @@ export function BandingHarga({
   const rows = useMemo<BandingRow[]>(() => {
     if (!selectedProdukId) return [];
 
-    // Hitung harga beli terendah per supplier dari pembelianList
     const minPerSupplier: Record<string, number> = {};
-    for (const pb of pembelianList) {
+
+    // Prefer snapshot harga_supplier_last (lebih akurat, dari restock terakhir)
+    if (hargaSupplierLast) {
+      for (const [key, v] of Object.entries(hargaSupplierLast)) {
+        const [produkId, supId] = key.split("|");
+        if (produkId !== selectedProdukId || !supId || v.harga <= 0) continue;
+        const supNama = suplierList?.find((s) => s.id === supId)?.nama ?? supId;
+        minPerSupplier[supNama] = v.harga;
+      }
+    }
+
+    // Fallback ke pembelianList bila snapshot kosong untuk produk ini
+    const hasSnapshot = Object.keys(minPerSupplier).length > 0;
+    if (!hasSnapshot) {
+      for (const pb of pembelianList) {
       if (!pb.supplier) continue;
       const match =
         pb.produk_id === selectedProdukId ||
@@ -51,6 +69,7 @@ export function BandingHarga({
         minPerSupplier[pb.supplier] = pb.harga_beli;
       }
     }
+    } // end fallback pembelian
 
     // Terapkan override
     for (const [key, harga] of Object.entries(hargaOverrides)) {
@@ -74,7 +93,7 @@ export function BandingHarga({
         isCheapest: harga === cheapestPrice,
       };
     });
-  }, [selectedProdukId, pembelianList, hargaOverrides, selectedProduk]);
+  }, [selectedProdukId, pembelianList, hargaOverrides, hargaSupplierLast, suplierList, selectedProduk]);
 
   function submitOverride(e: React.FormEvent) {
     e.preventDefault();

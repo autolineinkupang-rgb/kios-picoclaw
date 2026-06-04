@@ -298,6 +298,32 @@ export async function setHargaSupplier(
   });
 }
 
+export interface HargaSupplierLast {
+  harga: number;
+  kemasan: string;
+  isi: number;
+  harga_pack: number;
+  tanggal: string;
+}
+
+export async function getAllHargaSupplierLast(): Promise<Record<string, HargaSupplierLast>> {
+  const m = (await redis().hgetall(KEY.hargaSupplierLast)) ?? {};
+  const out: Record<string, HargaSupplierLast> = {};
+  for (const [k, v] of Object.entries(m)) {
+    const parsed = normalize<HargaSupplierLast>(v);
+    if (parsed) out[k] = parsed;
+  }
+  return out;
+}
+
+export async function setHargaSupplierLast(
+  produkId: string,
+  supplierId: string,
+  v: HargaSupplierLast,
+): Promise<void> {
+  await redis().hset(KEY.hargaSupplierLast, { [`${produkId}|${supplierId}`]: v });
+}
+
 /**
  * Look up and consume a one-time login code written by the bot's /login
  * command (key kios:login:<code>). Deletes it on read so it can't be reused.

@@ -20,6 +20,7 @@ export interface ProdukInput {
   supplier: string;
   exp_date: string;
   image_url: string;
+  pack_defs?: Array<{ nama: string; isi: number }>;
 }
 
 export type ActionResult = { ok: true; message: string } | { ok: false; error: string };
@@ -76,6 +77,7 @@ export async function createProdukAction(input: ProdukInput): Promise<ActionResu
     has_exp: exp !== "",
     exp_date: exp,
     image_url: input.image_url?.trim() ?? "",
+    ...(input.pack_defs?.length ? { pack_defs: input.pack_defs } : {}),
   };
   await setProduk(p);
   revalidatePath("/produk");
@@ -110,6 +112,7 @@ export async function updateProdukAction(input: ProdukInput): Promise<ActionResu
     has_exp: exp !== "",
     exp_date: exp,
     image_url: input.image_url?.trim() ?? "",
+    pack_defs: input.pack_defs?.length ? input.pack_defs : existing.pack_defs,
   };
   await setProduk(p);
   revalidatePath("/produk");

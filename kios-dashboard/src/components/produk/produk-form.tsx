@@ -45,6 +45,7 @@ function fromProduk(p: Produk): ProdukInput {
     supplier: p.supplier,
     exp_date: p.exp_date,
     image_url: p.image_url ?? "",
+    pack_defs: p.pack_defs ?? [],
   };
 }
 
@@ -255,6 +256,66 @@ export function ProdukForm({
         <p className="text-xs text-muted-foreground">
           Unggah foto dari HP (otomatis dikecilkan) atau tempel tautan gambar. Kosongkan bila tidak ada.
         </p>
+      </div>
+
+      {/* Kemasan Restock */}
+      <div className="space-y-2">
+        <Label>Kemasan Restock (opsional)</Label>
+        {(form.pack_defs ?? []).map((k, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <Input
+              value={k.nama}
+              placeholder="dos / lusin / box"
+              onChange={(e) =>
+                setForm((f) => {
+                  const defs = [...(f.pack_defs ?? [])];
+                  defs[i] = { ...defs[i], nama: e.target.value };
+                  return { ...f, pack_defs: defs };
+                })
+              }
+            />
+            <Input
+              type="number"
+              min={1}
+              value={k.isi || ""}
+              placeholder="isi"
+              className="w-24"
+              onChange={(e) =>
+                setForm((f) => {
+                  const defs = [...(f.pack_defs ?? [])];
+                  defs[i] = { ...defs[i], isi: Number(e.target.value) };
+                  return { ...f, pack_defs: defs };
+                })
+              }
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setForm((f) => ({
+                  ...f,
+                  pack_defs: (f.pack_defs ?? []).filter((_, j) => j !== i),
+                }))
+              }
+            >
+              Hapus
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            setForm((f) => ({
+              ...f,
+              pack_defs: [...(f.pack_defs ?? []), { nama: "", isi: 0 }],
+            }))
+          }
+        >
+          + Tambah Kemasan
+        </Button>
       </div>
 
       {error && (
