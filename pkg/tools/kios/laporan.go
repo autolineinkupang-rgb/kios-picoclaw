@@ -116,7 +116,9 @@ func (t *LaporanTool) txPeriode(ctx context.Context, periode string) ([]*Transak
 	return out, nil
 }
 
-// hitungLaba computes omzet, modal, laba for a transaction set.
+// hitungLaba computes omzet, modal, laba for a set of transactions.
+// Uses tx.Modal when > 0 (locked at sale time for pulsa and bensin);
+// falls back to Qty * HargaBeli from the current catalog.
 func (t *LaporanTool) hitungLaba(ctx context.Context, txs []*Transaksi) (omzet, modal, laba int) {
 	all, _ := t.store.GetAllProduk(ctx)
 	beli := make(map[string]int, len(all))
@@ -125,7 +127,11 @@ func (t *LaporanTool) hitungLaba(ctx context.Context, txs []*Transaksi) (omzet, 
 	}
 	for _, tx := range txs {
 		omzet += tx.Total
-		modal += tx.Qty * beli[tx.ProdukID]
+		if tx.Modal > 0 {
+			modal += tx.Modal
+		} else {
+			modal += tx.Qty * beli[tx.ProdukID]
+		}
 	}
 	return omzet, modal, omzet - modal
 }
@@ -134,8 +140,19 @@ func (t *LaporanTool) stokKritis(ctx context.Context) []string {
 	all, _ := t.store.GetAllProduk(ctx)
 	var out []string
 	for _, p := range all {
-		if p.Stok <= p.StokKritis {
-			out = append(out, p.Nama)
+		switch p.JenisOrDefault() {
+		case "bensin":
+			kritisMl := p.StokKritisMl
+			if kritisMl == 0 {
+				kritisMl = 40000 // default 40L
+			}
+			if p.StokMl <= kritisMl {
+				out = append(out, fmt.Sprintf("%s (%.1fL)", p.Nama, float64(p.StokMl)/1000))
+			}
+		default:
+			if p.Stok <= p.StokKritis {
+				out = append(out, p.Nama)
+			}
 		}
 	}
 	return out

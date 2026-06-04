@@ -2,6 +2,7 @@ package kios
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -355,5 +356,80 @@ func TestBatalkanTxBensin(t *testing.T) {
 	}
 	if reloaded.Stok != 50 {
 		t.Errorf("Stok after batal want 50, got %d", reloaded.Stok)
+	}
+}
+
+func TestHitungLabaPulsa(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	anchor := seedPulsaAnchor(t, s, 100000)
+	seedDenom(t, s, 10000, 9500, 11000)
+	tx, _, _, _ := sellPulsa(ctx, s, anchor, 10000, "tunai", "kasir1")
+
+	tool := &LaporanTool{store: s}
+	omzet, modal, laba := tool.hitungLaba(ctx, []*Transaksi{tx})
+	if omzet != 11000 {
+		t.Errorf("omzet want 11000, got %d", omzet)
+	}
+	if modal != 9500 {
+		t.Errorf("modal want 9500, got %d", modal)
+	}
+	if laba != 1500 {
+		t.Errorf("laba want 1500, got %d", laba)
+	}
+}
+
+func TestHitungLabaBensin(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	anchor := seedBensinProduk(t, s, 50000, 40000, 10000, 12000)
+	tx, _, _, _ := sellBensin(ctx, s, anchor, 2000, "tunai", "kasir1")
+
+	tool := &LaporanTool{store: s}
+	omzet, modal, laba := tool.hitungLaba(ctx, []*Transaksi{tx})
+	if omzet != 24000 {
+		t.Errorf("omzet want 24000, got %d", omzet)
+	}
+	if modal != 20000 {
+		t.Errorf("modal want 20000, got %d", modal)
+	}
+	if laba != 4000 {
+		t.Errorf("laba want 4000, got %d", laba)
+	}
+}
+
+func TestNotifBensinKritis(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	// 30L stok below 40L kritis threshold
+	_ = seedBensinProduk(t, s, 30000, 40000, 10000, 12000)
+
+	svc := &NotifService{store: s}
+	msg, ok := svc.buildLowStockMessage(ctx)
+	if !ok {
+		t.Fatal("expected low stock message for bensin")
+	}
+	if !strings.Contains(msg, "Pertalite") && !strings.Contains(msg, "bensin") {
+		t.Errorf("message should mention bensin product, got: %s", msg)
+	}
+}
+
+func TestNotifPulsaLowBalance(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	// SaldoModal 4000 below StokMinimum 5000
+	p := &Produk{
+		ID: "P99", Nama: "Pulsa", Jenis: "pulsa",
+		SaldoModal: 4000, StokMinimum: 5000,
+	}
+	_ = s.SetProduk(ctx, p)
+
+	svc := &NotifService{store: s}
+	msg, ok := svc.buildLowStockMessage(ctx)
+	if !ok {
+		t.Fatal("expected low balance message for pulsa")
+	}
+	if !strings.Contains(msg, "saldo modal") {
+		t.Errorf("message should mention saldo modal, got: %s", msg)
 	}
 }

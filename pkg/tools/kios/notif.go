@@ -172,24 +172,58 @@ func (n *NotifService) buildLowStockMessage(ctx context.Context) (string, bool) 
 
 	var b strings.Builder
 	count := 0
+
 	for _, p := range all {
-		if p.Stok > p.StokMinimum {
-			continue
+		switch p.JenisOrDefault() {
+		case "pulsa":
+			// Use StokMinimum as the saldo-modal floor
+			if p.StokMinimum > 0 && p.SaldoModal <= p.StokMinimum {
+				label := "menipis"
+				if p.SaldoModal == 0 {
+					label = "HABIS"
+				}
+				fmt.Fprintf(&b, "- %s [saldo modal %s]: saldo %s, min %s\n",
+					p.Nama, label, FormatRupiah(p.SaldoModal), FormatRupiah(p.StokMinimum))
+				count++
+			}
+		case "bensin":
+			kritisMl := p.StokKritisMl
+			if kritisMl == 0 {
+				kritisMl = 40000
+			}
+			if p.StokMl <= kritisMl {
+				label := "kritis"
+				if p.StokMl == 0 {
+					label = "HABIS"
+				}
+				butuhMl := kritisMl*3 - p.StokMl
+				if butuhMl < 0 {
+					butuhMl = 0
+				}
+				fmt.Fprintf(&b, "- %s [bensin %s]: sisa %.1fL (kritis %.0fL), perlu restock ±%.1fL\n",
+					p.Nama, label, float64(p.StokMl)/1000, float64(kritisMl)/1000, float64(butuhMl)/1000)
+				count++
+			}
+		default:
+			if p.Stok > p.StokMinimum {
+				continue
+			}
+			label := "menipis"
+			if p.Stok == 0 {
+				label = "HABIS"
+			} else if p.Stok <= p.StokKritis {
+				label = "kritis"
+			}
+			butuh := p.StokMinimum*3 - p.Stok
+			if butuh < 0 {
+				butuh = 0
+			}
+			fmt.Fprintf(&b, "- %s [%s]: sisa %d (min %d), perlu restock ±%d\n",
+				p.Nama, label, p.Stok, p.StokMinimum, butuh)
+			count++
 		}
-		label := "menipis"
-		if p.Stok == 0 {
-			label = "HABIS"
-		} else if p.Stok <= p.StokKritis {
-			label = "kritis"
-		}
-		butuh := p.StokMinimum*3 - p.Stok
-		if butuh < 0 {
-			butuh = 0
-		}
-		fmt.Fprintf(&b, "- %s [%s]: sisa %d (min %d), perlu restock ±%d\n",
-			p.Nama, label, p.Stok, p.StokMinimum, butuh)
-		count++
 	}
+
 	if count == 0 {
 		return "", false
 	}
