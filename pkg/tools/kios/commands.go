@@ -16,46 +16,48 @@ import (
 	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
 )
 
-const panduanText = `📖 Panduan Kios Cerdas
+const panduanText = `📖 *Panduan Kios Cerdas*
 
-PERINTAH CEPAT (tanpa AI):
-/stok [nama] — cek stok semua / cari produk
-/harga <produk> — lihat harga jual & modal
-/jual <produk> <jml> — catat penjualan + struk
-/jualmassal <produk> <jml>, ... — jual banyak barang
-/batal <TRX-id> — batalkan transaksi (owner)
-/laporan — ringkasan penjualan & laba hari ini
-/menipis — produk yang stoknya hampir habis
-/shift — buka/cek/tutup shift kasir
-/promo — daftar promo & diskon aktif
-/pasar [produk] — bandingkan harga kita vs pasar
-/produk [nama] — daftar / detail produk
-/suplier [nama | banding <produk>] — info supplier
-/qris — tampilkan QRIS kios untuk pembayaran
-/pulsa [nominal] — cek saldo/nominal atau jual pulsa
-/bensin [nama liter] — cek stok atau jual bensin
+━━━ 🛒 KASIR & TRANSAKSI ━━━
+/stok [nama]          — cek stok / cari produk
+/jual <produk> <jml>  — catat penjualan + struk
+/jualmassal <p> <jml>, ... — jual banyak sekaligus
+/laporan              — ringkasan penjualan hari ini
+/batal <TRX-id>       — batalkan transaksi (owner)
+/shift                — buka/cek/tutup shift kasir
 
-PERINTAH OWNER:
-/backup — export data ke JSON (owner)
-/template — download template Excel untuk import data
-/isipulsa <jumlah> — top-up saldo modal pulsa (owner)
-/isibensin <nama> <liter> <harga> — restock bensin (owner)
+━━━ 💰 HARGA & INFO ━━━
+/harga <produk>       — lihat harga jual & modal
+/promo                — daftar promo & diskon aktif
+/pasar [produk]       — bandingkan harga vs pasar
+/menipis              — produk yang hampir habis
+/produk [nama]        — daftar / detail produk
+/suplier [nama]       — info supplier & banding harga
+/qris                 — tampilkan QRIS kios
 
-TANYA AI (ketik bebas):
-• "stok beras berapa?"
-• "jual sabun 3 biji, bayar 15 ribu"
+━━━ 📦 STOK KHUSUS ━━━
+/pulsa [nominal]      — cek saldo / jual pulsa
+/bensin [nama liter]  — cek stok / jual bensin
+
+━━━ 🔔 NOTIFIKASI (Owner) ━━━
+/notif                — status notifikasi + cek sekarang
+/notif stok on|off    — aktifkan/matikan notif stok menipis
+/notif pesanan on|off — aktifkan/matikan notif pesanan baru
+
+━━━ ⚙️ OWNER ━━━
+/backup               — export semua data ke JSON
+/template             — download template Excel
+/isipulsa <jumlah>    — top-up saldo modal pulsa
+/isibensin <nama> <liter> <harga> — restock bensin
+
+━━━ 💬 TANYA AI (pakai token) ━━━
 • "laporan minggu ini"
 • "tambah produk baru gula 1 kg harga 14.000"
 • "restock minyak 24 botol harga beli 12.000"
 • "promo diskon 10% untuk susu bulan ini"
 
-TIPS:
-• Sebut nominal bayar saat jual agar dapat kembalian
-• Ketik /stok untuk cek stok terkini tanpa menunggu AI
-• Transaksi ada kode TRX-xxxx — simpan jika ingin dibatalkan
-• Owner bisa ketik "aktifkan belajar otomatis" atau "nonaktifkan belajar"
-
-Butuh bantuan lain? Ketik saja pertanyaanmu kak! 🙏`
+💡 *Tips:* Perintah /xxx tidak pakai token AI — gratis!
+Sebut nominal bayar saat jual agar dapat kembalian.`
 
 // templateDir returns the directory holding the downloadable templates,
 // from $KIOS_TEMPLATE_DIR (default "templates" for local dev; the Docker image
