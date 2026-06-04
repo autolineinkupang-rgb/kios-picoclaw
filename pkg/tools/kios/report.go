@@ -38,6 +38,9 @@ func EnsureDailyReportJob(cs *cron.CronService) error {
 	if chat == "" {
 		return nil // not configured — feature off
 	}
+	if IsEkonomiMode() {
+		return nil // KIOS_EKONOMI_MODE=true: laporan harian dinonaktifkan
+	}
 	expr := strings.TrimSpace(os.Getenv("KIOS_REPORT_CRON"))
 	if expr == "" {
 		expr = "0 18 * * *" // every day at 18:00
