@@ -32,10 +32,14 @@ PERINTAH CEPAT (tanpa AI):
 /produk [nama] — daftar / detail produk
 /suplier [nama | banding <produk>] — info supplier
 /qris — tampilkan QRIS kios untuk pembayaran
+/pulsa [nominal] — cek saldo/nominal atau jual pulsa
+/bensin [nama liter] — cek stok atau jual bensin
 
 PERINTAH OWNER:
 /backup — export data ke JSON (owner)
 /template — download template Excel untuk import data
+/isipulsa <jumlah> — top-up saldo modal pulsa (owner)
+/isibensin <nama> <liter> <harga> — restock bensin (owner)
 
 TANYA AI (ketik bebas):
 • "stok beras berapa?"
@@ -381,7 +385,7 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 				return reply(req, notifSvc.CheckNow(ctx))
 			},
 		},
-	}, CommandsBon(store)...)
+	}, append(CommandsBon(store), CommandsSpecial(store)...)...)
 }
 
 // parseJualArgs parses "/jual <produk multi-kata> <jumlah>": the last token is

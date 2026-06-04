@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/sipeed/picoclaw/pkg/commands"
 )
 
 // --- store_special tests ---
@@ -431,5 +433,69 @@ func TestNotifPulsaLowBalance(t *testing.T) {
 	}
 	if !strings.Contains(msg, "saldo modal") {
 		t.Errorf("message should mention saldo modal, got: %s", msg)
+	}
+}
+
+func TestHandlePulsaCmdInfo(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedPulsaAnchor(t, s, 75000)
+	seedDenom(t, s, 10000, 9500, 11000)
+
+	defs := CommandsSpecial(s)
+	var pulsaDef *commands.Definition
+	for i := range defs {
+		if defs[i].Name == "pulsa" {
+			pulsaDef = &defs[i]
+			break
+		}
+	}
+	if pulsaDef == nil {
+		t.Fatal("command /pulsa tidak ditemukan di CommandsSpecial")
+	}
+
+	var out string
+	req := commands.Request{
+		Channel: "telegram", SenderID: "owner1", Text: "/pulsa",
+		Reply: func(s string) error { out = s; return nil },
+	}
+	if err := pulsaDef.Handler(ctx, req, nil); err != nil {
+		t.Fatalf("/pulsa error: %v", err)
+	}
+	if !strings.Contains(out, "75.000") {
+		t.Errorf("/pulsa output should show saldo 75000, got: %s", out)
+	}
+	if !strings.Contains(out, "10.000") {
+		t.Errorf("/pulsa output should show nominal 10000, got: %s", out)
+	}
+}
+
+func TestHandleBensinCmdInfo(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedBensinProduk(t, s, 30000, 40000, 10000, 12000)
+
+	defs := CommandsSpecial(s)
+	var def *commands.Definition
+	for i := range defs {
+		if defs[i].Name == "bensin" {
+			def = &defs[i]
+			break
+		}
+	}
+	if def == nil {
+		t.Fatal("command /bensin tidak ditemukan di CommandsSpecial")
+	}
+
+	var out string
+	req := commands.Request{
+		Channel: "telegram", SenderID: "owner1", Text: "/bensin",
+		Reply: func(s string) error { out = s; return nil },
+	}
+	if err := def.Handler(ctx, req, nil); err != nil {
+		t.Fatalf("/bensin error: %v", err)
+	}
+	if !strings.Contains(out, "KRITIS") {
+		t.Errorf("/bensin output should show KRITIS for 30L below 40L, got: %s", out)
 	}
 }
