@@ -15,12 +15,12 @@ func TestComputeFromPack(t *testing.T) {
 		wantQty   int
 		wantHarga int
 	}{
-		{"dos", 2, 24000, 12, 24, 2000},
-		{"lusin", 1, 36000, 12, 12, 3000},
-		// round: 10000/3 = 3333.33 → 3333
-		{"renteng", 3, 30000, 3, 9, 3333},
-		// exact division
-		{"pak", 5, 50000, 10, 50, 1000},
+		{"dos", 2, 24000, 12, 24, 2000},  // 24000/12 = 2000/pcs
+		{"lusin", 1, 36000, 12, 12, 3000}, // 36000/12 = 3000/pcs
+		// round(30000/3) = 10000/pcs (hargaPack = harga per SATU kemasan)
+		{"renteng", 3, 30000, 3, 9, 10000},
+		// 50000/10 = 5000/pcs
+		{"pak", 5, 50000, 10, 50, 5000},
 	}
 	for _, c := range cases {
 		qty, harga := computeFromPack(c.kemasan, c.qtyPack, c.hargaPack, c.isi)
@@ -155,7 +155,7 @@ func TestRestockPackRequiresIsiWhenUnknown(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("harusnya error karena isi tidak diketahui")
 	}
-	if !strings.Contains(result.ForLLM, "isi per kemasan") {
+	if !strings.Contains(strings.ToLower(result.ForLLM), "isi per kemasan") {
 		t.Errorf("pesan error salah: %s", result.ForLLM)
 	}
 }
