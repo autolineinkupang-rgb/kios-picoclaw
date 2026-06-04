@@ -207,6 +207,10 @@ export async function setPelanggan(p: Pelanggan): Promise<void> {
   await redis().hset(KEY.pelanggan, { [p.phone]: p });
 }
 
+export async function delPelanggan(phone: string): Promise<void> {
+  await redis().hdel(KEY.pelanggan, phone);
+}
+
 export async function upsertPelanggan(
   nama: string,
   rawPhone: string,

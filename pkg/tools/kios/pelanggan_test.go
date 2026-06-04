@@ -2,6 +2,7 @@ package kios
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 )
 
@@ -144,5 +145,48 @@ func TestBackupRestorePelanggan(t *testing.T) {
 	}
 	if got == nil || got.Nama != "Rina" {
 		t.Errorf("restored pelanggan=%v want Rina", got)
+	}
+}
+
+func TestPesananPelangganIDRoundtrip(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	_ = s
+	_ = ctx
+
+	original := &Pesanan{
+		ID:          "PSN-0001",
+		Tanggal:     "2026-06-03",
+		Jam:         "08:00:00",
+		NamaPembeli: "Budi",
+		Kontak:      "628123456789",
+		Items:       []PesananItem{{ProdukID: "P001", NamaProduk: "Beras", Qty: 1, HargaSatuan: 10000, Subtotal: 10000}},
+		Total:       10000,
+		Status:      "pending",
+		CreatedAt:   1748916000,
+		PelangganID: "PLG-628123456789",
+	}
+
+	b, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded Pesanan
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if decoded.PelangganID != "PLG-628123456789" {
+		t.Errorf("PelangganID=%q want PLG-628123456789", decoded.PelangganID)
+	}
+
+	oldJSON := `{"id":"PSN-0000","tanggal":"2026-01-01","jam":"07:00","nama_pembeli":"Anon","kontak":"","items":[],"total":0,"metode_bayar":"tunai","status":"pending","created_at":0}`
+	var old Pesanan
+	if err := json.Unmarshal([]byte(oldJSON), &old); err != nil {
+		t.Fatalf("decode old format: %v", err)
+	}
+	if old.PelangganID != "" {
+		t.Errorf("old format PelangganID=%q want empty", old.PelangganID)
 	}
 }

@@ -144,6 +144,7 @@ export interface Pesanan {
   metode_bayar: string; // tunai | qris
   status: PesananStatus;
   created_at: number; // unix seconds
+  pelanggan_id?: string; // FK ke Pelanggan.ID; undefined = pembeli anonim (data lama)
 }
 
 export interface Pelanggan {

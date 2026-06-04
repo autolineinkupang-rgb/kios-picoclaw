@@ -139,6 +139,7 @@ type Pesanan struct {
 	Catatan     string        `json:"catatan"`
 	Status      string        `json:"status"` // pending | diproses | ditolak
 	CreatedAt   int64         `json:"created_at"`
+	PelangganID string        `json:"pelanggan_id,omitempty"` // FK ke Pelanggan.ID; kosong = pembeli anonim
 }
 
 // Pelanggan adalah pembeli yang terdaftar dari storefront. Diidentifikasi oleh

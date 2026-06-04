@@ -13,6 +13,15 @@ export function normalizeWaNumber(raw: string): string {
   return d;
 }
 
+/**
+ * Returns true when the raw input resolves to a valid Indonesian mobile number
+ * in the canonical "62…" format (2-digit country code + 8–13 local digits).
+ */
+export function isValidWaNumber(raw: string): boolean {
+  const n = normalizeWaNumber(raw);
+  return /^62\d{8,13}$/.test(n);
+}
+
 /** Build a WhatsApp click-to-chat URL. Empty number → recipient-less compose. */
 export function waLink(number: string, text: string): string {
   const n = normalizeWaNumber(number);
