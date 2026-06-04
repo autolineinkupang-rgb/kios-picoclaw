@@ -100,7 +100,7 @@ func (t *BonTool) jualBon(ctx context.Context, args map[string]any, kasir string
 	if err != nil {
 		return tools.ErrorResult("Gagal daftarkan pelanggan kak 😣").WithError(err)
 	}
-	tx, _, _, err := performJual(ctx, t.store, argStr(args, "produk"), qty, "bon", kasir, 0)
+	tx, _, _, err := performJual(ctx, t.store, argStr(args, "produk"), qty, "bon", kasir, 0, nil)
 	if err != nil {
 		return tools.ErrorResult(err.Error())
 	}

@@ -276,3 +276,84 @@ func TestSellBensinFraksi(t *testing.T) {
 		t.Errorf("liter want 1.5, got %f", tx.Liter)
 	}
 }
+
+func TestPerformJualPulsa(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedPulsaAnchor(t, s, 100000)
+	seedDenom(t, s, 10000, 9500, 11000)
+
+	tx, item, sisa, err := performJual(ctx, s, "Pulsa", 1, "tunai", "kasir1", 0, map[string]int{"nominal": 10000})
+	if err != nil {
+		t.Fatalf("performJual pulsa: %v", err)
+	}
+	if tx.Total != 11000 {
+		t.Errorf("total want 11000, got %d", tx.Total)
+	}
+	if item.SaldoModal != 90500 {
+		t.Errorf("SaldoModal want 90500, got %d", item.SaldoModal)
+	}
+	if sisa != 90500 {
+		t.Errorf("sisa want 90500, got %d", sisa)
+	}
+}
+
+func TestPerformJualBensin(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seedBensinProduk(t, s, 50000, 40000, 10000, 12000)
+
+	tx, item, sisaMl, err := performJual(ctx, s, "Pertalite", 1, "tunai", "kasir1", 0, map[string]int{"ml": 2000})
+	if err != nil {
+		t.Fatalf("performJual bensin: %v", err)
+	}
+	if tx.Total != 24000 {
+		t.Errorf("total want 24000, got %d", tx.Total)
+	}
+	if item.StokMl != 48000 {
+		t.Errorf("StokMl want 48000, got %d", item.StokMl)
+	}
+	if sisaMl != 48000 {
+		t.Errorf("sisaMl want 48000, got %d", sisaMl)
+	}
+}
+
+func TestBatalkanTxPulsa(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	anchor := seedPulsaAnchor(t, s, 100000)
+	seedDenom(t, s, 10000, 9500, 11000)
+
+	tx, _, _, _ := sellPulsa(ctx, s, anchor, 10000, "tunai", "kasir1")
+
+	tool := &StokTool{store: s}
+	result := tool.batalkanTx(ctx, map[string]any{"id": tx.ID})
+	if result.IsError {
+		t.Fatalf("batalkanTx pulsa error: %s", result.ForLLM)
+	}
+	reloaded, _ := s.GetProduk(ctx, anchor.ID)
+	if reloaded.SaldoModal != 100000 {
+		t.Errorf("SaldoModal after batal want 100000, got %d", reloaded.SaldoModal)
+	}
+}
+
+func TestBatalkanTxBensin(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	anchor := seedBensinProduk(t, s, 50000, 40000, 10000, 12000)
+
+	tx, _, _, _ := sellBensin(ctx, s, anchor, 2000, "tunai", "kasir1")
+
+	tool := &StokTool{store: s}
+	result := tool.batalkanTx(ctx, map[string]any{"id": tx.ID})
+	if result.IsError {
+		t.Fatalf("batalkanTx bensin error: %s", result.ForLLM)
+	}
+	reloaded, _ := s.GetProduk(ctx, anchor.ID)
+	if reloaded.StokMl != 50000 {
+		t.Errorf("StokMl after batal want 50000, got %d", reloaded.StokMl)
+	}
+	if reloaded.Stok != 50 {
+		t.Errorf("Stok after batal want 50, got %d", reloaded.Stok)
+	}
+}

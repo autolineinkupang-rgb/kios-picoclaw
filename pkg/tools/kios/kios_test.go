@@ -1262,7 +1262,7 @@ func TestPerformJual(t *testing.T) {
 	ctx := context.Background()
 	seedProduct(t, s, "002", "Beras Medium 5kg", 10, 55000, 62000, 3)
 
-	tx, item, sisa, err := performJual(ctx, s, "beras", 2, "tunai", "ken", 0)
+	tx, item, sisa, err := performJual(ctx, s, "beras", 2, "tunai", "ken", 0, nil)
 	if err != nil {
 		t.Fatalf("performJual: %v", err)
 	}
@@ -1281,11 +1281,11 @@ func TestPerformJual(t *testing.T) {
 		t.Errorf("persisted stok=%d want 8", got.Stok)
 	}
 	// Insufficient stock
-	if _, _, _, err := performJual(ctx, s, "beras", 999, "tunai", "ken", 0); err == nil {
+	if _, _, _, err := performJual(ctx, s, "beras", 999, "tunai", "ken", 0, nil); err == nil {
 		t.Error("expected error for insufficient stock")
 	}
 	// Non-positive qty
-	if _, _, _, err := performJual(ctx, s, "beras", 0, "tunai", "ken", 0); err == nil {
+	if _, _, _, err := performJual(ctx, s, "beras", 0, "tunai", "ken", 0, nil); err == nil {
 		t.Error("expected error for qty<=0")
 	}
 }
@@ -1568,7 +1568,7 @@ func TestPerformJualJenisBiasaRoute(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	tx, _, sisa, err := performJual(ctx, s, "minyak", 2, "tunai", "ken", 0)
+	tx, _, sisa, err := performJual(ctx, s, "minyak", 2, "tunai", "ken", 0, nil)
 	if err != nil {
 		t.Fatalf("performJual: %v", err)
 	}

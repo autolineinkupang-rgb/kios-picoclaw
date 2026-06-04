@@ -183,8 +183,8 @@ func findOne(ctx context.Context, store *Store, query string) (*Produk, error) {
 }
 
 // performJual executes a sale. It validates inputs, then dispatches by product
-// kind. Ordinary unit-stock products go through sellBiasa (the historical path);
-// special kinds (pulsa/bensin) are added in later plans.
+// kind. Ordinary unit-stock products go through sellBiasa; pulsa and bensin
+// have dedicated paths that ignore qty and use extras["nominal"]/extras["ml"].
 func performJual(
 	ctx context.Context,
 	store *Store,
@@ -192,8 +192,9 @@ func performJual(
 	qty int,
 	metode, kasir string,
 	diskonPerUnit int,
+	extras map[string]int,
 ) (*Transaksi, *Produk, int, error) {
-	if qty <= 0 {
+	if qty <= 0 && extras["nominal"] == 0 && extras["ml"] == 0 {
 		return nil, nil, 0, fmt.Errorf("jumlahnya harus lebih dari 0 ya kak 🙏")
 	}
 	item, err := findOne(ctx, store, query)
@@ -210,9 +211,18 @@ func performJual(
 		metode = "tunai"
 	}
 	switch item.JenisOrDefault() {
-	// Only "biasa" exists today; "pulsa"/"bensin" cases are added in a later
-	// plan. Until then every value (including any unrecognised jenis) falls
-	// through to the ordinary unit-stock path.
+	case "pulsa":
+		nominal := extras["nominal"]
+		if nominal == 0 {
+			return nil, nil, 0, fmt.Errorf("nominal pulsa wajib diisi kak 🙏 (contoh: nominal=10000)")
+		}
+		return sellPulsa(ctx, store, item, nominal, metode, kasir)
+	case "bensin":
+		ml := extras["ml"]
+		if ml == 0 {
+			return nil, nil, 0, fmt.Errorf("volume bensin wajib diisi kak 🙏 (contoh: liter=2)")
+		}
+		return sellBensin(ctx, store, item, ml, metode, kasir)
 	default:
 		return sellBiasa(ctx, store, item, qty, metode, kasir, diskonPerUnit)
 	}
@@ -270,6 +280,19 @@ func sellBiasa(
 	// Automatic learning: record the sale habit (peak hour + top product).
 	_ = store.TrackHabit(ctx, "sale", item.Nama)
 	return tx, item, item.Stok, nil
+}
+
+// argFloat reads a float64 argument, tolerating JSON floats and integers.
+func argFloat(args map[string]any, key string) float64 {
+	switch x := args[key].(type) {
+	case float64:
+		return x
+	case int:
+		return float64(x)
+	case int64:
+		return float64(x)
+	}
+	return 0
 }
 
 // activePromoDiskon returns the per-unit discount from the active promo for a

@@ -173,6 +173,7 @@ func (t *StokTool) jual(ctx context.Context, args map[string]any, kasir string) 
 		argStr(args, "metode"),
 		kasir,
 		0,
+		nil,
 	)
 	if err != nil {
 		return tools.ErrorResult(err.Error())
@@ -515,14 +516,7 @@ func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.T
 		return tools.NewToolResult(fmt.Sprintf("Transaksi %s nggak ketemu kak 🔍", id))
 	}
 
-	// Restore stok
-	if item, _ := t.store.GetProduk(ctx, removed.ProdukID); item != nil {
-		item.Stok += removed.Qty
-		item.LastUpdate = NowWITA().Format("2006-01-02")
-		_ = t.store.SetProduk(ctx, item)
-	}
-
-	// Void piutang bila bon dan belum ada cicilan
+	// Void piutang bila bon dan belum ada cicilan (dilakukan sebelum restore stok agar konsisten)
 	if removed.MetodeBayar == "bon" {
 		allPiu, _ := t.store.GetAllPiutang(ctx)
 		for _, piu := range allPiu {
@@ -533,14 +527,51 @@ func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.T
 		}
 	}
 
-	return tools.NewToolResult(
-		fmt.Sprintf(
-			"Transaksi %s dibatalkan, stok %s dikembalikan (+%d).",
-			removed.ID,
-			removed.NamaProduk,
-			removed.Qty,
-		),
-	)
+	// Restore stok/saldo berdasarkan jenis produk
+	item, _ := t.store.GetProduk(ctx, removed.ProdukID)
+	if item == nil {
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan (produk tidak ditemukan, stok tidak dikembalikan).", removed.ID))
+	}
+
+	switch item.JenisOrDefault() {
+	case "pulsa":
+		if removed.Modal > 0 {
+			_ = t.store.IncrSaldoModal(ctx, item.ID, removed.Modal)
+			reloaded, _ := t.store.GetProduk(ctx, item.ID)
+			saldoKini := 0
+			if reloaded != nil {
+				saldoKini = reloaded.SaldoModal
+			}
+			return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, saldo modal pulsa dikembalikan (+%s, saldo kini %s).",
+				removed.ID, FormatRupiah(removed.Modal), FormatRupiah(saldoKini)))
+		}
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan (modal tidak tercatat, saldo tidak dikembalikan).", removed.ID))
+
+	case "bensin":
+		if removed.Liter > 0 {
+			mlKembali := int(math.Round(removed.Liter * 1000))
+			item.StokMl += mlKembali
+			item.Stok = item.StokMl / 1000
+			item.LastUpdate = NowWITA().Format("2006-01-02")
+			_ = t.store.SetProduk(ctx, item)
+			return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, stok bensin %s dikembalikan (+%.3fL, sisa %.1fL).",
+				removed.ID, item.Nama, removed.Liter, float64(item.StokMl)/1000))
+		}
+		return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan (volume tidak tercatat, stok tidak dikembalikan).", removed.ID))
+
+	default:
+		item.Stok += removed.Qty
+		item.LastUpdate = NowWITA().Format("2006-01-02")
+		_ = t.store.SetProduk(ctx, item)
+		return tools.NewToolResult(
+			fmt.Sprintf(
+				"Transaksi %s dibatalkan, stok %s dikembalikan (+%d).",
+				removed.ID,
+				removed.NamaProduk,
+				removed.Qty,
+			),
+		)
+	}
 }
 
 func (t *StokTool) stokMenipis(ctx context.Context) *tools.ToolResult {
