@@ -470,6 +470,60 @@ func TestHandlePulsaCmdInfo(t *testing.T) {
 	}
 }
 
+func TestBackupRestorePulsa(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	anchor := seedPulsaAnchor(t, s, 150000)
+	_ = anchor
+	seedDenom(t, s, 10000, 9500, 11000)
+	seedDenom(t, s, 25000, 24500, 26500)
+	pt := &PulsaTopup{
+		Tanggal: "2026-06-03", Jam: "10:00:00",
+		Jumlah: 150000, SaldoSesudah: 150000, Kasir: "owner",
+	}
+	_ = s.AppendPulsaTopup(ctx, pt)
+
+	b, err := BuildBackup(ctx, s)
+	if err != nil {
+		t.Fatalf("BuildBackup: %v", err)
+	}
+	if len(b.PulsaDenom) != 2 {
+		t.Errorf("want 2 denom in backup, got %d", len(b.PulsaDenom))
+	}
+	if len(b.PulsaTopup) != 1 {
+		t.Errorf("want 1 topup in backup, got %d", len(b.PulsaTopup))
+	}
+
+	s2 := newTestStore(t)
+	if err := s2.RestoreBackup(ctx, b); err != nil {
+		t.Fatalf("RestoreBackup: %v", err)
+	}
+
+	d10k, _ := s2.GetPulsaDenom(ctx, 10000)
+	if d10k == nil || d10k.HargaJual != 11000 {
+		t.Errorf("denom 10000 after restore: %+v", d10k)
+	}
+
+	tops, _ := s2.GetAllPulsaTopup(ctx)
+	if len(tops) != 1 {
+		t.Errorf("want 1 topup after restore, got %d", len(tops))
+	}
+
+	// Counter PTU should be at the max seen ID
+	// After AppendPulsaTopup (1 topup = PTU-0001), counter = 1
+	// After RestoreBackup it should be reset to 1 so next = PTU-0002
+	nextID, _ := s2.nextPtuID(ctx)
+	if nextID != "PTU-0002" {
+		t.Errorf("next PTU after restore want PTU-0002, got %s", nextID)
+	}
+
+	anchor2, _ := s2.GetProduk(ctx, "P99")
+	if anchor2 == nil || anchor2.SaldoModal != 150000 {
+		t.Errorf("SaldoModal after restore want 150000, got %v", anchor2)
+	}
+}
+
 func TestHandleBensinCmdInfo(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

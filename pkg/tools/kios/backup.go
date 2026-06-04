@@ -34,6 +34,8 @@ type BackupData struct {
 	Piutang       []*Piutang      `json:"piutang,omitempty"`
 	Hutang        []*Hutang       `json:"hutang,omitempty"`
 	Pembayaran    []*Pembayaran   `json:"pembayaran,omitempty"`
+	PulsaDenom    []*PulsaDenom   `json:"pulsa_denom,omitempty"`
+	PulsaTopup    []*PulsaTopup   `json:"pulsa_topup,omitempty"`
 }
 
 // BuildBackup reads every kios dataset from Redis into a single snapshot.
@@ -82,23 +84,22 @@ func BuildBackup(ctx context.Context, store *Store) (*BackupData, error) {
 	if b.Pembayaran, err = store.GetAllPembayaran(ctx); err != nil {
 		return nil, fmt.Errorf("backup pembayaran: %w", err)
 	}
+	if b.PulsaDenom, err = store.GetAllPulsaDenom(ctx); err != nil {
+		return nil, fmt.Errorf("backup pulsa_denom: %w", err)
+	}
+	if b.PulsaTopup, err = store.GetAllPulsaTopup(ctx); err != nil {
+		return nil, fmt.Errorf("backup pulsa_topup: %w", err)
+	}
 	return b, nil
 }
 
 // Ringkas returns a short human summary of the snapshot's contents.
 func (b *BackupData) Ringkas() string {
 	return fmt.Sprintf(
-		"%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier, %d pelanggan",
-		len(b.Produk),
-		len(b.Transaksi),
-		len(b.Pembelian),
-		len(b.PriceHistory),
-		len(b.Supplier),
-		len(b.Promo),
-		len(b.Pustaka),
-		len(b.Users),
-		len(b.HargaSupplier),
-		len(b.Pelanggan),
+		"%d produk, %d transaksi, %d pembelian, %d riwayat harga, %d supplier, %d promo, %d pustaka, %d pengguna, %d harga supplier, %d pelanggan, %d denom pulsa, %d topup pulsa",
+		len(b.Produk), len(b.Transaksi), len(b.Pembelian), len(b.PriceHistory),
+		len(b.Supplier), len(b.Promo), len(b.Pustaka), len(b.Users), len(b.HargaSupplier),
+		len(b.Pelanggan), len(b.PulsaDenom), len(b.PulsaTopup),
 	)
 }
 
@@ -199,7 +200,7 @@ func ParseBackup(raw []byte) (*BackupData, error) {
 // HasAnyData reports whether any core dataset currently holds records. Used to
 // guard the destructive restore so existing data isn't clobbered by accident.
 func (s *Store) HasAnyData(ctx context.Context) (bool, error) {
-	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers, keyHargaSupplier, keyPelanggan, keyPiutang, keyHutang} {
+	for _, k := range []string{keyProduk, keySupplier, keyPromo, keyPustaka, keyUsers, keyHargaSupplier, keyPelanggan, keyPiutang, keyHutang, keyPulsaDenom} {
 		n, err := s.rdb.HLen(ctx, k).Result()
 		if err != nil {
 			return false, err
@@ -235,6 +236,7 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		keyHargaSupplier,
 		keyPelanggan,
 		keyPiutang, keySeqPiu, keyHutang, keySeqHut, keyPembayaran, keySeqPay,
+		keyPulsaDenom, keyPulsaTopup, keySeqPtu,
 	}
 	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
 		return err
@@ -317,6 +319,18 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 			return fmt.Errorf("restore pembayaran %s: %w", pay.ID, err)
 		}
 	}
+	for _, d := range b.PulsaDenom {
+		raw, err := json.Marshal(d)
+		if err != nil {
+			return err
+		}
+		if err := s.rdb.HSet(ctx, keyPulsaDenom, strconv.Itoa(d.Nominal), string(raw)).Err(); err != nil {
+			return err
+		}
+	}
+	if err := rpushAll(keyPulsaTopup, anySlice(b.PulsaTopup)); err != nil {
+		return err
+	}
 	if b.Shift != nil {
 		raw, err := json.Marshal(b.Shift)
 		if err != nil {
@@ -343,6 +357,7 @@ func (s *Store) RestoreBackup(ctx context.Context, b *BackupData) error {
 		keySeqPiu:   idsPiutang(b.Piutang),
 		keySeqHut:   idsHutang(b.Hutang),
 		keySeqPay:   idsPembayaran(b.Pembayaran),
+		keySeqPtu:   idsPulsaTopup(b.PulsaTopup),
 	} {
 		if err := setSeq(key, maxNumericSuffix(ids)); err != nil {
 			return err
@@ -469,6 +484,14 @@ func idsHutang(xs []*Hutang) []string {
 }
 
 func idsPembayaran(xs []*Pembayaran) []string {
+	ids := make([]string, len(xs))
+	for i, x := range xs {
+		ids[i] = x.ID
+	}
+	return ids
+}
+
+func idsPulsaTopup(xs []*PulsaTopup) []string {
 	ids := make([]string, len(xs))
 	for i, x := range xs {
 		ids[i] = x.ID
