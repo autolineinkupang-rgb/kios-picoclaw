@@ -1584,3 +1584,35 @@ func withOwnerCtx(t *testing.T, s *Store, ctx context.Context) context.Context {
 	_ = s.SetUser(ctx, &UserKios{Phone: id, Nama: "TestOwner", Role: "owner", Aktif: true})
 	return toolshared.WithToolContext(ctx, "telegram", id)
 }
+
+func TestNotifCommandStatus(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	cfg := s.GetConfig(ctx)
+	if !cfg.NotifEnabled {
+		t.Error("NotifEnabled default harus true")
+	}
+	if !cfg.NotifPesananEnabled {
+		t.Error("NotifPesananEnabled default harus true")
+	}
+}
+
+func TestNotifCommandTogglePesanan(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+
+	cfg := s.GetConfig(ctx)
+	cfg.NotifPesananEnabled = false
+	if err := s.SaveConfig(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded := s.GetConfig(ctx)
+	if loaded.NotifPesananEnabled {
+		t.Error("NotifPesananEnabled harus false setelah disimpan")
+	}
+	loaded.NotifPesananEnabled = true
+	_ = s.SaveConfig(ctx, loaded)
+	if !s.GetConfig(ctx).NotifPesananEnabled {
+		t.Error("NotifPesananEnabled harus true setelah diaktifkan kembali")
+	}
+}

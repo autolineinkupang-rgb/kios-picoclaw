@@ -369,7 +369,8 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 		},
 		{
 			Name:        "notif",
-			Description: "Cek & kirim notif stok menipis sekarang (khusus owner)",
+			Description: "Toggle notifikasi stok/pesanan atau cek sekarang (owner)",
+			Usage:       "/notif [stok on|off] [pesanan on|off]",
 			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
 				ctx = withSender(ctx, req)
 				role, _, refusal := resolveRole(ctx, store)
@@ -379,10 +380,65 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 				if r := requireOwner(role); r != nil {
 					return reply(req, r.ForLLM)
 				}
-				if notifSvc == nil {
-					return reply(req, "Layanan notifikasi belum aktif kak 😔")
+
+				arg := strings.ToLower(strings.TrimSpace(argAfter(req.Text)))
+
+				// /notif stok on|off
+				if strings.HasPrefix(arg, "stok ") {
+					state := strings.TrimPrefix(arg, "stok ")
+					cfg := store.GetConfig(ctx)
+					switch state {
+					case "on":
+						cfg.NotifEnabled = true
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "✅ Notifikasi stok menipis *diaktifkan* kak.")
+					case "off":
+						cfg.NotifEnabled = false
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "🔕 Notifikasi stok menipis *dimatikan* kak.")
+					default:
+						return reply(req, "Ketik `/notif stok on` atau `/notif stok off` ya kak.")
+					}
 				}
-				return reply(req, notifSvc.CheckNow(ctx))
+
+				// /notif pesanan on|off
+				if strings.HasPrefix(arg, "pesanan ") {
+					state := strings.TrimPrefix(arg, "pesanan ")
+					cfg := store.GetConfig(ctx)
+					switch state {
+					case "on":
+						cfg.NotifPesananEnabled = true
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "✅ Notifikasi pesanan baru *diaktifkan* kak.")
+					case "off":
+						cfg.NotifPesananEnabled = false
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "🔕 Notifikasi pesanan baru *dimatikan* kak.")
+					default:
+						return reply(req, "Ketik `/notif pesanan on` atau `/notif pesanan off` ya kak.")
+					}
+				}
+
+				// /notif tanpa arg → status + kirim notif stok sekarang
+				cfg := store.GetConfig(ctx)
+				stokStatus := "✅ Aktif"
+				if !cfg.NotifEnabled {
+					stokStatus = "❌ Nonaktif"
+				}
+				pesananStatus := "✅ Aktif"
+				if !cfg.NotifPesananEnabled {
+					pesananStatus = "❌ Nonaktif"
+				}
+				status := fmt.Sprintf(
+					"🔔 *Status Notifikasi*\n\nStok menipis  : %s\nPesanan baru  : %s\n\n"+
+						"Ubah dengan:\n• /notif stok on|off\n• /notif pesanan on|off",
+					stokStatus, pesananStatus,
+				)
+				if notifSvc != nil && arg == "" {
+					nowResult := notifSvc.CheckNow(ctx)
+					return reply(req, status+"\n\n"+nowResult)
+				}
+				return reply(req, status)
 			},
 		},
 	}, append(CommandsBon(store), CommandsSpecial(store)...)...)
