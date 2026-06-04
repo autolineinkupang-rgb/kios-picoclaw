@@ -20,7 +20,7 @@ import (
 
 // defaultConfig returns the default KiosConfig values.
 func defaultConfig() KiosConfig {
-	return KiosConfig{AutoLearnEnabled: true, NotifEnabled: true, NotifJam: "07"}
+	return KiosConfig{AutoLearnEnabled: true, NotifEnabled: true, NotifJam: "07", NotifPesananEnabled: true}
 }
 
 // GetConfig membaca konfigurasi kios dari Redis.
