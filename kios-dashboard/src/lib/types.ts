@@ -206,6 +206,7 @@ export interface KiosConfig {
   learn_model: string;
   notif_enabled: boolean;
   notif_jam: string; // "HH" (WITA)
+  notif_pesanan_enabled?: boolean; // default true
   qris_enabled: boolean;
   qris_nama: string;
   qris_image_url: string;

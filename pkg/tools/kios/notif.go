@@ -57,6 +57,10 @@ func (n *NotifService) loop(ctx context.Context) {
 // tryNotifyOrders memberi tahu owner saat ada pesanan pending baru dari toko.
 // Pada run pertama hanya menetapkan baseline (tidak mengirim riwayat lama).
 func (n *NotifService) tryNotifyOrders(ctx context.Context) {
+	cfg := n.store.GetConfig(ctx)
+	if !cfg.NotifPesananEnabled {
+		return
+	}
 	all, err := n.store.GetAllPesanan(ctx)
 	if err != nil || len(all) == 0 {
 		return
@@ -260,6 +264,10 @@ func shouldAlertPileup(pending, threshold int, state string) (bool, string) {
 
 // tryNotifyPendingPileup memberi tahu owner saat pesanan pending menumpuk.
 func (n *NotifService) tryNotifyPendingPileup(ctx context.Context) {
+	cfg := n.store.GetConfig(ctx)
+	if !cfg.NotifPesananEnabled {
+		return
+	}
 	all, err := n.store.GetAllPesanan(ctx)
 	if err != nil {
 		return

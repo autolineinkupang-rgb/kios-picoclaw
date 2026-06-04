@@ -170,6 +170,9 @@ func EnsureDailyBackupJob(cs *cron.CronService) error {
 	if chat == "" {
 		return nil // not configured — feature off
 	}
+	if IsEkonomiMode() {
+		return nil // KIOS_EKONOMI_MODE=true: backup harian dinonaktifkan
+	}
 	expr := strings.TrimSpace(os.Getenv("KIOS_BACKUP_CRON"))
 	if expr == "" {
 		expr = "0 22 * * *" // every day at 22:00

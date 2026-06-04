@@ -16,46 +16,48 @@ import (
 	toolshared "github.com/sipeed/picoclaw/pkg/tools/shared"
 )
 
-const panduanText = `📖 Panduan Kios Cerdas
+const panduanText = `📖 *Panduan Kios Cerdas*
 
-PERINTAH CEPAT (tanpa AI):
-/stok [nama] — cek stok semua / cari produk
-/harga <produk> — lihat harga jual & modal
-/jual <produk> <jml> — catat penjualan + struk
-/jualmassal <produk> <jml>, ... — jual banyak barang
-/batal <TRX-id> — batalkan transaksi (owner)
-/laporan — ringkasan penjualan & laba hari ini
-/menipis — produk yang stoknya hampir habis
-/shift — buka/cek/tutup shift kasir
-/promo — daftar promo & diskon aktif
-/pasar [produk] — bandingkan harga kita vs pasar
-/produk [nama] — daftar / detail produk
-/suplier [nama | banding <produk>] — info supplier
-/qris — tampilkan QRIS kios untuk pembayaran
-/pulsa [nominal] — cek saldo/nominal atau jual pulsa
-/bensin [nama liter] — cek stok atau jual bensin
+━━━ 🛒 KASIR & TRANSAKSI ━━━
+/stok [nama]          — cek stok / cari produk
+/jual <produk> <jml>  — catat penjualan + struk
+/jualmassal <p> <jml>, ... — jual banyak sekaligus
+/laporan              — ringkasan penjualan hari ini
+/batal <TRX-id>       — batalkan transaksi (owner)
+/shift                — buka/cek/tutup shift kasir
 
-PERINTAH OWNER:
-/backup — export data ke JSON (owner)
-/template — download template Excel untuk import data
-/isipulsa <jumlah> — top-up saldo modal pulsa (owner)
-/isibensin <nama> <liter> <harga> — restock bensin (owner)
+━━━ 💰 HARGA & INFO ━━━
+/harga <produk>       — lihat harga jual & modal
+/promo                — daftar promo & diskon aktif
+/pasar [produk]       — bandingkan harga vs pasar
+/menipis              — produk yang hampir habis
+/produk [nama]        — daftar / detail produk
+/suplier [nama]       — info supplier & banding harga
+/qris                 — tampilkan QRIS kios
 
-TANYA AI (ketik bebas):
-• "stok beras berapa?"
-• "jual sabun 3 biji, bayar 15 ribu"
+━━━ 📦 STOK KHUSUS ━━━
+/pulsa [nominal]      — cek saldo / jual pulsa
+/bensin [nama liter]  — cek stok / jual bensin
+
+━━━ 🔔 NOTIFIKASI (Owner) ━━━
+/notif                — status notifikasi + cek sekarang
+/notif stok on|off    — aktifkan/matikan notif stok menipis
+/notif pesanan on|off — aktifkan/matikan notif pesanan baru
+
+━━━ ⚙️ OWNER ━━━
+/backup               — export semua data ke JSON
+/template             — download template Excel
+/isipulsa <jumlah>    — top-up saldo modal pulsa
+/isibensin <nama> <liter> <harga> — restock bensin
+
+━━━ 💬 TANYA AI (pakai token) ━━━
 • "laporan minggu ini"
 • "tambah produk baru gula 1 kg harga 14.000"
 • "restock minyak 24 botol harga beli 12.000"
 • "promo diskon 10% untuk susu bulan ini"
 
-TIPS:
-• Sebut nominal bayar saat jual agar dapat kembalian
-• Ketik /stok untuk cek stok terkini tanpa menunggu AI
-• Transaksi ada kode TRX-xxxx — simpan jika ingin dibatalkan
-• Owner bisa ketik "aktifkan belajar otomatis" atau "nonaktifkan belajar"
-
-Butuh bantuan lain? Ketik saja pertanyaanmu kak! 🙏`
+💡 *Tips:* Perintah /xxx tidak pakai token AI — gratis!
+Sebut nominal bayar saat jual agar dapat kembalian.`
 
 // templateDir returns the directory holding the downloadable templates,
 // from $KIOS_TEMPLATE_DIR (default "templates" for local dev; the Docker image
@@ -369,7 +371,8 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 		},
 		{
 			Name:        "notif",
-			Description: "Cek & kirim notif stok menipis sekarang (khusus owner)",
+			Description: "Toggle notifikasi stok/pesanan atau cek sekarang (owner)",
+			Usage:       "/notif [stok on|off] [pesanan on|off]",
 			Handler: func(ctx context.Context, req commands.Request, _ *commands.Runtime) error {
 				ctx = withSender(ctx, req)
 				role, _, refusal := resolveRole(ctx, store)
@@ -379,10 +382,65 @@ func CommandsWithNotif(store *Store, notifSvc *NotifService) []commands.Definiti
 				if r := requireOwner(role); r != nil {
 					return reply(req, r.ForLLM)
 				}
-				if notifSvc == nil {
-					return reply(req, "Layanan notifikasi belum aktif kak 😔")
+
+				arg := strings.ToLower(strings.TrimSpace(argAfter(req.Text)))
+
+				// /notif stok on|off
+				if strings.HasPrefix(arg, "stok ") {
+					state := strings.TrimPrefix(arg, "stok ")
+					cfg := store.GetConfig(ctx)
+					switch state {
+					case "on":
+						cfg.NotifEnabled = true
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "✅ Notifikasi stok menipis *diaktifkan* kak.")
+					case "off":
+						cfg.NotifEnabled = false
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "🔕 Notifikasi stok menipis *dimatikan* kak.")
+					default:
+						return reply(req, "Ketik `/notif stok on` atau `/notif stok off` ya kak.")
+					}
 				}
-				return reply(req, notifSvc.CheckNow(ctx))
+
+				// /notif pesanan on|off
+				if strings.HasPrefix(arg, "pesanan ") {
+					state := strings.TrimPrefix(arg, "pesanan ")
+					cfg := store.GetConfig(ctx)
+					switch state {
+					case "on":
+						cfg.NotifPesananEnabled = true
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "✅ Notifikasi pesanan baru *diaktifkan* kak.")
+					case "off":
+						cfg.NotifPesananEnabled = false
+						_ = store.SaveConfig(ctx, cfg)
+						return reply(req, "🔕 Notifikasi pesanan baru *dimatikan* kak.")
+					default:
+						return reply(req, "Ketik `/notif pesanan on` atau `/notif pesanan off` ya kak.")
+					}
+				}
+
+				// /notif tanpa arg → status + kirim notif stok sekarang
+				cfg := store.GetConfig(ctx)
+				stokStatus := "✅ Aktif"
+				if !cfg.NotifEnabled {
+					stokStatus = "❌ Nonaktif"
+				}
+				pesananStatus := "✅ Aktif"
+				if !cfg.NotifPesananEnabled {
+					pesananStatus = "❌ Nonaktif"
+				}
+				status := fmt.Sprintf(
+					"🔔 *Status Notifikasi*\n\nStok menipis  : %s\nPesanan baru  : %s\n\n"+
+						"Ubah dengan:\n• /notif stok on|off\n• /notif pesanan on|off",
+					stokStatus, pesananStatus,
+				)
+				if notifSvc != nil && arg == "" {
+					nowResult := notifSvc.CheckNow(ctx)
+					return reply(req, status+"\n\n"+nowResult)
+				}
+				return reply(req, status)
 			},
 		},
 	}, append(CommandsBon(store), CommandsSpecial(store)...)...)
