@@ -183,6 +183,22 @@ func (t *SupplierTool) cari(ctx context.Context, args map[string]any) *tools.Too
 	if len(supplied) > 0 {
 		msg += "\nMenyuplai: " + strings.Join(supplied, ", ")
 	}
+	// Tampilkan harga beli terakhir dari snapshot
+	if snapshots, err := t.store.GetAllHargaSupplierLast(ctx); err == nil {
+		var hargaLines []string
+		for field, v := range snapshots {
+			parts := strings.SplitN(field, "|", 2)
+			if len(parts) == 2 && parts[1] == sup.ID && v.Harga > 0 {
+				if p, _ := t.store.GetProduk(ctx, parts[0]); p != nil {
+					hargaLines = append(hargaLines, fmt.Sprintf("  %s: %s/pcs (via %s, %s)", p.Nama, FormatRupiah(v.Harga), v.Kemasan, v.Tanggal))
+				}
+			}
+		}
+		if len(hargaLines) > 0 {
+			sort.Strings(hargaLines)
+			msg += "\nHarga beli terakhir:\n" + strings.Join(hargaLines, "\n")
+		}
+	}
 	return tools.NewToolResult(msg)
 }
 
@@ -208,6 +224,8 @@ func (t *SupplierTool) hapus(ctx context.Context, args map[string]any) *tools.To
 			))
 		}
 	}
+	_ = t.store.DelHargaSupplierBySuplier(ctx, sup.ID, sup.Nama)
+	_ = t.store.DelHargaSupplierLastBySuplier(ctx, sup.ID)
 	if err := t.store.DelSupplier(ctx, sup.ID); err != nil {
 		return tools.ErrorResult("Aduh, gagal hapus supplier kak 😣 Coba lagi sebentar ya.").WithError(err)
 	}
@@ -229,27 +247,54 @@ func (t *SupplierTool) bandingHarga(ctx context.Context, args map[string]any) *t
 		produkID = item.ID
 	}
 
-	best := map[string]int{} // supplier -> lowest harga_beli
-	pembelian, _ := t.store.GetAllPembelian(ctx)
-	q := strings.ToLower(produk)
-	for _, p := range pembelian {
-		match := (produkID != "" && p.ProdukID == produkID) || strings.Contains(strings.ToLower(p.NamaProduk), q)
-		if !match || p.HargaBeli <= 0 {
-			continue
-		}
-		sup := p.Supplier
-		if sup == "" {
-			sup = "(tanpa supplier)"
-		}
-		if cur, ok := best[sup]; !ok || p.HargaBeli < cur {
-			best[sup] = p.HargaBeli
+	best := map[string]int{} // supplier -> harga_beli terbaik
+
+	// Prefer snapshot harga_supplier_last (lebih akurat, dari restock terakhir per-suplier).
+	snapshotUsed := false
+	if produkID != "" {
+		if snapshots, err := t.store.GetAllHargaSupplierLast(ctx); err == nil && len(snapshots) > 0 {
+			allSups, _ := t.store.GetAllSupplier(ctx)
+			for field, v := range snapshots {
+				parts := strings.SplitN(field, "|", 2)
+				if len(parts) == 2 && parts[0] == produkID && v.Harga > 0 {
+					supNama := parts[1]
+					for _, s := range allSups {
+						if s.ID == parts[1] {
+							supNama = s.Nama
+							break
+						}
+					}
+					best[supNama] = v.Harga
+					snapshotUsed = true
+				}
+			}
 		}
 	}
-	if item != nil && item.Supplier != "" && item.HargaBeli > 0 {
-		if cur, ok := best[item.Supplier]; !ok || item.HargaBeli < cur {
-			best[item.Supplier] = item.HargaBeli
+
+	// Fallback ke GetAllPembelian hanya jika snapshot kosong.
+	if !snapshotUsed {
+		pembelian, _ := t.store.GetAllPembelian(ctx)
+		q := strings.ToLower(produk)
+		for _, p := range pembelian {
+			match := (produkID != "" && p.ProdukID == produkID) || strings.Contains(strings.ToLower(p.NamaProduk), q)
+			if !match || p.HargaBeli <= 0 {
+				continue
+			}
+			sup := p.Supplier
+			if sup == "" {
+				sup = "(tanpa supplier)"
+			}
+			if cur, ok := best[sup]; !ok || p.HargaBeli < cur {
+				best[sup] = p.HargaBeli
+			}
+		}
+		if item != nil && item.Supplier != "" && item.HargaBeli > 0 {
+			if cur, ok := best[item.Supplier]; !ok || item.HargaBeli < cur {
+				best[item.Supplier] = item.HargaBeli
+			}
 		}
 	}
+
 	// Override harga manual diutamakan (mengalahkan riwayat pembelian).
 	if produkID != "" {
 		if overrides, err := t.store.GetAllHargaSupplier(ctx); err == nil {

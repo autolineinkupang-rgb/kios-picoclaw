@@ -254,3 +254,22 @@ func (s *Store) SetHargaSupplier(ctx context.Context, produkID, supplier string,
 func (s *Store) DelHargaSupplier(ctx context.Context, produkID, supplier string) error {
 	return s.rdb.HDel(ctx, keyHargaSupplier, hargaSupplierField(produkID, supplier)).Err()
 }
+
+// DelHargaSupplierBySuplier menghapus semua override manual (kios:harga_supplier)
+// yang terkait dengan suplier — baik format ID maupun format nama lama.
+func (s *Store) DelHargaSupplierBySuplier(ctx context.Context, supplierID, supplierNama string) error {
+	all, err := s.rdb.HGetAll(ctx, keyHargaSupplier).Result()
+	if err != nil {
+		return err
+	}
+	for field := range all {
+		parts := strings.SplitN(field, "|", 2)
+		if len(parts) == 2 &&
+			(parts[1] == supplierID || strings.EqualFold(parts[1], supplierNama)) {
+			if err := s.rdb.HDel(ctx, keyHargaSupplier, field).Err(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
