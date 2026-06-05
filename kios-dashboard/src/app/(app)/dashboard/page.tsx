@@ -12,6 +12,7 @@ import { getAllProduk, getAllTransaksi } from "@/lib/kios";
 import {
   hitungLaba,
   metodeBayarShare,
+  modalPerJenis,
   omzetHarian,
   produkTerlaris,
   stokKritis,
@@ -43,6 +44,18 @@ export default async function DashboardPage() {
   const txHariIni = filterPeriode(transaksi, "hari_ini");
   const txMinggu = filterPeriode(transaksi, "minggu");
   const labaHariIni = hitungLaba(txHariIni, produk);
+
+  const modalSampinganHariIni = modalPerJenis(txHariIni, produk);
+
+  const LABEL_JENIS: Record<string, string> = {
+    pulsa: "Pulsa",
+    bensin: "Bensin",
+    solar: "Solar",
+    minyak_tanah: "Minyak Tanah",
+  };
+  const modalSampinganRows = (
+    ["pulsa", "bensin", "solar", "minyak_tanah"] as const
+  ).filter((j) => modalSampinganHariIni[j] > 0);
 
   // Yesterday's omzet for the trend hint.
   const y = nowWITA();
@@ -100,6 +113,23 @@ export default async function DashboardPage() {
           tone={kritis.length > 0 ? "destructive" : "success"}
         />
       </section>
+
+      {/* Modal sampingan — hanya tampil jika ada transaksi hari ini */}
+      {modalSampinganRows.length > 0 && (
+        <section className="rounded-xl border bg-card p-4">
+          <p className="mb-3 text-sm font-semibold">Modal Produk Sampingan Hari Ini</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {modalSampinganRows.map((jenis) => (
+              <div key={jenis} className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">{LABEL_JENIS[jenis]}</p>
+                <p className="font-mono text-sm font-semibold tabular-nums">
+                  {formatRupiah(modalSampinganHariIni[jenis])}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Trend + payment method */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
