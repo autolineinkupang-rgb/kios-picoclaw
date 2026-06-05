@@ -34,6 +34,8 @@ export async function saveConfigAction(input: KiosConfig): Promise<ActionResult>
     notif_enabled: Boolean(input.notif_enabled),
     notif_jam: jam,
     learn_model: (input.learn_model ?? "").trim(),
+    notif_pesanan_enabled: Boolean(input.notif_pesanan_enabled ?? true),
+    notif_piutang_enabled: Boolean(input.notif_piutang_enabled ?? true),
     qris_enabled: Boolean(input.qris_enabled),
     qris_nama: (input.qris_nama ?? "").trim().slice(0, 60),
     qris_image_url: qrisImageUrl,

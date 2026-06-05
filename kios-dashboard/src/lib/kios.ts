@@ -135,6 +135,7 @@ export async function getConfig(): Promise<KiosConfig> {
   const raw = normalize<Partial<KiosConfig>>(await redis().get<unknown>(KEY.config));
   const cfg = { ...DEFAULT_CONFIG, ...(raw ?? {}) };
   if (!cfg.notif_jam) cfg.notif_jam = "07";
+  if (cfg.notif_piutang_enabled === undefined) cfg.notif_piutang_enabled = true;
   return cfg;
 }
 

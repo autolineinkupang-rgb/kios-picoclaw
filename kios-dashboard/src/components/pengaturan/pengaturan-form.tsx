@@ -141,6 +141,20 @@ export function PengaturanForm({ config }: { config: KiosConfig }) {
 
       <Card>
         <CardHeader>
+          <CardTitle>Notifikasi Piutang Terbuka</CardTitle>
+        </CardHeader>
+        <CardContent className="divide-y">
+          <Toggle
+            checked={cfg.notif_piutang_enabled ?? true}
+            onChange={(v) => setCfg({ ...cfg, notif_piutang_enabled: v })}
+            label="Kirim pengingat piutang terbuka ke owner"
+            description="Dikirim setiap hari pada jam notif yang sama dengan notif stok. Hanya dikirim jika ada piutang yang belum dibayar."
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Pembayaran QRIS</CardTitle>
         </CardHeader>
         <CardContent className="divide-y">
