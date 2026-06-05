@@ -2,9 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { getAllProduk, getAllPiutang, getAllHutang, getAllTransaksi, setProduk } from "@/lib/kios";
+import {
+  getAllProduk,
+  getAllPiutang,
+  getAllHutang,
+  getAllTransaksi,
+  setProduk,
+  nextPiutangId,
+  setPiutang,
+  getPelanggan,
+  setPelanggan,
+  upsertPelanggan,
+} from "@/lib/kios";
 import { todayWITA } from "@/lib/format";
-import type { Produk, Piutang, Hutang, Transaksi } from "@/lib/types";
+import type { Produk, Piutang, Hutang, Transaksi, StatusBon } from "@/lib/types";
 
 export type TableRow = Record<string, string>;
 
@@ -272,4 +283,73 @@ export async function exportTransaksiAction(periode: PeriodeExport): Promise<Tra
     console.error("[exportTransaksiAction]", e);
     return [];
   }
+}
+
+export async function importPiutangAction(rows: TableRow[]): Promise<ImportResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Sesi berakhir. Silakan masuk lagi." };
+  if (session.role !== "owner") return { ok: false, error: "Impor piutang khusus pemilik (owner)." };
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "File kosong." };
+
+  let created = 0, skipped = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const baris = i + 2;
+
+    const rawPhone = pick(row, ["phone", "no_hp", "wa", "nomor_wa"]);
+    const nama = pick(row, ["nama", "name", "pelanggan"]) ?? rawPhone ?? "";
+    const pokok = toInt(pick(row, ["pokok", "total", "jumlah"]));
+    const dibayar = toInt(pick(row, ["dibayar", "bayar", "paid"])) ?? 0;
+    const tanggal = pick(row, ["tanggal", "date"]) ?? todayWITA();
+    const catatan = pick(row, ["catatan", "keterangan", "notes"]) ?? "";
+
+    if (!rawPhone || pokok === undefined || pokok <= 0) {
+      skipped++;
+      if (errors.length < 12) errors.push(`Baris ${baris}: kolom phone dan pokok wajib ada dan valid.`);
+      continue;
+    }
+
+    let pelanggan;
+    try {
+      pelanggan = await upsertPelanggan(nama || rawPhone, rawPhone);
+    } catch {
+      skipped++;
+      if (errors.length < 12) errors.push(`Baris ${baris}: nomor HP "${rawPhone}" tidak valid.`);
+      continue;
+    }
+
+    const sisa = Math.max(0, pokok - dibayar);
+    const status: StatusBon = sisa <= 0 ? "lunas" : "terbuka";
+    const id = await nextPiutangId();
+
+    const piu: Piutang = {
+      id,
+      pelanggan_id: pelanggan.id,
+      phone: pelanggan.phone,
+      pokok,
+      dibayar,
+      sisa,
+      status,
+      tanggal,
+      jam: "00:00:00",
+      kasir: session.nama ?? "impor",
+      catatan,
+    };
+    await setPiutang(piu);
+
+    if (status === "terbuka" && sisa > 0) {
+      const fresh = await getPelanggan(pelanggan.phone);
+      if (fresh) {
+        fresh.total_utang = (fresh.total_utang ?? 0) + sisa;
+        await setPelanggan(fresh);
+      }
+    }
+    created++;
+  }
+
+  revalidatePath("/pelanggan");
+  revalidatePath("/dashboard");
+  return { ok: true, created, updated: 0, skipped, errors };
 }
