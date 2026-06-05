@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +42,7 @@ func (n *NotifService) loop(ctx context.Context) {
 	n.tryNotify(ctx)
 	n.tryNotifyOrders(ctx)
 	n.tryNotifyPendingPileup(ctx)
+	n.tryNotifyPiutang(ctx)
 
 	for {
 		select {
@@ -50,6 +52,7 @@ func (n *NotifService) loop(ctx context.Context) {
 			n.tryNotify(ctx)
 			n.tryNotifyOrders(ctx)
 			n.tryNotifyPendingPileup(ctx)
+			n.tryNotifyPiutang(ctx)
 		}
 	}
 }
@@ -289,6 +292,90 @@ func (n *NotifService) tryNotifyPendingPileup(ctx context.Context) {
 	if next != state {
 		_ = n.store.rdb.Set(ctx, keyNotifPendingState, next, 0).Err()
 	}
+}
+
+// tryNotifyPiutang kirim ringkasan piutang terbuka ke owner sekali sehari.
+func (n *NotifService) tryNotifyPiutang(ctx context.Context) {
+	cfg := n.store.GetConfig(ctx)
+	if !cfg.NotifEnabled || !cfg.NotifPiutangEnabled {
+		return
+	}
+
+	now := NowWITA()
+	if now.Format("15") != cfg.NotifJam {
+		return
+	}
+
+	today := now.Format("2006-01-02")
+	lastDate, _ := n.store.rdb.Get(ctx, keyNotifPiutangLastDate).Result()
+	if lastDate == today {
+		return
+	}
+
+	_ = n.store.rdb.Set(ctx, keyNotifPiutangLastDate, today, 25*time.Hour).Err()
+
+	msg, ok := n.buildPiutangMessage(ctx)
+	if !ok {
+		return
+	}
+	n.sendToOwners(ctx, msg)
+}
+
+// buildPiutangMessage menyusun pesan Telegram daftar piutang terbuka.
+func (n *NotifService) buildPiutangMessage(ctx context.Context) (string, bool) {
+	all, err := n.store.GetAllPiutang(ctx)
+	if err != nil {
+		return "", false
+	}
+
+	var terbuka []*Piutang
+	for _, p := range all {
+		if p.Status == "terbuka" && p.Sisa > 0 {
+			terbuka = append(terbuka, p)
+		}
+	}
+	if len(terbuka) == 0 {
+		return "", false
+	}
+
+	sort.Slice(terbuka, func(i, j int) bool {
+		return terbuka[i].Tanggal < terbuka[j].Tanggal
+	})
+
+	allPelanggan, _ := n.store.GetAllPelanggan(ctx)
+	namaMap := make(map[string]string)
+	for _, p := range allPelanggan {
+		namaMap[p.Phone] = p.Nama
+	}
+
+	total := 0
+	for _, p := range terbuka {
+		total += p.Sisa
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "📋 *Piutang terbuka: %d pelanggan*\n\n", len(terbuka))
+
+	shown := terbuka
+	extra := 0
+	if len(terbuka) > 10 {
+		shown = terbuka[:10]
+		extra = len(terbuka) - 10
+	}
+
+	for _, p := range shown {
+		nama := namaMap[p.Phone]
+		if nama == "" {
+			nama = p.Phone
+		}
+		fmt.Fprintf(&b, "• %s — %s (sejak %s)\n", nama, FormatRupiah(p.Sisa), p.Tanggal)
+	}
+	if extra > 0 {
+		fmt.Fprintf(&b, "...dan %d lainnya\n", extra)
+	}
+	fmt.Fprintf(&b, "\nTotal: *%s*", FormatRupiah(total))
+
+	return b.String(), true
 }
 
 func (n *NotifService) sendToOwners(ctx context.Context, msg string) {

@@ -230,7 +230,8 @@ const (
 	keyLoginPrefix       = "kios:login:" // one-time dashboard login codes
 	keyPesanan           = "kios:pesanan"
 	keyNotifPesananLast  = "kios:notif:pesanan_last"  // highest PSN seq notified to owners
-	keyNotifPendingState = "kios:notif:pending_state" // "alerted" | "clear"
+	keyNotifPendingState    = "kios:notif:pending_state"    // "alerted" | "clear"
+	keyNotifPiutangLastDate = "kios:notif:piutang_last_date" // tanggal terakhir notif piutang dikirim
 	keyPelanggan         = "kios:pelanggan"           // HASH: field = no. WA ternormalisasi; value = Pelanggan JSON
 	keyPiutang           = "kios:piutang"
 	keyHutang            = "kios:hutang"
@@ -261,6 +262,8 @@ type KiosConfig struct {
 	NotifJam string `json:"notif_jam"`
 	// NotifPesananEnabled mengaktifkan notifikasi pesanan baru & menumpuk. Default true.
 	NotifPesananEnabled bool `json:"notif_pesanan_enabled"`
+	// NotifPiutangEnabled mengaktifkan ringkasan piutang terbuka harian ke owner. Default false.
+	NotifPiutangEnabled bool `json:"notif_piutang_enabled"`
 	// QrisEnabled menampilkan opsi pembayaran QRIS di toko & perintah /qris. Default false.
 	QrisEnabled bool `json:"qris_enabled"`
 	// QrisNama adalah nama merchant yang ditampilkan saat pembayaran QRIS (mis. "Kios Cerdas").
