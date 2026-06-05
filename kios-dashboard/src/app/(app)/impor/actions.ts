@@ -226,30 +226,50 @@ export type PeriodeExport = "hari_ini" | "7hari" | "30hari" | "semua";
 export async function exportProdukAction(): Promise<Produk[]> {
   const session = await getSession();
   if (!session || session.role !== "owner") return [];
-  return getAllProduk();
+  try {
+    return await getAllProduk();
+  } catch (e) {
+    console.error("[exportProdukAction]", e);
+    return [];
+  }
 }
 
 export async function exportPiutangAction(): Promise<Piutang[]> {
   const session = await getSession();
   if (!session || session.role !== "owner") return [];
-  return getAllPiutang();
+  try {
+    return await getAllPiutang();
+  } catch (e) {
+    console.error("[exportPiutangAction]", e);
+    return [];
+  }
 }
 
 export async function exportHutangAction(): Promise<Hutang[]> {
   const session = await getSession();
   if (!session || session.role !== "owner") return [];
-  return getAllHutang();
+  try {
+    return await getAllHutang();
+  } catch (e) {
+    console.error("[exportHutangAction]", e);
+    return [];
+  }
 }
 
 export async function exportTransaksiAction(periode: PeriodeExport): Promise<Transaksi[]> {
   const session = await getSession();
   if (!session || session.role !== "owner") return [];
-  const all = await getAllTransaksi();
-  if (periode === "semua") return all;
-  const today = todayWITA();
-  const days = periode === "hari_ini" ? 0 : periode === "7hari" ? 7 : 30;
-  const cutoff = new Date(today);
-  cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-  return all.filter((t) => t.tanggal >= cutoffStr);
+  try {
+    const all = await getAllTransaksi();
+    if (periode === "semua") return all;
+    const today = todayWITA();
+    const days = periode === "hari_ini" ? 0 : periode === "7hari" ? 7 : 30;
+    const cutoff = new Date(today);
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return all.filter((t) => t.tanggal >= cutoffStr);
+  } catch (e) {
+    console.error("[exportTransaksiAction]", e);
+    return [];
+  }
 }
