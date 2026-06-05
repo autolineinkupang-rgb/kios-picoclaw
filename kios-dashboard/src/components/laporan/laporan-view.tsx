@@ -10,6 +10,7 @@ import { MetodeBayarChart, SalesTrendChart } from "@/components/charts";
 import {
   hitungLaba,
   metodeBayarShare,
+  modalPerJenis,
   omzetHarian,
   produkTerlaris,
 } from "@/lib/analytics";
@@ -29,6 +30,7 @@ export function LaporanView({
   const laba = useMemo(() => hitungLaba(txPeriode, produk), [txPeriode, produk]);
   const top = useMemo(() => produkTerlaris(txPeriode, 10), [txPeriode]);
   const metode = useMemo(() => metodeBayarShare(txPeriode), [txPeriode]);
+  const modalJenis = useMemo(() => modalPerJenis(txPeriode, produk), [txPeriode, produk]);
   const trend = useMemo(
     () => omzetHarian(transaksi, produk, periode === "bulan" ? 30 : periode === "minggu" ? 14 : 7),
     [transaksi, produk, periode],
@@ -70,6 +72,38 @@ export function LaporanView({
           tone="primary"
         />
       </section>
+
+      {/* Modal per jenis breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Breakdown Modal</CardTitle>
+          <p className="text-xs text-muted-foreground">Modal pokok per kategori produk · {periodeLabel(periode)}</p>
+        </CardHeader>
+        <CardContent>
+          <table className="w-full text-sm">
+            <tbody className="divide-y">
+              {[
+                { label: "Produk Biasa", value: modalJenis.biasa },
+                { label: "Pulsa", value: modalJenis.pulsa },
+                { label: "Bensin", value: modalJenis.bensin },
+                { label: "Solar", value: modalJenis.solar },
+                { label: "Minyak Tanah", value: modalJenis.minyak_tanah },
+              ]
+                .filter((row) => row.value > 0)
+                .map((row) => (
+                  <tr key={row.label}>
+                    <td className="py-2 text-muted-foreground">{row.label}</td>
+                    <td className="py-2 text-right font-mono tabular-nums">{formatRupiah(row.value)}</td>
+                  </tr>
+                ))}
+              <tr className="font-semibold">
+                <td className="py-2 pt-3">Total Modal</td>
+                <td className="py-2 pt-3 text-right font-mono tabular-nums">{formatRupiah(modalJenis.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
