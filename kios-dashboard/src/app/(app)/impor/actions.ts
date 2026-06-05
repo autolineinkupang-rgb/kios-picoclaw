@@ -7,9 +7,12 @@ import {
   getAllPiutang,
   getAllHutang,
   getAllTransaksi,
+  getAllSuplier,
   setProduk,
   nextPiutangId,
   setPiutang,
+  nextHutangId,
+  setHutang,
   getPelanggan,
   setPelanggan,
   upsertPelanggan,
@@ -355,6 +358,71 @@ export async function importPiutangAction(rows: TableRow[]): Promise<ImportResul
   }
 
   revalidatePath("/pelanggan");
+  revalidatePath("/dashboard");
+  return { ok: true, created, updated: 0, skipped, errors };
+}
+
+export async function importHutangAction(rows: TableRow[]): Promise<ImportResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Sesi berakhir. Silakan masuk lagi." };
+  if (session.role !== "owner") return { ok: false, error: "Impor hutang khusus pemilik (owner)." };
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "File kosong." };
+
+  const allSuplier = await getAllSuplier();
+  const supById = new Map(allSuplier.map((s) => [s.id, s]));
+  const supByNama = new Map(allSuplier.map((s) => [s.nama.trim().toLowerCase(), s]));
+
+  let created = 0, skipped = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const baris = i + 2;
+
+    const supIdRaw = pick(row, ["supplier_id", "id_supplier"]);
+    const supNamaRaw = pick(row, ["supplier", "nama_supplier", "pemasok"]);
+    const pokok = toInt(pick(row, ["pokok", "total", "jumlah"]));
+    const dibayar = toInt(pick(row, ["dibayar", "bayar", "paid"])) ?? 0;
+    const tanggal = pick(row, ["tanggal", "date"]) ?? todayWITA();
+    const jatuhTempo = pick(row, ["jatuh_tempo", "tempo", "due_date"]) ?? "";
+    const catatan = pick(row, ["catatan", "keterangan", "notes"]) ?? "";
+
+    const sup =
+      (supIdRaw && supById.get(supIdRaw)) ||
+      (supNamaRaw && supByNama.get(supNamaRaw.trim().toLowerCase()));
+
+    if (!sup || pokok === undefined || pokok <= 0) {
+      skipped++;
+      if (errors.length < 12)
+        errors.push(`Baris ${baris}: supplier tidak ditemukan atau pokok tidak valid.`);
+      continue;
+    }
+
+    const sisa = Math.max(0, pokok - dibayar);
+    const status: StatusBon = sisa <= 0 ? "lunas" : "terbuka";
+
+    try {
+      const id = await nextHutangId();
+      const hut: Hutang = {
+        id,
+        supplier_id: sup.id,
+        pokok,
+        dibayar,
+        sisa,
+        status,
+        tanggal,
+        catatan,
+        ...(jatuhTempo ? { jatuh_tempo: jatuhTempo } : {}),
+      };
+      await setHutang(hut);
+      created++;
+    } catch (e) {
+      skipped++;
+      if (errors.length < 12)
+        errors.push(`Baris ${baris}: gagal menyimpan — ${e instanceof Error ? e.message : "kesalahan tidak diketahui"}.`);
+    }
+  }
+
   revalidatePath("/dashboard");
   return { ok: true, created, updated: 0, skipped, errors };
 }
