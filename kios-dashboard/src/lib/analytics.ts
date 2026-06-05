@@ -1,5 +1,5 @@
-import { filterPeriode, nowWITA, formatDateISO } from "./format";
-import type { Periode, Produk, Transaksi } from "./types";
+import { filterPeriode, nowWITA, formatDateISO } from "./format.ts";
+import type { Periode, Produk, Transaksi } from "./types.ts";
 
 export interface LabaResult {
   omzet: number;
@@ -125,4 +125,40 @@ export function metodeBayarShare(txs: Transaksi[]): MetodeShare[] {
     agg.set(key, cur);
   }
   return [...agg.values()].sort((a, b) => b.total - a.total);
+}
+
+/** Parses the product kind from the catatan field written by recordSale.
+ * Format: "via dashboard [<jenis>]" → jenis; anything else → "biasa". */
+export function jenisFromCatatan(catatan: string): string {
+  const m = catatan.match(/\[(\w+)\]/);
+  return m ? m[1] : "biasa";
+}
+
+export interface ModalPerJenis {
+  biasa: number;
+  pulsa: number;
+  bensin: number;
+  solar: number;
+  minyak_tanah: number;
+  total: number;
+}
+
+/** Modal breakdown per product kind using tx.modal when set (accurate), falling
+ * back to qty * current harga_beli for old bot transactions. */
+export function modalPerJenis(txs: Transaksi[], produk: Produk[]): ModalPerJenis {
+  const beli = new Map<string, number>();
+  for (const p of produk) beli.set(p.id, p.harga_beli);
+
+  const result: ModalPerJenis = { biasa: 0, pulsa: 0, bensin: 0, solar: 0, minyak_tanah: 0, total: 0 };
+  for (const tx of txs) {
+    const m = tx.modal && tx.modal > 0 ? tx.modal : tx.qty * (beli.get(tx.produk_id) ?? 0);
+    const jenis = jenisFromCatatan(tx.catatan);
+    if (jenis === "pulsa" || jenis === "bensin" || jenis === "solar" || jenis === "minyak_tanah") {
+      result[jenis] += m;
+    } else {
+      result.biasa += m;
+    }
+    result.total += m;
+  }
+  return result;
 }
