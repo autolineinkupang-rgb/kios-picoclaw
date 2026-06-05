@@ -387,6 +387,16 @@ export async function nextPayId(): Promise<string> {
   return `PAY-${String(n).padStart(4, "0")}`;
 }
 
+export async function nextPiutangId(): Promise<string> {
+  const n = await redis().incr(KEY.seqPiu);
+  return `PIU-${String(n).padStart(4, "0")}`;
+}
+
+export async function nextHutangId(): Promise<string> {
+  const n = await redis().incr(KEY.seqHut);
+  return `HUT-${String(n).padStart(4, "0")}`;
+}
+
 // ── Pulsa Denom ───────────────────────────────────────────────────────────────
 
 export async function getAllPulsaDenom(): Promise<PulsaDenom[]> {
