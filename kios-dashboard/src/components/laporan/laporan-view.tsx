@@ -16,14 +16,16 @@ import {
   produkTerlaris,
 } from "@/lib/analytics";
 import { filterPeriode, formatNumber, formatRupiah, periodeLabel } from "@/lib/format";
-import type { Periode, Produk, Transaksi } from "@/lib/types";
+import type { Periode, Produk, SampinganSaldo, Transaksi } from "@/lib/types";
 
 export function LaporanView({
   transaksi,
   produk,
+  saldoKategori,
 }: {
   transaksi: Transaksi[];
   produk: Produk[];
+  saldoKategori?: SampinganSaldo;
 }) {
   const [periode, setPeriode] = useState<Periode>("minggu");
 
@@ -187,7 +189,7 @@ export function LaporanView({
         </Card>
       </section>
 
-      <LaporanPulsaBensin transaksi={transaksi} produk={produk} />
+      <LaporanPulsaBensin transaksi={transaksi} produk={produk} saldoKategori={saldoKategori} />
     </div>
   );
 }

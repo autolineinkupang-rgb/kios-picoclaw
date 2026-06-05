@@ -51,4 +51,5 @@ export const KEY = {
   seqPtu: "kios:seq:ptu",
   penarikan: "kios:penarikan",
   seqPrk: "kios:seq:prk",
+  sampinganSaldo: "kios:sampingan:saldo",
 } as const;

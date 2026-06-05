@@ -32,13 +32,13 @@ function jenisOfTx(tx: Transaksi, byId: Map<string, Produk>): string {
   return byId.get(tx.produk_id)?.jenis ?? "biasa";
 }
 
-export function laporanPulsa(txs: Transaksi[], produk: Produk[]): ModuleLaporan {
+export function laporanPulsa(txs: Transaksi[], produk: Produk[], currentSaldo?: number): ModuleLaporan {
   const byId = new Map(produk.map((p) => [p.id, p]));
   const pulsaTxs = txs.filter((tx) => jenisOfTx(tx, byId) === "pulsa");
 
-  const current_stock = produk
-    .filter((p) => p.jenis === "pulsa")
-    .reduce((sum, p) => sum + (p.saldo_modal ?? 0), 0);
+  const current_stock = currentSaldo !== undefined
+    ? currentSaldo
+    : produk.filter((p) => p.jenis === "pulsa").reduce((sum, p) => sum + (p.saldo_modal ?? 0), 0);
   const stock_used = pulsaTxs.reduce((sum, tx) => sum + (tx.modal ?? 0), 0);
   const total_stock_in = current_stock + stock_used;
   const usage_pct = total_stock_in > 0 ? (stock_used / total_stock_in) * 100 : 0;
@@ -91,13 +91,13 @@ export function laporanPulsa(txs: Transaksi[], produk: Produk[]): ModuleLaporan 
 
 const BBM_JENIS = new Set(["bensin", "solar", "minyak_tanah"]);
 
-export function laporanBensin(txs: Transaksi[], produk: Produk[]): ModuleLaporan {
+export function laporanBensin(txs: Transaksi[], produk: Produk[], currentSaldo?: number): ModuleLaporan {
   const byId = new Map(produk.map((p) => [p.id, p]));
   const bensinTxs = txs.filter((tx) => BBM_JENIS.has(jenisOfTx(tx, byId)));
 
-  const current_stock = produk
-    .filter((p) => p.jenis && BBM_JENIS.has(p.jenis))
-    .reduce((sum, p) => sum + p.stok, 0);
+  const current_stock = currentSaldo !== undefined
+    ? currentSaldo
+    : produk.filter((p) => p.jenis && BBM_JENIS.has(p.jenis)).reduce((sum, p) => sum + p.stok, 0);
   const stock_used = bensinTxs.reduce((sum, tx) => sum + (tx.liter ?? tx.qty), 0);
   const total_stock_in = current_stock + stock_used;
   const usage_pct = total_stock_in > 0 ? (stock_used / total_stock_in) * 100 : 0;

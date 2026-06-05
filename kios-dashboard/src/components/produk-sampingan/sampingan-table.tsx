@@ -2,38 +2,79 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDownToLine, CheckCircle2, Loader2, Package, Pencil, Plus, PlusCircle, Search, Settings2, Trash2, TriangleAlert } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  CheckCircle2,
+  Loader2,
+  Package,
+  Pencil,
+  Plus,
+  PlusCircle,
+  Search,
+  Settings2,
+  Trash2,
+  TriangleAlert,
+  TrendingUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SampinganForm } from "./sampingan-form";
-import { deleteSampinganAction, setAmbangBatasAction, tarikHasilAction, topupSaldoAction, topupStokAction, type ActionResult } from "@/app/(app)/produk-sampingan/actions";
+import {
+  deleteSampinganAction,
+  setAmbangBatasKategoriAction,
+  tarikHasilAction,
+  topupSaldoAction,
+  topupStokAction,
+  type ActionResult,
+  type JenisSampingan,
+} from "@/app/(app)/produk-sampingan/actions";
 import { Label } from "@/components/ui/input";
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import { produkImage } from "@/lib/produk-image";
-import { STATUS_META, stokStatus } from "@/lib/produk-status";
 import { cn, matchesQuery } from "@/lib/utils";
-import type { Produk } from "@/lib/types";
+import type { Produk, SampinganSaldo } from "@/lib/types";
 
-type JenisFilter = "" | "pulsa" | "bensin" | "solar" | "minyak_tanah";
+type JenisFilter = "" | JenisSampingan;
 
-const JENIS_META: Record<string, { label: string; variant: "accent" | "warning" | "secondary" | "success" }> = {
-  pulsa: { label: "Pulsa", variant: "accent" },
-  bensin: { label: "Bensin", variant: "warning" },
-  solar: { label: "Solar", variant: "secondary" },
-  minyak_tanah: { label: "Minyak Tanah", variant: "success" },
+const JENIS_META: Record<JenisSampingan, {
+  label: string;
+  icon: string;
+  unit: string;
+  isPulsa: boolean;
+  variant: "accent" | "warning" | "secondary" | "success";
+}> = {
+  pulsa: { label: "Pulsa", icon: "📶", unit: "Rp", isPulsa: true, variant: "accent" },
+  bensin: { label: "Bensin", icon: "⛽", unit: "liter", isPulsa: false, variant: "warning" },
+  solar: { label: "Solar", icon: "🛢️", unit: "liter", isPulsa: false, variant: "secondary" },
+  minyak_tanah: { label: "Minyak Tanah", icon: "🪔", unit: "liter", isPulsa: false, variant: "success" },
 };
+
+const ALL_JENIS: JenisSampingan[] = ["pulsa", "bensin", "solar", "minyak_tanah"];
+
+function formatSaldo(jenis: JenisSampingan, nilai: number): string {
+  return jenis === "pulsa"
+    ? formatRupiah(nilai)
+    : `${nilai.toLocaleString("id-ID")} L`;
+}
+
+function getMinKey(jenis: JenisSampingan): keyof SampinganSaldo {
+  return `min_${jenis}` as keyof SampinganSaldo;
+}
 
 export function SampinganTable({
   produk,
   canManage,
   labaTersedia = 0,
+  saldo,
 }: {
   produk: Produk[];
   canManage: boolean;
   labaTersedia?: number;
+  saldo: SampinganSaldo;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -42,18 +83,41 @@ export function SampinganTable({
   const [deleteTarget, setDeleteTarget] = useState<Produk | null>(null);
   const [toast, setToast] = useState<ActionResult | null>(null);
   const [pendingDelete, startDelete] = useTransition();
-  const [topupTarget, setTopupTarget] = useState<Produk | null>(null);
+
+  // category-level topup state
+  const [topupJenis, setTopupJenis] = useState<JenisSampingan | null>(null);
   const [topupJumlah, setTopupJumlah] = useState("");
   const [topupCatatan, setTopupCatatan] = useState("");
   const [topupFromLaba, setTopupFromLaba] = useState(false);
   const [pendingTopup, startTopup] = useTransition();
-  const [minTarget, setMinTarget] = useState<Produk | null>(null);
+
+  // category-level min threshold state
+  const [minJenis, setMinJenis] = useState<JenisSampingan | null>(null);
   const [minNilai, setMinNilai] = useState("");
   const [pendingMin, startMin] = useTransition();
-  const [tarikTarget, setTarikTarget] = useState<Produk | null>(null);
+
+  // category-level tarik hasil state
+  const [tarikJenis, setTarikJenis] = useState<JenisSampingan | null>(null);
   const [tarikJumlah, setTarikJumlah] = useState("");
   const [tarikCatatan, setTarikCatatan] = useState("");
   const [pendingTarik, startTarik] = useTransition();
+
+  // jenis present in produk list
+  const jenisPresent = useMemo(() => {
+    const s = new Set(produk.map((p) => p.jenis as JenisSampingan));
+    return ALL_JENIS.filter((j) => s.has(j));
+  }, [produk]);
+
+  // avg harga_beli per jenis (for fromLaba cost hint in BBM topup)
+  const avgHargaBeli = useMemo(() => {
+    const out: Partial<Record<JenisSampingan, number>> = {};
+    for (const j of jenisPresent) {
+      const matched = produk.filter((p) => p.jenis === j && p.harga_beli > 0);
+      if (matched.length > 0)
+        out[j] = Math.round(matched.reduce((s, p) => s + p.harga_beli, 0) / matched.length);
+    }
+    return out;
+  }, [produk, jenisPresent]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -86,8 +150,8 @@ export function SampinganTable({
     });
   }
 
-  function openTopup(p: Produk) {
-    setTopupTarget(p);
+  function openTopup(jenis: JenisSampingan) {
+    setTopupJenis(jenis);
     setTopupJumlah("");
     setTopupCatatan("");
     setTopupFromLaba(false);
@@ -95,63 +159,153 @@ export function SampinganTable({
 
   function runTopup(e: React.FormEvent) {
     e.preventDefault();
-    if (!topupTarget) return;
+    if (!topupJenis) return;
     const jumlah = Number(topupJumlah);
     if (!jumlah || jumlah <= 0) return;
-    const target = topupTarget;
+    const jenis = topupJenis;
     startTopup(async () => {
       const r =
-        target.jenis === "pulsa"
-          ? await topupSaldoAction(target.id, jumlah, topupCatatan, topupFromLaba)
-          : await topupStokAction(target.id, jumlah, topupCatatan, topupFromLaba);
-      setTopupTarget(null);
+        jenis === "pulsa"
+          ? await topupSaldoAction("pulsa", jumlah, topupCatatan, topupFromLaba)
+          : await topupStokAction(jenis, jumlah, topupCatatan, topupFromLaba);
+      setTopupJenis(null);
       showToast(r);
       if (r.ok) router.refresh();
     });
   }
 
-  function openMin(p: Produk) {
-    setMinTarget(p);
-    const current = p.jenis === "pulsa" ? (p.saldo_minimum ?? 0) : p.stok_minimum;
+  function openMin(jenis: JenisSampingan) {
+    setMinJenis(jenis);
+    const current = (saldo[getMinKey(jenis)] as number | undefined) ?? 0;
     setMinNilai(current > 0 ? String(current) : "");
   }
 
   function runSetMin(e: React.FormEvent) {
     e.preventDefault();
-    if (!minTarget) return;
+    if (!minJenis) return;
     const nilai = Number(minNilai);
     if (!Number.isFinite(nilai) || nilai < 0) return;
-    const target = minTarget;
+    const jenis = minJenis;
     startMin(async () => {
-      const r = await setAmbangBatasAction(target.id, nilai);
-      setMinTarget(null);
+      const r = await setAmbangBatasKategoriAction(jenis, nilai);
+      setMinJenis(null);
       showToast(r);
       if (r.ok) router.refresh();
     });
   }
 
-  function openTarik(p: Produk) {
-    setTarikTarget(p);
+  function openTarik(jenis: JenisSampingan) {
+    setTarikJenis(jenis);
     setTarikJumlah("");
     setTarikCatatan("");
   }
 
   function runTarik(e: React.FormEvent) {
     e.preventDefault();
-    if (!tarikTarget) return;
+    if (!tarikJenis) return;
     const jumlah = Number(tarikJumlah);
     if (!jumlah || jumlah <= 0) return;
-    const target = tarikTarget;
+    const jenis = tarikJenis;
     startTarik(async () => {
-      const r = await tarikHasilAction(target.id, target.nama, jumlah, tarikCatatan);
-      setTarikTarget(null);
+      const r = await tarikHasilAction(jenis, jumlah, tarikCatatan);
+      setTarikJenis(null);
       showToast(r);
       if (r.ok) router.refresh();
     });
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Laba tersedia banner */}
+      <div className="flex items-center gap-3 rounded-xl border border-violet-500/25 bg-violet-500/8 px-4 py-3">
+        <TrendingUp className="size-5 shrink-0 text-violet-500" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground">Laba Tersedia (bisa ditarik)</p>
+          <p className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+            {formatRupiah(labaTersedia)}
+          </p>
+        </div>
+        {labaTersedia <= 0 && (
+          <span className="text-xs text-muted-foreground">Belum ada laba</span>
+        )}
+      </div>
+
+      {/* Category saldo cards */}
+      {jenisPresent.length > 0 && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {jenisPresent.map((jenis) => {
+            const meta = JENIS_META[jenis];
+            const nilaiSaldo = saldo[jenis] as number;
+            const minKey = getMinKey(jenis);
+            const minNilaiSaldo = (saldo[minKey] as number | undefined) ?? 0;
+            const belowMin = minNilaiSaldo > 0 && nilaiSaldo < minNilaiSaldo;
+            return (
+              <div
+                key={jenis}
+                className={cn(
+                  "rounded-xl border bg-card p-4 space-y-3",
+                  belowMin && "border-destructive/40",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{meta.icon}</span>
+                    <span className="font-semibold text-sm">{meta.label}</span>
+                  </div>
+                  {belowMin && (
+                    <span title="Saldo/stok di bawah ambang batas">
+                      <AlertTriangle className="size-4 text-destructive" />
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xl font-bold tabular-nums">
+                    {formatSaldo(jenis, nilaiSaldo)}
+                  </p>
+                  {minNilaiSaldo > 0 && (
+                    <p className={cn("text-xs", belowMin ? "text-destructive" : "text-muted-foreground")}>
+                      min {formatSaldo(jenis, minNilaiSaldo)}
+                    </p>
+                  )}
+                </div>
+
+                {canManage && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => openTopup(jenis)}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-md bg-success/10 px-2 py-1.5 text-xs font-medium text-success hover:bg-success/20"
+                    >
+                      <PlusCircle className="size-3.5" />
+                      {jenis === "pulsa" ? "Topup" : "Tambah"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openTarik(jenis)}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-500/20"
+                    >
+                      <ArrowDownToLine className="size-3.5" />
+                      Tarik
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openMin(jenis)}
+                      aria-label="Atur ambang batas"
+                      title="Atur Ambang Batas"
+                      className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-amber-600"
+                    >
+                      <Settings2 className="size-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Search/filter bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -205,13 +359,11 @@ export function SampinganTable({
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="p-3 font-medium">Produk</th>
                 <th className="p-3 font-medium">Jenis</th>
-                <th className="p-3 font-medium">Stok</th>
-                <th className="p-3 font-medium">Status</th>
                 <th className="p-3 text-right font-medium">Harga Beli</th>
                 <th className="p-3 text-right font-medium">Harga Jual</th>
                 <th className="p-3 font-medium">Update</th>
@@ -220,8 +372,7 @@ export function SampinganTable({
             </thead>
             <tbody>
               {rows.map((p) => {
-                const st = STATUS_META[stokStatus(p)];
-                const jenisMeta = JENIS_META[p.jenis ?? ""] ?? null;
+                const jenisMeta = JENIS_META[p.jenis as JenisSampingan] ?? null;
                 return (
                   <tr key={p.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
                     <td className="p-3">
@@ -244,105 +395,42 @@ export function SampinganTable({
                     <td className="p-3">
                       {jenisMeta && <Badge variant={jenisMeta.variant}>{jenisMeta.label}</Badge>}
                     </td>
-                    <td className="p-3 font-mono tabular-nums">
-                      {p.jenis === "pulsa" ? (
-                        <div>
-                          {p.saldo_modal !== undefined ? (
-                            <div className="flex items-center gap-1.5">
-                              <span>{formatRupiah(p.saldo_modal)}</span>
-                              {(p.saldo_minimum ?? 0) > 0 && p.saldo_modal < (p.saldo_minimum ?? 0) && (
-                                <span title={`Di bawah ambang batas (min Rp ${(p.saldo_minimum ?? 0).toLocaleString("id-ID")})`}>
-                                  <AlertTriangle className="size-3.5 text-destructive" />
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                          {(p.saldo_minimum ?? 0) > 0 && (
-                            <p className="text-xs text-muted-foreground">min {formatRupiah(p.saldo_minimum!)}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span>{p.stok} <span className="text-xs text-muted-foreground">{p.satuan}</span></span>
-                            {p.stok_minimum > 0 && p.stok <= p.stok_minimum && (
-                              <span title={`Di bawah ambang batas (min ${p.stok_minimum} ${p.satuan})`}>
-                                <AlertTriangle className="size-3.5 text-destructive" />
-                              </span>
-                            )}
-                          </div>
-                          {p.stok_minimum > 0 && (
-                            <p className="text-xs text-muted-foreground">min {p.stok_minimum} {p.satuan}</p>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <Badge variant={st.variant}>{st.label}</Badge>
-                    </td>
                     <td className="p-3 text-right font-mono tabular-nums text-muted-foreground">
                       {formatRupiah(p.harga_beli)}
+                      {p.jenis !== "pulsa" && (
+                        <p className="text-xs">/liter</p>
+                      )}
                     </td>
                     <td className="p-3 text-right font-mono tabular-nums">
                       {formatRupiah(p.harga_jual)}
+                      {p.jenis !== "pulsa" && (
+                        <p className="text-xs text-muted-foreground">/liter</p>
+                      )}
                     </td>
                     <td className="p-3 text-xs text-muted-foreground">
                       {formatTanggal(p.last_update)}
                     </td>
                     {canManage && (
                       <td className="p-3">
-                        <div className="flex flex-col items-end gap-1.5">
-                          {/* Primary actions — labeled */}
-                          <div className="flex gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openTopup(p)}
-                              className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success hover:bg-success/20"
-                            >
-                              <PlusCircle className="size-3.5" />
-                              {p.jenis === "pulsa" ? "Topup Saldo" : "Tambah Stok"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openTarik(p)}
-                              className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-500/20"
-                            >
-                              <ArrowDownToLine className="size-3.5" />
-                              Tarik Hasil
-                            </button>
-                          </div>
-                          {/* Secondary actions — icon-only */}
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openMin(p)}
-                              aria-label="Atur ambang batas"
-                              title="Atur Ambang Batas"
-                              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-amber-600"
-                            >
-                              <Settings2 className="size-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDialog({ mode: "edit", produk: p })}
-                              aria-label={`Edit ${p.nama}`}
-                              title="Edit produk"
-                              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              <Pencil className="size-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteTarget(p)}
-                              aria-label={`Hapus ${p.nama}`}
-                              title="Hapus produk"
-                              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </div>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setDialog({ mode: "edit", produk: p })}
+                            aria-label={`Edit ${p.nama}`}
+                            title="Edit produk"
+                            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(p)}
+                            aria-label={`Hapus ${p.nama}`}
+                            title="Hapus produk"
+                            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
                         </div>
                       </td>
                     )}
@@ -354,6 +442,7 @@ export function SampinganTable({
         </div>
       )}
 
+      {/* Add / Edit modal */}
       <Modal
         open={dialog !== null}
         onClose={() => setDialog(null)}
@@ -365,6 +454,7 @@ export function SampinganTable({
         )}
       </Modal>
 
+      {/* Delete modal */}
       <Modal
         open={deleteTarget !== null}
         onClose={() => !pendingDelete && setDeleteTarget(null)}
@@ -386,136 +476,20 @@ export function SampinganTable({
         </div>
       </Modal>
 
-      <Modal
-        open={tarikTarget !== null}
-        onClose={() => !pendingTarik && setTarikTarget(null)}
-        title={`Tarik Hasil — ${tarikTarget?.nama}`}
-        description={`Laba tersedia: Rp ${labaTersedia.toLocaleString("id-ID")}`}
-        className="max-w-sm"
-      >
-        {tarikTarget && (
-          <form onSubmit={runTarik} className="space-y-4">
-            {labaTersedia <= 0 ? (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
-                Belum ada laba yang bisa ditarik saat ini.
-              </p>
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tarik-jumlah">
-                    Jumlah yang ditarik (Rp) <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="tarik-jumlah"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={labaTersedia}
-                    value={tarikJumlah}
-                    onChange={(e) => setTarikJumlah(e.target.value)}
-                    placeholder={`maks Rp ${labaTersedia.toLocaleString("id-ID")}`}
-                    className="font-mono tabular-nums"
-                    autoFocus
-                    required
-                  />
-                  {Number(tarikJumlah) > labaTersedia && (
-                    <p className="text-xs text-destructive">Melebihi laba tersedia.</p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tarik-catatan">Catatan (opsional)</Label>
-                  <Input
-                    id="tarik-catatan"
-                    value={tarikCatatan}
-                    onChange={(e) => setTarikCatatan(e.target.value)}
-                    placeholder="mis. ambil tunai untuk kebutuhan"
-                  />
-                </div>
-              </>
-            )}
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" size="sm" onClick={() => setTarikTarget(null)} disabled={pendingTarik}>
-                Batal
-              </Button>
-              {labaTersedia > 0 && (
-                <Button
-                  type="submit"
-                  variant="accent"
-                  size="sm"
-                  disabled={pendingTarik || !tarikJumlah || Number(tarikJumlah) > labaTersedia}
-                >
-                  {pendingTarik && <Loader2 className="size-4 animate-spin" />}
-                  Tarik Hasil
-                </Button>
-              )}
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      <Modal
-        open={minTarget !== null}
-        onClose={() => !pendingMin && setMinTarget(null)}
-        title={`Atur Ambang Batas — ${minTarget?.nama}`}
-        description={
-          minTarget?.jenis === "pulsa"
-            ? "Alert muncul jika saldo modal turun di bawah nilai ini."
-            : "Alert muncul jika stok turun di bawah nilai ini."
-        }
-        className="max-w-sm"
-      >
-        {minTarget && (
-          <form onSubmit={runSetMin} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="min-nilai">
-                {minTarget.jenis === "pulsa" ? "Minimal Saldo (Rp)" : `Minimal Stok (${minTarget.satuan})`}
-              </Label>
-              <Input
-                id="min-nilai"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={minNilai}
-                onChange={(e) => setMinNilai(e.target.value)}
-                placeholder={minTarget.jenis === "pulsa" ? "mis. 50000" : "mis. 20"}
-                className="font-mono tabular-nums"
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                Isi 0 untuk menonaktifkan alert.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" size="sm" onClick={() => setMinTarget(null)} disabled={pendingMin}>
-                Batal
-              </Button>
-              <Button type="submit" variant="accent" size="sm" disabled={pendingMin || minNilai === ""}>
-                {pendingMin && <Loader2 className="size-4 animate-spin" />}
-                Simpan
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      <Modal
-        open={topupTarget !== null}
-        onClose={() => !pendingTopup && setTopupTarget(null)}
-        title={
-          topupTarget?.jenis === "pulsa"
-            ? `Tambah Saldo — ${topupTarget?.nama}`
-            : `Tambah Liter — ${topupTarget?.nama}`
-        }
-        description={
-          topupTarget?.jenis === "pulsa"
-            ? `Saldo saat ini: Rp ${(topupTarget?.saldo_modal ?? 0).toLocaleString("id-ID")}`
-            : `Stok saat ini: ${topupTarget?.stok ?? 0} liter`
-        }
-        className="max-w-sm"
-      >
-        {topupTarget && (
+      {/* Topup / Tambah Stok modal */}
+      {topupJenis && (
+        <Modal
+          open={true}
+          onClose={() => !pendingTopup && setTopupJenis(null)}
+          title={
+            topupJenis === "pulsa"
+              ? `Topup Saldo ${JENIS_META[topupJenis].label}`
+              : `Tambah Stok ${JENIS_META[topupJenis].label}`
+          }
+          description={`Saldo saat ini: ${formatSaldo(topupJenis, saldo[topupJenis] as number)}`}
+          className="max-w-sm"
+        >
           <form onSubmit={runTopup} className="space-y-4">
-            {/* Sumber dana */}
             <div className="space-y-1.5">
               <Label>Sumber Dana</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -542,7 +516,7 @@ export function SampinganTable({
                 >
                   <p className="font-medium">Dari Laba</p>
                   <p className="text-xs opacity-70">
-                    Tersedia: Rp {labaTersedia.toLocaleString("id-ID")}
+                    Tersedia: {formatRupiah(labaTersedia)}
                   </p>
                 </button>
               </div>
@@ -553,7 +527,7 @@ export function SampinganTable({
 
             <div className="space-y-1.5">
               <Label htmlFor="topup-jumlah">
-                {topupTarget.jenis === "pulsa" ? "Jumlah Saldo (Rp)" : "Jumlah Liter"}
+                {topupJenis === "pulsa" ? "Jumlah Saldo (Rp)" : "Jumlah (Liter)"}
                 <span className="text-destructive"> *</span>
               </Label>
               <Input
@@ -563,35 +537,31 @@ export function SampinganTable({
                 min={1}
                 value={topupJumlah}
                 onChange={(e) => setTopupJumlah(e.target.value)}
-                placeholder={topupTarget.jenis === "pulsa" ? "mis. 100000" : "mis. 50"}
+                placeholder={topupJenis === "pulsa" ? "mis. 100000" : "mis. 50"}
                 className="font-mono tabular-nums"
                 autoFocus
                 required
               />
-              {topupFromLaba && topupTarget.jenis !== "pulsa" && topupTarget.harga_beli > 0 && Number(topupJumlah) > 0 && (
+              {topupFromLaba && topupJenis !== "pulsa" && avgHargaBeli[topupJenis] && Number(topupJumlah) > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Biaya modal: Rp {(Number(topupJumlah) * topupTarget.harga_beli).toLocaleString("id-ID")}
-                  {" "}(@ Rp {topupTarget.harga_beli.toLocaleString("id-ID")}/L)
+                  Biaya modal: {formatRupiah(Number(topupJumlah) * (avgHargaBeli[topupJenis] ?? 0))}
+                  {" "}(@ {formatRupiah(avgHargaBeli[topupJenis] ?? 0)}/L)
                 </p>
               )}
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="topup-catatan">Catatan (opsional)</Label>
               <Input
                 id="topup-catatan"
                 value={topupCatatan}
                 onChange={(e) => setTopupCatatan(e.target.value)}
-                placeholder={topupFromLaba ? "mis. reinvest laba bulan ini" : "mis. dari agen Telkomsel"}
+                placeholder={topupFromLaba ? "mis. reinvest laba bulan ini" : "mis. dari agen"}
               />
             </div>
+
             <div className="flex justify-end gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setTopupTarget(null)}
-                disabled={pendingTopup}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => setTopupJenis(null)} disabled={pendingTopup}>
                 Batal
               </Button>
               <Button
@@ -601,12 +571,124 @@ export function SampinganTable({
                 disabled={pendingTopup || !topupJumlah || (topupFromLaba && labaTersedia <= 0)}
               >
                 {pendingTopup && <Loader2 className="size-4 animate-spin" />}
-                {topupTarget.jenis === "pulsa" ? "Tambah Saldo" : "Tambah Liter"}
+                {topupJenis === "pulsa" ? "Topup Saldo" : "Tambah Stok"}
               </Button>
             </div>
           </form>
-        )}
-      </Modal>
+        </Modal>
+      )}
+
+      {/* Tarik Hasil modal */}
+      {tarikJenis && (
+        <Modal
+          open={true}
+          onClose={() => !pendingTarik && setTarikJenis(null)}
+          title={`Tarik Hasil — ${JENIS_META[tarikJenis].label}`}
+          description={`Laba tersedia: ${formatRupiah(labaTersedia)}`}
+          className="max-w-sm"
+        >
+          <form onSubmit={runTarik} className="space-y-4">
+            {labaTersedia <= 0 ? (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                Belum ada laba yang bisa ditarik saat ini.
+              </p>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tarik-jumlah">
+                    Jumlah yang ditarik (Rp) <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="tarik-jumlah"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={labaTersedia}
+                    value={tarikJumlah}
+                    onChange={(e) => setTarikJumlah(e.target.value)}
+                    placeholder={`maks ${formatRupiah(labaTersedia)}`}
+                    className="font-mono tabular-nums"
+                    autoFocus
+                    required
+                  />
+                  {Number(tarikJumlah) > labaTersedia && (
+                    <p className="text-xs text-destructive">Melebihi laba tersedia.</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tarik-catatan">Catatan (opsional)</Label>
+                  <Input
+                    id="tarik-catatan"
+                    value={tarikCatatan}
+                    onChange={(e) => setTarikCatatan(e.target.value)}
+                    placeholder="mis. ambil tunai untuk kebutuhan"
+                  />
+                </div>
+              </>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => setTarikJenis(null)} disabled={pendingTarik}>
+                Batal
+              </Button>
+              {labaTersedia > 0 && (
+                <Button
+                  type="submit"
+                  variant="accent"
+                  size="sm"
+                  disabled={pendingTarik || !tarikJumlah || Number(tarikJumlah) > labaTersedia}
+                >
+                  {pendingTarik && <Loader2 className="size-4 animate-spin" />}
+                  Tarik Hasil
+                </Button>
+              )}
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Atur Ambang Batas modal */}
+      {minJenis && (
+        <Modal
+          open={true}
+          onClose={() => !pendingMin && setMinJenis(null)}
+          title={`Atur Ambang Batas — ${JENIS_META[minJenis].label}`}
+          description={
+            minJenis === "pulsa"
+              ? "Alert muncul jika saldo modal turun di bawah nilai ini."
+              : "Alert muncul jika stok turun di bawah nilai ini."
+          }
+          className="max-w-sm"
+        >
+          <form onSubmit={runSetMin} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="min-nilai">
+                {minJenis === "pulsa" ? "Minimal Saldo (Rp)" : "Minimal Stok (liter)"}
+              </Label>
+              <Input
+                id="min-nilai"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minNilai}
+                onChange={(e) => setMinNilai(e.target.value)}
+                placeholder={minJenis === "pulsa" ? "mis. 50000" : "mis. 20"}
+                className="font-mono tabular-nums"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">Isi 0 untuk menonaktifkan alert.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => setMinJenis(null)} disabled={pendingMin}>
+                Batal
+              </Button>
+              <Button type="submit" variant="accent" size="sm" disabled={pendingMin || minNilai === ""}>
+                {pendingMin && <Loader2 className="size-4 animate-spin" />}
+                Simpan
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {toast && (
         <div

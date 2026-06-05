@@ -17,6 +17,7 @@ import type {
   PulsaDenom,
   PulsaTopup,
   Penarikan,
+  SampinganSaldo,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -444,4 +445,22 @@ export async function pushPenarikan(p: Penarikan): Promise<void> {
 export async function getPulsaAnchor(): Promise<Produk | null> {
   const all = await getAllProduk();
   return all.find((p) => p.jenis === "pulsa") ?? null;
+}
+
+// ── Sampingan Saldo (universal per-category balance) ─────────────────────────
+
+const SAMPINGAN_SALDO_DEFAULT: SampinganSaldo = {
+  pulsa: 0, bensin: 0, solar: 0, minyak_tanah: 0,
+};
+
+export async function getSampinganSaldo(): Promise<SampinganSaldo | null> {
+  return normalize<SampinganSaldo>(await redis().get<unknown>(KEY.sampinganSaldo));
+}
+
+export async function setSampinganSaldo(s: SampinganSaldo): Promise<void> {
+  await redis().set(KEY.sampinganSaldo, s);
+}
+
+export async function getOrInitSampinganSaldo(): Promise<SampinganSaldo> {
+  return (await getSampinganSaldo()) ?? { ...SAMPINGAN_SALDO_DEFAULT };
 }

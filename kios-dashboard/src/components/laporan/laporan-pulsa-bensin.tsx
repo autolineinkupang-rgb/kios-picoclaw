@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { laporanBensin, laporanPulsa } from "@/lib/analytics";
 import { formatNumber, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import type { ModuleLaporan } from "@/lib/analytics";
-import type { Produk, Transaksi } from "@/lib/types";
+import type { Produk, SampinganSaldo, Transaksi } from "@/lib/types";
 
 function TooltipBox({ children }: { children: React.ReactNode }) {
   return (
@@ -222,12 +222,24 @@ function ModuleCard({
 export function LaporanPulsaBensin({
   transaksi,
   produk,
+  saldoKategori,
 }: {
   transaksi: Transaksi[];
   produk: Produk[];
+  saldoKategori?: SampinganSaldo;
 }) {
-  const pulsa = useMemo(() => laporanPulsa(transaksi, produk), [transaksi, produk]);
-  const bensin = useMemo(() => laporanBensin(transaksi, produk), [transaksi, produk]);
+  const pulsaSaldo = saldoKategori?.pulsa;
+  const bensinSaldo = saldoKategori
+    ? saldoKategori.bensin + saldoKategori.solar + saldoKategori.minyak_tanah
+    : undefined;
+  const pulsa = useMemo(
+    () => laporanPulsa(transaksi, produk, pulsaSaldo),
+    [transaksi, produk, pulsaSaldo],
+  );
+  const bensin = useMemo(
+    () => laporanBensin(transaksi, produk, bensinSaldo),
+    [transaksi, produk, bensinSaldo],
+  );
 
   const hasPulsa = pulsa.total_stock_in > 0 || pulsa.revenue_month > 0;
   const hasBensin = bensin.total_stock_in > 0 || bensin.revenue_month > 0;

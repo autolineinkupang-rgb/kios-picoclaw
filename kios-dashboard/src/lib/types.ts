@@ -215,6 +215,17 @@ export interface KiosConfig {
   wa_number: string; // kios WhatsApp number (buyer contact / order confirmation)
 }
 
+export interface SampinganSaldo {
+  pulsa: number;             // Rp saldo modal universal
+  bensin: number;            // liter
+  solar: number;             // liter
+  minyak_tanah: number;      // liter
+  min_pulsa?: number;        // alert threshold Rp
+  min_bensin?: number;       // alert threshold liter
+  min_solar?: number;
+  min_minyak_tanah?: number;
+}
+
 export interface Penarikan {
   id: string;        // "PRK-0001"
   tanggal: string;   // YYYY-MM-DD WITA
