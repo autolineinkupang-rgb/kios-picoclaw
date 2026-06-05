@@ -396,7 +396,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                   {result.piutang_id && (
                     <p className="text-sm text-muted-foreground">
                       Piutang: <span className="font-mono font-medium">{result.piutang_id}</span>
-                      {" · "}Rp {formatRupiah(result.total)} (belum dibayar)
+                      {" · "}{formatRupiah(result.total)} (belum dibayar)
                     </p>
                   )}
                 </div>
