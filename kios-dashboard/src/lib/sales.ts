@@ -1,5 +1,5 @@
 import { getAllProduk, nextTrxId, pushTransaksi, setProduk } from "./kios";
-import { timeWITA, todayWITA } from "./format";
+import { timeWITA, todayWITA, formatRupiah } from "./format";
 import type { Transaksi } from "./types";
 
 export interface SaleItemInput {
@@ -8,12 +8,14 @@ export interface SaleItemInput {
 }
 
 export interface SaleLine {
-  id: string; // transaction id
+  id: string;
   nama: string;
   qty: number;
   harga: number;
   subtotal: number;
   sisa: number;
+  jenis?: string;
+  catatan_sampingan?: string;
 }
 
 export type SaleResult =
@@ -64,6 +66,10 @@ export async function recordSale(
   for (const [id, q] of wanted) {
     const p = byId.get(id)!;
     const sub = q * p.harga_jual;
+    const modal = p.harga_beli * q;
+    const jenis = p.jenis && p.jenis !== "biasa" ? p.jenis : undefined;
+    const catatanTx = jenis ? `${catatan} [${jenis}]` : catatan;
+
     const txId = await nextTrxId();
     const tx: Transaksi = {
       id: txId,
@@ -77,15 +83,37 @@ export async function recordSale(
       total: sub,
       metode_bayar: m,
       kasir: kasirNama,
-      catatan,
+      catatan: catatanTx,
       session_id: "",
+      modal,
+      ...(jenis === "bensin" ? { liter: q } : {}),
     };
     await pushTransaksi(tx);
+
     p.stok -= q;
     p.last_update = today;
+
+    let catatan_sampingan: string | undefined;
+    if (jenis === "pulsa") {
+      const debit = p.harga_beli * q;
+      p.saldo_modal = Math.max(0, (p.saldo_modal ?? 0) - debit);
+      catatan_sampingan = `saldo modal -${formatRupiah(debit)}`;
+    } else if (jenis === "bensin") {
+      p.stok_ml = Math.max(0, (p.stok_ml ?? 0) - q * 1000);
+    }
+
     await setProduk(p);
     total += sub;
-    lines.push({ id: txId, nama: p.nama, qty: q, harga: p.harga_jual, subtotal: sub, sisa: p.stok });
+    lines.push({
+      id: txId,
+      nama: p.nama,
+      qty: q,
+      harga: p.harga_jual,
+      subtotal: sub,
+      sisa: p.stok,
+      ...(jenis ? { jenis } : {}),
+      ...(catatan_sampingan ? { catatan_sampingan } : {}),
+    });
   }
 
   return { ok: true, total, lines };
