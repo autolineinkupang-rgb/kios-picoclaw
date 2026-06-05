@@ -415,6 +415,15 @@ export async function getAllPulsaTopup(): Promise<PulsaTopup[]> {
   return normalizeList<PulsaTopup>(vals);
 }
 
+export async function nextPulsaTopupId(): Promise<string> {
+  const n = await redis().incr(KEY.seqPtu);
+  return `PTU-${String(n).padStart(4, "0")}`;
+}
+
+export async function pushPulsaTopup(t: PulsaTopup): Promise<void> {
+  await redis().rpush(KEY.pulsaTopup, t);
+}
+
 export async function getPulsaAnchor(): Promise<Produk | null> {
   const all = await getAllProduk();
   return all.find((p) => p.jenis === "pulsa") ?? null;

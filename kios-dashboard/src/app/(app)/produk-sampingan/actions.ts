@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { delProduk, getProduk, nextProdukId, setProduk } from "@/lib/kios";
-import { todayWITA } from "@/lib/format";
+import { delProduk, getProduk, nextProdukId, nextPulsaTopupId, pushPulsaTopup, setProduk } from "@/lib/kios";
+import { timeWITA, todayWITA } from "@/lib/format";
 import type { Produk } from "@/lib/types";
 
 export type JenisSampingan = "pulsa" | "bensin" | "solar" | "minyak_tanah";
@@ -151,4 +151,68 @@ export async function deleteSampinganAction(id: string): Promise<ActionResult> {
   await delProduk(id);
   revalidate();
   return { ok: true, message: `Produk sampingan "${existing.nama}" dihapus.` };
+}
+
+export async function topupSaldoAction(
+  produkId: string,
+  jumlah: number,
+  catatan = "",
+): Promise<ActionResult> {
+  const denied = await ensureOwner();
+  if (denied) return denied;
+  if (!Number.isFinite(jumlah) || jumlah <= 0)
+    return { ok: false, error: "Jumlah harus lebih dari 0." };
+
+  const session = await getSession();
+  const p = await getProduk(produkId);
+  if (!p) return { ok: false, error: "Produk tidak ditemukan." };
+  if (p.jenis !== "pulsa") return { ok: false, error: "Bukan produk pulsa." };
+
+  const sebelum = p.saldo_modal ?? 0;
+  p.saldo_modal = sebelum + Math.trunc(jumlah);
+  p.last_update = todayWITA();
+  await setProduk(p);
+
+  const id = await nextPulsaTopupId();
+  await pushPulsaTopup({
+    id,
+    tanggal: todayWITA(),
+    jam: timeWITA(),
+    jumlah: Math.trunc(jumlah),
+    saldo_sesudah: p.saldo_modal,
+    kasir: session?.nama ?? "owner",
+    catatan: catatan.trim() || `topup saldo ${p.nama}`,
+  });
+
+  revalidate();
+  revalidatePath("/laporan");
+  revalidatePath("/produk-sampingan");
+  return { ok: true, message: `Saldo "${p.nama}" +Rp ${jumlah.toLocaleString("id-ID")} → total Rp ${p.saldo_modal.toLocaleString("id-ID")}.` };
+}
+
+export async function topupStokAction(
+  produkId: string,
+  jumlah: number,
+  catatan = "",
+): Promise<ActionResult> {
+  const denied = await ensureOwner();
+  if (denied) return denied;
+  if (!Number.isFinite(jumlah) || jumlah <= 0)
+    return { ok: false, error: "Jumlah harus lebih dari 0." };
+
+  const p = await getProduk(produkId);
+  if (!p) return { ok: false, error: "Produk tidak ditemukan." };
+  const isBBM = p.jenis === "bensin" || p.jenis === "solar" || p.jenis === "minyak_tanah";
+  if (!isBBM) return { ok: false, error: "Bukan produk BBM." };
+
+  const tambah = Math.trunc(jumlah);
+  p.stok += tambah;
+  if (p.stok_ml !== undefined) p.stok_ml += tambah * 1000;
+  p.last_update = todayWITA();
+  await setProduk(p);
+
+  revalidate();
+  revalidatePath("/laporan");
+  revalidatePath("/produk-sampingan");
+  return { ok: true, message: `Stok "${p.nama}" +${tambah} liter → total ${p.stok} liter. ${catatan.trim()}` };
 }

@@ -2,14 +2,15 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, Package, Pencil, Plus, Search, Trash2, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Loader2, Package, Pencil, Plus, PlusCircle, Search, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SampinganForm } from "./sampingan-form";
-import { deleteSampinganAction, type ActionResult } from "@/app/(app)/produk-sampingan/actions";
+import { deleteSampinganAction, topupSaldoAction, topupStokAction, type ActionResult } from "@/app/(app)/produk-sampingan/actions";
+import { Label } from "@/components/ui/input";
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import { produkImage } from "@/lib/produk-image";
 import { STATUS_META, stokStatus } from "@/lib/produk-status";
@@ -39,6 +40,10 @@ export function SampinganTable({
   const [deleteTarget, setDeleteTarget] = useState<Produk | null>(null);
   const [toast, setToast] = useState<ActionResult | null>(null);
   const [pendingDelete, startDelete] = useTransition();
+  const [topupTarget, setTopupTarget] = useState<Produk | null>(null);
+  const [topupJumlah, setTopupJumlah] = useState("");
+  const [topupCatatan, setTopupCatatan] = useState("");
+  const [pendingTopup, startTopup] = useTransition();
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -66,6 +71,29 @@ export function SampinganTable({
     startDelete(async () => {
       const r = await deleteSampinganAction(target.id);
       setDeleteTarget(null);
+      showToast(r);
+      if (r.ok) router.refresh();
+    });
+  }
+
+  function openTopup(p: Produk) {
+    setTopupTarget(p);
+    setTopupJumlah("");
+    setTopupCatatan("");
+  }
+
+  function runTopup(e: React.FormEvent) {
+    e.preventDefault();
+    if (!topupTarget) return;
+    const jumlah = Number(topupJumlah);
+    if (!jumlah || jumlah <= 0) return;
+    const target = topupTarget;
+    startTopup(async () => {
+      const r =
+        target.jenis === "pulsa"
+          ? await topupSaldoAction(target.id, jumlah, topupCatatan)
+          : await topupStokAction(target.id, jumlah, topupCatatan);
+      setTopupTarget(null);
       showToast(r);
       if (r.ok) router.refresh();
     });
@@ -193,6 +221,15 @@ export function SampinganTable({
                         <div className="flex justify-end gap-1">
                           <button
                             type="button"
+                            onClick={() => openTopup(p)}
+                            aria-label={p.jenis === "pulsa" ? `Tambah saldo ${p.nama}` : `Tambah liter ${p.nama}`}
+                            title={p.jenis === "pulsa" ? "Tambah Saldo" : "Tambah Liter"}
+                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-success/10 hover:text-success"
+                          >
+                            <PlusCircle className="size-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setDialog({ mode: "edit", produk: p })}
                             aria-label={`Edit ${p.nama}`}
                             className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -248,6 +285,69 @@ export function SampinganTable({
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={topupTarget !== null}
+        onClose={() => !pendingTopup && setTopupTarget(null)}
+        title={
+          topupTarget?.jenis === "pulsa"
+            ? `Tambah Saldo — ${topupTarget?.nama}`
+            : `Tambah Liter — ${topupTarget?.nama}`
+        }
+        description={
+          topupTarget?.jenis === "pulsa"
+            ? `Saldo saat ini: Rp ${(topupTarget?.saldo_modal ?? 0).toLocaleString("id-ID")}`
+            : `Stok saat ini: ${topupTarget?.stok ?? 0} liter`
+        }
+        className="max-w-sm"
+      >
+        {topupTarget && (
+          <form onSubmit={runTopup} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="topup-jumlah">
+                {topupTarget.jenis === "pulsa" ? "Jumlah Saldo (Rp)" : "Jumlah Liter"}
+                <span className="text-destructive"> *</span>
+              </Label>
+              <Input
+                id="topup-jumlah"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={topupJumlah}
+                onChange={(e) => setTopupJumlah(e.target.value)}
+                placeholder={topupTarget.jenis === "pulsa" ? "mis. 100000" : "mis. 50"}
+                className="font-mono tabular-nums"
+                autoFocus
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="topup-catatan">Catatan (opsional)</Label>
+              <Input
+                id="topup-catatan"
+                value={topupCatatan}
+                onChange={(e) => setTopupCatatan(e.target.value)}
+                placeholder="mis. dari agen Telkomsel"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setTopupTarget(null)}
+                disabled={pendingTopup}
+              >
+                Batal
+              </Button>
+              <Button type="submit" variant="accent" size="sm" disabled={pendingTopup || !topupJumlah}>
+                {pendingTopup && <Loader2 className="size-4 animate-spin" />}
+                {topupTarget.jenis === "pulsa" ? "Tambah Saldo" : "Tambah Liter"}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {toast && (
