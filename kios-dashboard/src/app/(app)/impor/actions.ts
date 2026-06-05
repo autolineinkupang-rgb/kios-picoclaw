@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { getAllProduk, setProduk } from "@/lib/kios";
+import { getAllProduk, getAllPiutang, getAllHutang, getAllTransaksi, setProduk } from "@/lib/kios";
 import { todayWITA } from "@/lib/format";
-import type { Produk } from "@/lib/types";
+import type { Produk, Piutang, Hutang, Transaksi } from "@/lib/types";
 
 export type TableRow = Record<string, string>;
 
@@ -217,4 +217,39 @@ export async function importStokAction(rows: TableRow[]): Promise<ImportResult> 
   revalidatePath("/produk");
   revalidatePath("/dashboard");
   return { ok: true, created: 0, updated, skipped, errors };
+}
+
+// ── Export actions ────────────────────────────────────────────────────────────
+
+export type PeriodeExport = "hari_ini" | "7hari" | "30hari" | "semua";
+
+export async function exportProdukAction(): Promise<Produk[]> {
+  const session = await getSession();
+  if (!session || session.role !== "owner") return [];
+  return getAllProduk();
+}
+
+export async function exportPiutangAction(): Promise<Piutang[]> {
+  const session = await getSession();
+  if (!session || session.role !== "owner") return [];
+  return getAllPiutang();
+}
+
+export async function exportHutangAction(): Promise<Hutang[]> {
+  const session = await getSession();
+  if (!session || session.role !== "owner") return [];
+  return getAllHutang();
+}
+
+export async function exportTransaksiAction(periode: PeriodeExport): Promise<Transaksi[]> {
+  const session = await getSession();
+  if (!session || session.role !== "owner") return [];
+  const all = await getAllTransaksi();
+  if (periode === "semua") return all;
+  const today = todayWITA();
+  const days = periode === "hari_ini" ? 0 : periode === "7hari" ? 7 : 30;
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return all.filter((t) => t.tanggal >= cutoffStr);
 }
