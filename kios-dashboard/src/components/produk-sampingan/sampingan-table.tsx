@@ -2,14 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Loader2, Package, Pencil, Plus, PlusCircle, Search, Settings2, Trash2, TriangleAlert } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, CheckCircle2, Loader2, Package, Pencil, Plus, PlusCircle, Search, Settings2, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SampinganForm } from "./sampingan-form";
-import { deleteSampinganAction, setAmbangBatasAction, topupSaldoAction, topupStokAction, type ActionResult } from "@/app/(app)/produk-sampingan/actions";
+import { deleteSampinganAction, setAmbangBatasAction, tarikHasilAction, topupSaldoAction, topupStokAction, type ActionResult } from "@/app/(app)/produk-sampingan/actions";
 import { Label } from "@/components/ui/input";
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import { produkImage } from "@/lib/produk-image";
@@ -50,6 +50,10 @@ export function SampinganTable({
   const [minTarget, setMinTarget] = useState<Produk | null>(null);
   const [minNilai, setMinNilai] = useState("");
   const [pendingMin, startMin] = useTransition();
+  const [tarikTarget, setTarikTarget] = useState<Produk | null>(null);
+  const [tarikJumlah, setTarikJumlah] = useState("");
+  const [tarikCatatan, setTarikCatatan] = useState("");
+  const [pendingTarik, startTarik] = useTransition();
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -121,6 +125,26 @@ export function SampinganTable({
     startMin(async () => {
       const r = await setAmbangBatasAction(target.id, nilai);
       setMinTarget(null);
+      showToast(r);
+      if (r.ok) router.refresh();
+    });
+  }
+
+  function openTarik(p: Produk) {
+    setTarikTarget(p);
+    setTarikJumlah("");
+    setTarikCatatan("");
+  }
+
+  function runTarik(e: React.FormEvent) {
+    e.preventDefault();
+    if (!tarikTarget) return;
+    const jumlah = Number(tarikJumlah);
+    if (!jumlah || jumlah <= 0) return;
+    const target = tarikTarget;
+    startTarik(async () => {
+      const r = await tarikHasilAction(target.id, target.nama, jumlah, tarikCatatan);
+      setTarikTarget(null);
       showToast(r);
       if (r.ok) router.refresh();
     });
@@ -269,41 +293,56 @@ export function SampinganTable({
                     </td>
                     {canManage && (
                       <td className="p-3">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openTopup(p)}
-                            aria-label={p.jenis === "pulsa" ? `Tambah saldo ${p.nama}` : `Tambah stok ${p.nama}`}
-                            title={p.jenis === "pulsa" ? "Tambah Saldo" : "Tambah Stok"}
-                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-success/10 hover:text-success"
-                          >
-                            <PlusCircle className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openMin(p)}
-                            aria-label={`Atur ambang batas ${p.nama}`}
-                            title="Atur Ambang Batas"
-                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-amber-500/10 hover:text-amber-600"
-                          >
-                            <Settings2 className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDialog({ mode: "edit", produk: p })}
-                            aria-label={`Edit ${p.nama}`}
-                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(p)}
-                            aria-label={`Hapus ${p.nama}`}
-                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
+                        <div className="flex flex-col items-end gap-1.5">
+                          {/* Primary actions — labeled */}
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openTopup(p)}
+                              className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success hover:bg-success/20"
+                            >
+                              <PlusCircle className="size-3.5" />
+                              {p.jenis === "pulsa" ? "Topup Saldo" : "Tambah Stok"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openTarik(p)}
+                              className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-500/20"
+                            >
+                              <ArrowDownToLine className="size-3.5" />
+                              Tarik Hasil
+                            </button>
+                          </div>
+                          {/* Secondary actions — icon-only */}
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openMin(p)}
+                              aria-label="Atur ambang batas"
+                              title="Atur Ambang Batas"
+                              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-amber-600"
+                            >
+                              <Settings2 className="size-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDialog({ mode: "edit", produk: p })}
+                              aria-label={`Edit ${p.nama}`}
+                              title="Edit produk"
+                              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              <Pencil className="size-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(p)}
+                              aria-label={`Hapus ${p.nama}`}
+                              title="Hapus produk"
+                              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </td>
                     )}
@@ -345,6 +384,73 @@ export function SampinganTable({
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={tarikTarget !== null}
+        onClose={() => !pendingTarik && setTarikTarget(null)}
+        title={`Tarik Hasil — ${tarikTarget?.nama}`}
+        description={`Laba tersedia: Rp ${labaTersedia.toLocaleString("id-ID")}`}
+        className="max-w-sm"
+      >
+        {tarikTarget && (
+          <form onSubmit={runTarik} className="space-y-4">
+            {labaTersedia <= 0 ? (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                Belum ada laba yang bisa ditarik saat ini.
+              </p>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tarik-jumlah">
+                    Jumlah yang ditarik (Rp) <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="tarik-jumlah"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={labaTersedia}
+                    value={tarikJumlah}
+                    onChange={(e) => setTarikJumlah(e.target.value)}
+                    placeholder={`maks Rp ${labaTersedia.toLocaleString("id-ID")}`}
+                    className="font-mono tabular-nums"
+                    autoFocus
+                    required
+                  />
+                  {Number(tarikJumlah) > labaTersedia && (
+                    <p className="text-xs text-destructive">Melebihi laba tersedia.</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tarik-catatan">Catatan (opsional)</Label>
+                  <Input
+                    id="tarik-catatan"
+                    value={tarikCatatan}
+                    onChange={(e) => setTarikCatatan(e.target.value)}
+                    placeholder="mis. ambil tunai untuk kebutuhan"
+                  />
+                </div>
+              </>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => setTarikTarget(null)} disabled={pendingTarik}>
+                Batal
+              </Button>
+              {labaTersedia > 0 && (
+                <Button
+                  type="submit"
+                  variant="accent"
+                  size="sm"
+                  disabled={pendingTarik || !tarikJumlah || Number(tarikJumlah) > labaTersedia}
+                >
+                  {pendingTarik && <Loader2 className="size-4 animate-spin" />}
+                  Tarik Hasil
+                </Button>
+              )}
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Modal

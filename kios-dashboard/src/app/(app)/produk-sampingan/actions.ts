@@ -177,6 +177,40 @@ async function computeLabaTersedia(): Promise<number> {
   return Math.max(0, totalLaba - totalTarik);
 }
 
+export async function tarikHasilAction(
+  produkId: string,
+  produkNama: string,
+  jumlah: number,
+  catatan = "",
+): Promise<ActionResult> {
+  const denied = await ensureOwner();
+  if (denied) return denied;
+  if (!Number.isFinite(jumlah) || jumlah <= 0)
+    return { ok: false, error: "Jumlah harus lebih dari 0." };
+
+  const tersedia = await computeLabaTersedia();
+  if (jumlah > tersedia)
+    return { ok: false, error: `Laba tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
+
+  const session = await getSession();
+  const prkId = await nextPenarikandId();
+  await pushPenarikan({
+    id: prkId,
+    tanggal: todayWITA(),
+    jam: timeWITA(),
+    jumlah: Math.trunc(jumlah),
+    produk_id: produkId,
+    produk_nama: produkNama,
+    kasir: session?.nama ?? "owner",
+    catatan: catatan.trim() || `tarik hasil ${produkNama}`,
+  });
+
+  revalidate();
+  revalidatePath("/laporan");
+  revalidatePath("/produk-sampingan");
+  return { ok: true, message: `Berhasil tarik Rp ${jumlah.toLocaleString("id-ID")} dari laba "${produkNama}".` };
+}
+
 export async function setAmbangBatasAction(
   produkId: string,
   nilai: number,
