@@ -8,7 +8,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { getAllProduk, getAllTransaksi } from "@/lib/kios";
+import { getAllPiutang, getAllProduk, getAllTransaksi } from "@/lib/kios";
 import {
   hitungLaba,
   metodeBayarShare,
@@ -34,12 +34,16 @@ export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  let produk, transaksi;
+  let produk, transaksi, allPiutang;
   try {
-    [produk, transaksi] = await Promise.all([getAllProduk(), getAllTransaksi()]);
+    [produk, transaksi, allPiutang] = await Promise.all([getAllProduk(), getAllTransaksi(), getAllPiutang()]);
   } catch (e) {
     return <ConnectionError message={e instanceof Error ? e.message : String(e)} />;
   }
+
+  const piutangTerbuka = allPiutang.filter((p) => p.status === "terbuka" && p.sisa > 0);
+  const totalPiutang = piutangTerbuka.reduce((sum, p) => sum + p.sisa, 0);
+  const pelangganBerhutang = new Set(piutangTerbuka.map((p) => p.pelanggan_id)).size;
 
   const txHariIni = filterPeriode(transaksi, "hari_ini");
   const txMinggu = filterPeriode(transaksi, "minggu");
@@ -112,6 +116,19 @@ export default async function DashboardPage() {
           icon={AlertTriangle}
           tone={kritis.length > 0 ? "destructive" : "success"}
         />
+        {totalPiutang > 0 && (
+          <Link href="/pelanggan">
+            <Card className="hover:bg-muted/30 transition-colors cursor-pointer border-destructive/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Piutang Terbuka</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold tabular-nums text-destructive">{formatRupiah(totalPiutang)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{pelangganBerhutang} pelanggan</p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
       </section>
 
       {/* Modal sampingan — hanya tampil jika ada transaksi hari ini */}

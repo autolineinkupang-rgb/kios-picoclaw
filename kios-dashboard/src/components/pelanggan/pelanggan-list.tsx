@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserRound } from "lucide-react";
+import { AlertTriangle, Search, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,7 +10,13 @@ import { formatRupiah } from "@/lib/format";
 import { matchesQuery } from "@/lib/utils";
 import type { Pelanggan } from "@/lib/types";
 
-export function PelangganList({ pelanggan }: { pelanggan: Pelanggan[] }) {
+interface PelangganListProps {
+  pelanggan: Pelanggan[];
+  totalPiutang?: number;
+  pelangganBerhutang?: number;
+}
+
+export function PelangganList({ pelanggan, totalPiutang, pelangganBerhutang }: PelangganListProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
@@ -22,6 +28,15 @@ export function PelangganList({ pelanggan }: { pelanggan: Pelanggan[] }) {
 
   return (
     <div className="space-y-3">
+      {(totalPiutang ?? 0) > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0 text-warning" />
+          <span>
+            <span className="font-medium">{pelangganBerhutang ?? 0} pelanggan</span> belum bayar ·{" "}
+            Total piutang <span className="font-mono font-medium">{formatRupiah(totalPiutang ?? 0)}</span>
+          </span>
+        </div>
+      )}
       <div className="relative max-w-sm">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
