@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { getAllProduk, getAllTransaksi } from "@/lib/kios";
+import { getAllPenarikan, getAllProduk, getAllTransaksi } from "@/lib/kios";
 import { getSession } from "@/lib/auth";
 import { ConnectionError } from "@/components/connection-error";
 import { SampinganTable } from "@/components/produk-sampingan/sampingan-table";
 import { LaporanPulsaBensin } from "@/components/laporan/laporan-pulsa-bensin";
+import { hitungLaba } from "@/lib/analytics";
 
 export const metadata: Metadata = { title: "Produk Sampingan" };
 export const dynamic = "force-dynamic";
@@ -12,11 +13,18 @@ const JENIS_SAMPINGAN = new Set(["pulsa", "bensin", "solar", "minyak_tanah"]);
 
 export default async function ProdukSampinganPage() {
   const session = await getSession();
-  let produk, transaksi;
+  let produk, transaksi, labaTersedia: number;
   try {
-    const [all, txs] = await Promise.all([getAllProduk(), getAllTransaksi()]);
-    produk = all.filter((p) => JENIS_SAMPINGAN.has(p.jenis ?? ""));
+    const [allProduk, txs, penarikan] = await Promise.all([
+      getAllProduk(),
+      getAllTransaksi(),
+      getAllPenarikan(),
+    ]);
+    produk = allProduk.filter((p) => JENIS_SAMPINGAN.has(p.jenis ?? ""));
     transaksi = txs;
+    const totalLaba = hitungLaba(txs, allProduk).laba;
+    const totalTarik = penarikan.reduce((s, p) => s + p.jumlah, 0);
+    labaTersedia = Math.max(0, totalLaba - totalTarik);
   } catch (e) {
     return <ConnectionError message={e instanceof Error ? e.message : String(e)} />;
   }
@@ -34,7 +42,7 @@ export default async function ProdukSampinganPage() {
         </p>
       </div>
       <LaporanPulsaBensin transaksi={transaksi} produk={produk} />
-      <SampinganTable produk={produk} canManage={canManage} />
+      <SampinganTable produk={produk} canManage={canManage} labaTersedia={labaTersedia} />
     </div>
   );
 }

@@ -29,9 +29,11 @@ const JENIS_META: Record<string, { label: string; variant: "accent" | "warning" 
 export function SampinganTable({
   produk,
   canManage,
+  labaTersedia = 0,
 }: {
   produk: Produk[];
   canManage: boolean;
+  labaTersedia?: number;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -43,6 +45,7 @@ export function SampinganTable({
   const [topupTarget, setTopupTarget] = useState<Produk | null>(null);
   const [topupJumlah, setTopupJumlah] = useState("");
   const [topupCatatan, setTopupCatatan] = useState("");
+  const [topupFromLaba, setTopupFromLaba] = useState(false);
   const [pendingTopup, startTopup] = useTransition();
 
   const rows = useMemo(() => {
@@ -80,6 +83,7 @@ export function SampinganTable({
     setTopupTarget(p);
     setTopupJumlah("");
     setTopupCatatan("");
+    setTopupFromLaba(false);
   }
 
   function runTopup(e: React.FormEvent) {
@@ -91,8 +95,8 @@ export function SampinganTable({
     startTopup(async () => {
       const r =
         target.jenis === "pulsa"
-          ? await topupSaldoAction(target.id, jumlah, topupCatatan)
-          : await topupStokAction(target.id, jumlah, topupCatatan);
+          ? await topupSaldoAction(target.id, jumlah, topupCatatan, topupFromLaba)
+          : await topupStokAction(target.id, jumlah, topupCatatan, topupFromLaba);
       setTopupTarget(null);
       showToast(r);
       if (r.ok) router.refresh();
@@ -304,6 +308,42 @@ export function SampinganTable({
       >
         {topupTarget && (
           <form onSubmit={runTopup} className="space-y-4">
+            {/* Sumber dana */}
+            <div className="space-y-1.5">
+              <Label>Sumber Dana</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTopupFromLaba(false)}
+                  className={`rounded-lg border px-3 py-2.5 text-sm text-left transition-colors ${
+                    !topupFromLaba
+                      ? "border-accent bg-accent/10 font-medium text-accent"
+                      : "border-border text-muted-foreground hover:border-accent/40"
+                  }`}
+                >
+                  <p className="font-medium">Dana Sendiri</p>
+                  <p className="text-xs opacity-70">Modal / uang tunai</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTopupFromLaba(true)}
+                  className={`rounded-lg border px-3 py-2.5 text-sm text-left transition-colors ${
+                    topupFromLaba
+                      ? "border-success bg-success/10 font-medium text-success"
+                      : "border-border text-muted-foreground hover:border-success/40"
+                  }`}
+                >
+                  <p className="font-medium">Dari Laba</p>
+                  <p className="text-xs opacity-70">
+                    Tersedia: Rp {labaTersedia.toLocaleString("id-ID")}
+                  </p>
+                </button>
+              </div>
+              {topupFromLaba && labaTersedia <= 0 && (
+                <p className="text-xs text-destructive">Laba tersedia tidak cukup.</p>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="topup-jumlah">
                 {topupTarget.jenis === "pulsa" ? "Jumlah Saldo (Rp)" : "Jumlah Liter"}
@@ -321,6 +361,12 @@ export function SampinganTable({
                 autoFocus
                 required
               />
+              {topupFromLaba && topupTarget.jenis !== "pulsa" && topupTarget.harga_beli > 0 && Number(topupJumlah) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Biaya modal: Rp {(Number(topupJumlah) * topupTarget.harga_beli).toLocaleString("id-ID")}
+                  {" "}(@ Rp {topupTarget.harga_beli.toLocaleString("id-ID")}/L)
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="topup-catatan">Catatan (opsional)</Label>
@@ -328,7 +374,7 @@ export function SampinganTable({
                 id="topup-catatan"
                 value={topupCatatan}
                 onChange={(e) => setTopupCatatan(e.target.value)}
-                placeholder="mis. dari agen Telkomsel"
+                placeholder={topupFromLaba ? "mis. reinvest laba bulan ini" : "mis. dari agen Telkomsel"}
               />
             </div>
             <div className="flex justify-end gap-2 pt-1">
@@ -341,7 +387,12 @@ export function SampinganTable({
               >
                 Batal
               </Button>
-              <Button type="submit" variant="accent" size="sm" disabled={pendingTopup || !topupJumlah}>
+              <Button
+                type="submit"
+                variant="accent"
+                size="sm"
+                disabled={pendingTopup || !topupJumlah || (topupFromLaba && labaTersedia <= 0)}
+              >
                 {pendingTopup && <Loader2 className="size-4 animate-spin" />}
                 {topupTarget.jenis === "pulsa" ? "Tambah Saldo" : "Tambah Liter"}
               </Button>

@@ -16,6 +16,7 @@ import type {
   Pembayaran,
   PulsaDenom,
   PulsaTopup,
+  Penarikan,
 } from "./types";
 
 // Values may come back from @upstash/redis already parsed (objects) or, if the
@@ -422,6 +423,22 @@ export async function nextPulsaTopupId(): Promise<string> {
 
 export async function pushPulsaTopup(t: PulsaTopup): Promise<void> {
   await redis().rpush(KEY.pulsaTopup, t);
+}
+
+// ── Penarikan Modal ───────────────────────────────────────────────────────────
+
+export async function getAllPenarikan(): Promise<Penarikan[]> {
+  const vals = await redis().lrange<unknown>(KEY.penarikan, 0, -1);
+  return normalizeList<Penarikan>(vals);
+}
+
+export async function nextPenarikandId(): Promise<string> {
+  const n = await redis().incr(KEY.seqPrk);
+  return `PRK-${String(n).padStart(4, "0")}`;
+}
+
+export async function pushPenarikan(p: Penarikan): Promise<void> {
+  await redis().rpush(KEY.penarikan, p);
 }
 
 export async function getPulsaAnchor(): Promise<Produk | null> {

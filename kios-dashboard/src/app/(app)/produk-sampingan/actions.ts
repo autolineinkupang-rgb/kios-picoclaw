@@ -2,8 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { delProduk, getProduk, nextProdukId, nextPulsaTopupId, pushPulsaTopup, setProduk } from "@/lib/kios";
+import {
+  delProduk,
+  getAllPenarikan,
+  getAllProduk,
+  getAllTransaksi,
+  getProduk,
+  nextPenarikandId,
+  nextProdukId,
+  nextPulsaTopupId,
+  pushPenarikan,
+  pushPulsaTopup,
+  setProduk,
+} from "@/lib/kios";
 import { timeWITA, todayWITA } from "@/lib/format";
+import { hitungLaba } from "@/lib/analytics";
 import type { Produk } from "@/lib/types";
 
 export type JenisSampingan = "pulsa" | "bensin" | "solar" | "minyak_tanah";
@@ -153,15 +166,33 @@ export async function deleteSampinganAction(id: string): Promise<ActionResult> {
   return { ok: true, message: `Produk sampingan "${existing.nama}" dihapus.` };
 }
 
+async function computeLabaTersedia(): Promise<number> {
+  const [txs, produk, penarikan] = await Promise.all([
+    getAllTransaksi(),
+    getAllProduk(),
+    getAllPenarikan(),
+  ]);
+  const totalLaba = hitungLaba(txs, produk).laba;
+  const totalTarik = penarikan.reduce((s, p) => s + p.jumlah, 0);
+  return Math.max(0, totalLaba - totalTarik);
+}
+
 export async function topupSaldoAction(
   produkId: string,
   jumlah: number,
   catatan = "",
+  fromLaba = false,
 ): Promise<ActionResult> {
   const denied = await ensureOwner();
   if (denied) return denied;
   if (!Number.isFinite(jumlah) || jumlah <= 0)
     return { ok: false, error: "Jumlah harus lebih dari 0." };
+
+  if (fromLaba) {
+    const tersedia = await computeLabaTersedia();
+    if (jumlah > tersedia)
+      return { ok: false, error: `Laba tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
+  }
 
   const session = await getSession();
   const p = await getProduk(produkId);
@@ -173,37 +204,69 @@ export async function topupSaldoAction(
   p.last_update = todayWITA();
   await setProduk(p);
 
-  const id = await nextPulsaTopupId();
+  const topupId = await nextPulsaTopupId();
   await pushPulsaTopup({
-    id,
+    id: topupId,
     tanggal: todayWITA(),
     jam: timeWITA(),
     jumlah: Math.trunc(jumlah),
     saldo_sesudah: p.saldo_modal,
     kasir: session?.nama ?? "owner",
-    catatan: catatan.trim() || `topup saldo ${p.nama}`,
+    catatan: catatan.trim() || `topup saldo ${p.nama}${fromLaba ? " (dari laba)" : ""}`,
   });
+
+  if (fromLaba) {
+    const prkId = await nextPenarikandId();
+    await pushPenarikan({
+      id: prkId,
+      tanggal: todayWITA(),
+      jam: timeWITA(),
+      jumlah: Math.trunc(jumlah),
+      produk_id: p.id,
+      produk_nama: p.nama,
+      kasir: session?.nama ?? "owner",
+      catatan: catatan.trim() || `topup saldo pulsa ${p.nama}`,
+    });
+  }
 
   revalidate();
   revalidatePath("/laporan");
   revalidatePath("/produk-sampingan");
-  return { ok: true, message: `Saldo "${p.nama}" +Rp ${jumlah.toLocaleString("id-ID")} → total Rp ${p.saldo_modal.toLocaleString("id-ID")}.` };
+  return {
+    ok: true,
+    message: `Saldo "${p.nama}" +Rp ${jumlah.toLocaleString("id-ID")} → total Rp ${p.saldo_modal.toLocaleString("id-ID")}${fromLaba ? " (dari laba)" : ""}.`,
+  };
 }
 
 export async function topupStokAction(
   produkId: string,
   jumlah: number,
   catatan = "",
+  fromLaba = false,
 ): Promise<ActionResult> {
   const denied = await ensureOwner();
   if (denied) return denied;
   if (!Number.isFinite(jumlah) || jumlah <= 0)
     return { ok: false, error: "Jumlah harus lebih dari 0." };
 
+  const session = await getSession();
   const p = await getProduk(produkId);
   if (!p) return { ok: false, error: "Produk tidak ditemukan." };
   const isBBM = p.jenis === "bensin" || p.jenis === "solar" || p.jenis === "minyak_tanah";
   if (!isBBM) return { ok: false, error: "Bukan produk BBM." };
+
+  if (fromLaba) {
+    const hargaBeli = p.harga_beli;
+    const biayaModal = Math.trunc(jumlah) * hargaBeli;
+    if (biayaModal > 0) {
+      const tersedia = await computeLabaTersedia();
+      if (biayaModal > tersedia)
+        return {
+          ok: false,
+          error: `Biaya modal ${jumlah} liter = Rp ${biayaModal.toLocaleString("id-ID")}. Laba tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.`,
+        };
+    }
+  }
 
   const tambah = Math.trunc(jumlah);
   p.stok += tambah;
@@ -211,8 +274,26 @@ export async function topupStokAction(
   p.last_update = todayWITA();
   await setProduk(p);
 
+  if (fromLaba && p.harga_beli > 0) {
+    const biaya = tambah * p.harga_beli;
+    const prkId = await nextPenarikandId();
+    await pushPenarikan({
+      id: prkId,
+      tanggal: todayWITA(),
+      jam: timeWITA(),
+      jumlah: biaya,
+      produk_id: p.id,
+      produk_nama: p.nama,
+      kasir: session?.nama ?? "owner",
+      catatan: catatan.trim() || `topup stok ${p.nama} ${tambah}L`,
+    });
+  }
+
   revalidate();
   revalidatePath("/laporan");
   revalidatePath("/produk-sampingan");
-  return { ok: true, message: `Stok "${p.nama}" +${tambah} liter → total ${p.stok} liter. ${catatan.trim()}` };
+  return {
+    ok: true,
+    message: `Stok "${p.nama}" +${tambah} liter → total ${p.stok} liter${fromLaba ? " (dari laba)" : ""}. ${catatan.trim()}`.trim(),
+  };
 }

@@ -49,4 +49,6 @@ export const KEY = {
   pulsaDenom: "kios:pulsa:denom",
   pulsaTopup: "kios:pulsa:topup",
   seqPtu: "kios:seq:ptu",
+  penarikan: "kios:penarikan",
+  seqPrk: "kios:seq:prk",
 } as const;

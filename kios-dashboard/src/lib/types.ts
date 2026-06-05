@@ -214,6 +214,17 @@ export interface KiosConfig {
   wa_number: string; // kios WhatsApp number (buyer contact / order confirmation)
 }
 
+export interface Penarikan {
+  id: string;        // "PRK-0001"
+  tanggal: string;   // YYYY-MM-DD WITA
+  jam: string;       // HH:mm:ss WITA
+  jumlah: number;    // Rp ditarik
+  produk_id: string; // produk yang di-topup
+  produk_nama: string;
+  kasir: string;
+  catatan: string;
+}
+
 export interface PulsaDenom {
   nominal: number;
   harga_modal: number;
