@@ -2,14 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, Package, Pencil, Plus, PlusCircle, Search, Trash2, TriangleAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Package, Pencil, Plus, PlusCircle, Search, Settings2, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SampinganForm } from "./sampingan-form";
-import { deleteSampinganAction, topupSaldoAction, topupStokAction, type ActionResult } from "@/app/(app)/produk-sampingan/actions";
+import { deleteSampinganAction, setAmbangBatasAction, topupSaldoAction, topupStokAction, type ActionResult } from "@/app/(app)/produk-sampingan/actions";
 import { Label } from "@/components/ui/input";
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import { produkImage } from "@/lib/produk-image";
@@ -47,6 +47,9 @@ export function SampinganTable({
   const [topupCatatan, setTopupCatatan] = useState("");
   const [topupFromLaba, setTopupFromLaba] = useState(false);
   const [pendingTopup, startTopup] = useTransition();
+  const [minTarget, setMinTarget] = useState<Produk | null>(null);
+  const [minNilai, setMinNilai] = useState("");
+  const [pendingMin, startMin] = useTransition();
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -98,6 +101,26 @@ export function SampinganTable({
           ? await topupSaldoAction(target.id, jumlah, topupCatatan, topupFromLaba)
           : await topupStokAction(target.id, jumlah, topupCatatan, topupFromLaba);
       setTopupTarget(null);
+      showToast(r);
+      if (r.ok) router.refresh();
+    });
+  }
+
+  function openMin(p: Produk) {
+    setMinTarget(p);
+    const current = p.jenis === "pulsa" ? (p.saldo_minimum ?? 0) : p.stok_minimum;
+    setMinNilai(current > 0 ? String(current) : "");
+  }
+
+  function runSetMin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!minTarget) return;
+    const nilai = Number(minNilai);
+    if (!Number.isFinite(nilai) || nilai < 0) return;
+    const target = minTarget;
+    startMin(async () => {
+      const r = await setAmbangBatasAction(target.id, nilai);
+      setMinTarget(null);
       showToast(r);
       if (r.ok) router.refresh();
     });
@@ -198,15 +221,39 @@ export function SampinganTable({
                       {jenisMeta && <Badge variant={jenisMeta.variant}>{jenisMeta.label}</Badge>}
                     </td>
                     <td className="p-3 font-mono tabular-nums">
-                      <div>
-                        <span>{p.stok} <span className="text-xs text-muted-foreground">{p.satuan}</span></span>
-                        {p.jenis === "pulsa" && p.saldo_modal !== undefined && (
-                          <p className="text-xs text-muted-foreground">Saldo: {formatRupiah(p.saldo_modal)}</p>
-                        )}
-                        {p.jenis === "bensin" && p.stok_ml !== undefined && (
-                          <p className="text-xs text-muted-foreground">{(p.stok_ml / 1000).toFixed(1)} L</p>
-                        )}
-                      </div>
+                      {p.jenis === "pulsa" ? (
+                        <div>
+                          {p.saldo_modal !== undefined ? (
+                            <div className="flex items-center gap-1.5">
+                              <span>{formatRupiah(p.saldo_modal)}</span>
+                              {(p.saldo_minimum ?? 0) > 0 && p.saldo_modal < (p.saldo_minimum ?? 0) && (
+                                <span title={`Di bawah ambang batas (min Rp ${(p.saldo_minimum ?? 0).toLocaleString("id-ID")})`}>
+                                  <AlertTriangle className="size-3.5 text-destructive" />
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                          {(p.saldo_minimum ?? 0) > 0 && (
+                            <p className="text-xs text-muted-foreground">min {formatRupiah(p.saldo_minimum!)}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span>{p.stok} <span className="text-xs text-muted-foreground">{p.satuan}</span></span>
+                            {p.stok_minimum > 0 && p.stok <= p.stok_minimum && (
+                              <span title={`Di bawah ambang batas (min ${p.stok_minimum} ${p.satuan})`}>
+                                <AlertTriangle className="size-3.5 text-destructive" />
+                              </span>
+                            )}
+                          </div>
+                          {p.stok_minimum > 0 && (
+                            <p className="text-xs text-muted-foreground">min {p.stok_minimum} {p.satuan}</p>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
                       <Badge variant={st.variant}>{st.label}</Badge>
@@ -226,11 +273,20 @@ export function SampinganTable({
                           <button
                             type="button"
                             onClick={() => openTopup(p)}
-                            aria-label={p.jenis === "pulsa" ? `Tambah saldo ${p.nama}` : `Tambah liter ${p.nama}`}
-                            title={p.jenis === "pulsa" ? "Tambah Saldo" : "Tambah Liter"}
+                            aria-label={p.jenis === "pulsa" ? `Tambah saldo ${p.nama}` : `Tambah stok ${p.nama}`}
+                            title={p.jenis === "pulsa" ? "Tambah Saldo" : "Tambah Stok"}
                             className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-success/10 hover:text-success"
                           >
                             <PlusCircle className="size-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openMin(p)}
+                            aria-label={`Atur ambang batas ${p.nama}`}
+                            title="Atur Ambang Batas"
+                            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-amber-500/10 hover:text-amber-600"
+                          >
+                            <Settings2 className="size-4" />
                           </button>
                           <button
                             type="button"
@@ -289,6 +345,51 @@ export function SampinganTable({
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={minTarget !== null}
+        onClose={() => !pendingMin && setMinTarget(null)}
+        title={`Atur Ambang Batas — ${minTarget?.nama}`}
+        description={
+          minTarget?.jenis === "pulsa"
+            ? "Alert muncul jika saldo modal turun di bawah nilai ini."
+            : "Alert muncul jika stok turun di bawah nilai ini."
+        }
+        className="max-w-sm"
+      >
+        {minTarget && (
+          <form onSubmit={runSetMin} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="min-nilai">
+                {minTarget.jenis === "pulsa" ? "Minimal Saldo (Rp)" : `Minimal Stok (${minTarget.satuan})`}
+              </Label>
+              <Input
+                id="min-nilai"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minNilai}
+                onChange={(e) => setMinNilai(e.target.value)}
+                placeholder={minTarget.jenis === "pulsa" ? "mis. 50000" : "mis. 20"}
+                className="font-mono tabular-nums"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Isi 0 untuk menonaktifkan alert.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => setMinTarget(null)} disabled={pendingMin}>
+                Batal
+              </Button>
+              <Button type="submit" variant="accent" size="sm" disabled={pendingMin || minNilai === ""}>
+                {pendingMin && <Loader2 className="size-4 animate-spin" />}
+                Simpan
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Modal

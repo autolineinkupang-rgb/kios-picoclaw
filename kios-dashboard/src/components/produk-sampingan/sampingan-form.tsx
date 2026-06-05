@@ -27,7 +27,7 @@ function emptyForm(jenis: JenisSampingan): SampinganInput {
     nama: "",
     barcode: "",
     kategori: "",
-    satuan: "pcs",
+    satuan: jenis === "pulsa" ? "paket" : "liter",
     stok: 0,
     harga_beli: 0,
     harga_jual: 0,
@@ -100,24 +100,6 @@ export function SampinganForm({
     } finally {
       setUploading(false);
     }
-  }
-
-  function numField(key: keyof SampinganInput, label: string, hint?: string) {
-    return (
-      <div className="space-y-1.5">
-        <Label htmlFor={key}>{label}</Label>
-        <Input
-          id={key}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          value={String(form[key] ?? 0)}
-          onChange={(e) => set(key, Number(e.target.value) as never)}
-          className="font-mono tabular-nums"
-        />
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      </div>
-    );
   }
 
   function submit(e: React.FormEvent) {
@@ -201,61 +183,47 @@ export function SampinganForm({
             id="satuan"
             value={form.satuan}
             onChange={(e) => set("satuan", e.target.value)}
-            placeholder={form.jenis === "bensin" || form.jenis === "solar" || form.jenis === "minyak_tanah" ? "liter" : "paket"}
+            placeholder={form.jenis === "pulsa" ? "paket" : "liter"}
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {numField("harga_beli", "Harga Beli / Modal (Rp)")}
-        {numField("harga_jual", "Harga Jual (Rp)")}
-      </div>
-
-      {/* Pulsa-specific: saldo_modal */}
-      {form.jenis === "pulsa" && (
-        <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 space-y-3">
-          <p className="text-xs font-medium text-accent">Khusus Pulsa</p>
-          {numField("saldo_modal", "Saldo Modal Deposit (Rp)", "Saldo rupiah yang dibeli dari agen pulsa.")}
-        </div>
-      )}
-
-      {/* Bensin-specific: stok_ml */}
-      {form.jenis === "bensin" && (
-        <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 space-y-3">
-          <p className="text-xs font-medium text-warning">Khusus Bensin</p>
-          <div className="grid grid-cols-2 gap-4">
-            {numField("stok_ml", "Stok (ml)", "1 liter = 1000 ml")}
-            {numField("stok_kritis_ml", "Stok Kritis (ml)", "Default 40000 ml = 40 liter")}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {numField("stok", "Stok")}
-        {numField("stok_minimum", "Stok Min")}
-        {numField("stok_kritis", "Stok Kritis")}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="supplier">Supplier</Label>
+          <Label htmlFor="harga_beli">Harga Beli / Modal (Rp)</Label>
           <Input
-            id="supplier"
-            value={form.supplier}
-            onChange={(e) => set("supplier", e.target.value)}
-            placeholder="opsional"
+            id="harga_beli"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={String(form.harga_beli)}
+            onChange={(e) => set("harga_beli", Number(e.target.value))}
+            className="font-mono tabular-nums"
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="barcode">Barcode</Label>
+          <Label htmlFor="harga_jual">Harga Jual (Rp)</Label>
           <Input
-            id="barcode"
-            value={form.barcode}
-            onChange={(e) => set("barcode", e.target.value)}
-            placeholder="opsional"
-            className="font-mono"
+            id="harga_jual"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={String(form.harga_jual)}
+            onChange={(e) => set("harga_jual", Number(e.target.value))}
+            className="font-mono tabular-nums"
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="barcode">Barcode (opsional)</Label>
+        <Input
+          id="barcode"
+          value={form.barcode}
+          onChange={(e) => set("barcode", e.target.value)}
+          placeholder="opsional"
+          className="font-mono"
+        />
       </div>
 
       <div className="space-y-1.5">

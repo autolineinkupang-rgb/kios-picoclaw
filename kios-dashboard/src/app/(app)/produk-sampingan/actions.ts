@@ -177,6 +177,28 @@ async function computeLabaTersedia(): Promise<number> {
   return Math.max(0, totalLaba - totalTarik);
 }
 
+export async function setAmbangBatasAction(
+  produkId: string,
+  nilai: number,
+): Promise<ActionResult> {
+  const denied = await ensureOwner();
+  if (denied) return denied;
+  if (!Number.isFinite(nilai) || nilai < 0)
+    return { ok: false, error: "Nilai ambang batas tidak valid." };
+
+  const p = await getProduk(produkId);
+  if (!p) return { ok: false, error: "Produk tidak ditemukan." };
+
+  if (p.jenis === "pulsa") {
+    p.saldo_minimum = Math.trunc(nilai);
+  } else {
+    p.stok_minimum = Math.trunc(nilai);
+  }
+  await setProduk(p);
+  revalidate();
+  return { ok: true, message: `Ambang batas "${p.nama}" diatur ke ${p.jenis === "pulsa" ? `Rp ${nilai.toLocaleString("id-ID")}` : `${nilai} liter`}.` };
+}
+
 export async function topupSaldoAction(
   produkId: string,
   jumlah: number,

@@ -21,6 +21,7 @@ export interface Produk {
   jenis?: string;        // "" | "biasa" | "pulsa" | "bensin" | "solar" | "minyak_tanah"
   supplier_id?: string;
   saldo_modal?: number;
+  saldo_minimum?: number; // alert threshold Rp untuk pulsa
   stok_ml?: number;
   stok_kritis_ml?: number;
   pack_defs?: Kemasan[];
