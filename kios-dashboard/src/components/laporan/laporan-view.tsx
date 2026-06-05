@@ -7,6 +7,7 @@ import { KpiCard } from "@/components/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PeriodeTabs } from "@/components/periode-tabs";
 import { MetodeBayarChart, SalesTrendChart } from "@/components/charts";
+import { LaporanPulsaBensin } from "@/components/laporan/laporan-pulsa-bensin";
 import {
   hitungLaba,
   metodeBayarShare,
@@ -185,6 +186,8 @@ export function LaporanView({
           </CardContent>
         </Card>
       </section>
+
+      <LaporanPulsaBensin transaksi={transaksi} produk={produk} />
     </div>
   );
 }
