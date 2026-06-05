@@ -23,6 +23,13 @@ import { cn, matchesQuery } from "@/lib/utils";
 import type { Produk } from "@/lib/types";
 import { checkoutAction, type CheckoutResult } from "@/app/(app)/kasir/actions";
 
+const JENIS_META: Record<string, { label: string; variant: "accent" | "warning" | "secondary" | "success" }> = {
+  pulsa: { label: "Pulsa", variant: "accent" },
+  bensin: { label: "Bensin", variant: "warning" },
+  solar: { label: "Solar", variant: "secondary" },
+  minyak_tanah: { label: "Minyak Tanah", variant: "success" },
+};
+
 interface CartLine {
   produk: Produk;
   qty: number;
@@ -135,7 +142,14 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                     )}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{p.nama}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="truncate text-sm font-medium">{p.nama}</p>
+                        {p.jenis && JENIS_META[p.jenis] && (
+                          <Badge variant={JENIS_META[p.jenis].variant} className="text-[10px] px-1.5 py-0">
+                            {JENIS_META[p.jenis].label}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="font-mono text-xs text-muted-foreground">
                         {formatRupiah(p.harga_jual)}
                       </p>
@@ -186,7 +200,14 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                     <li key={l.produk.id} className="rounded-lg border p-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{l.produk.nama}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="truncate text-sm font-medium">{l.produk.nama}</p>
+                            {l.produk.jenis && JENIS_META[l.produk.jenis] && (
+                              <Badge variant={JENIS_META[l.produk.jenis].variant} className="text-[10px] px-1.5 py-0">
+                                {JENIS_META[l.produk.jenis].label}
+                              </Badge>
+                            )}
+                          </div>
                           <p className="font-mono text-xs text-muted-foreground">
                             {formatRupiah(l.produk.harga_jual)} · stok {l.produk.stok}
                           </p>
@@ -313,6 +334,17 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                       </li>
                     ))}
                   </ul>
+                  {result.lines.some((l) => l.catatan_sampingan) && (
+                    <div className="space-y-0.5 border-t pt-1 mt-1">
+                      {result.lines
+                        .filter((l) => l.catatan_sampingan)
+                        .map((l) => (
+                          <p key={l.id} className="text-xs text-muted-foreground">
+                            {l.nama}: {l.catatan_sampingan}
+                          </p>
+                        ))}
+                    </div>
+                  )}
                   {result.kembalian !== null && (
                     <p className="text-xs text-muted-foreground">
                       Kembalian: {formatRupiah(result.kembalian)}
