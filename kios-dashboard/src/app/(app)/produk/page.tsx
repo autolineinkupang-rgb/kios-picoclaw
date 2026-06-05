@@ -11,7 +11,8 @@ export default async function ProdukPage() {
   const session = await getSession();
   let produk;
   try {
-    produk = await getAllProduk();
+    const all = await getAllProduk();
+    produk = all.filter((p) => !p.jenis || p.jenis === "biasa");
   } catch (e) {
     return <ConnectionError message={e instanceof Error ? e.message : String(e)} />;
   }

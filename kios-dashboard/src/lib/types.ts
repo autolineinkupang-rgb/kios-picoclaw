@@ -18,7 +18,7 @@ export interface Produk {
   has_exp: boolean;
   exp_date: string;
   image_url: string;
-  jenis?: string;        // "" | "biasa" | "pulsa" | "bensin"
+  jenis?: string;        // "" | "biasa" | "pulsa" | "bensin" | "solar" | "minyak_tanah"
   supplier_id?: string;
   saldo_modal?: number;
   stok_ml?: number;
