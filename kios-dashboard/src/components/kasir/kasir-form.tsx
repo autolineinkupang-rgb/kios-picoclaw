@@ -1,6 +1,15 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+
+function isValidHp(raw: string): boolean {
+  const d = raw.replace(/\D/g, "");
+  return (
+    d.length >= 10 &&
+    d.length <= 15 &&
+    (d.startsWith("62") || d.startsWith("08") || d.startsWith("8"))
+  );
+}
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -41,6 +50,8 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [metode, setMetode] = useState("tunai");
   const [bayar, setBayar] = useState("");
+  const [bonPhone, setBonPhone] = useState("");
+  const [bonError, setBonError] = useState("");
   const [result, setResult] = useState<CheckoutResult | null>(null);
   const [pending, start] = useTransition();
 
@@ -83,16 +94,24 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
 
   function checkout() {
     if (cart.length === 0) return;
+    if (metode === "bon" && !isValidHp(bonPhone)) {
+      setBonError("Nomor HP pelanggan tidak valid untuk metode bon.");
+      return;
+    }
+    setBonError("");
     start(async () => {
       const r = await checkoutAction({
         items: cart.map((l) => ({ produkId: l.produk.id, qty: l.qty })),
         metode,
         bayar: bayarNum > 0 ? bayarNum : undefined,
+        pelangganPhone: metode === "bon" ? bonPhone : undefined,
       });
       setResult(r);
       if (r.ok) {
         setCart([]);
         setBayar("");
+        setBonPhone("");
+        setBonError("");
         setQuery("");
         router.refresh();
         window.setTimeout(() => setResult(null), 8000);
@@ -266,33 +285,57 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                       <option value="tunai">Tunai</option>
                       <option value="transfer">Transfer</option>
                       <option value="qris">QRIS</option>
+                      <option value="bon">Bon (Kredit)</option>
                     </Select>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bayar">Bayar</Label>
-                    <Input
-                      id="bayar"
-                      inputMode="numeric"
-                      value={bayar}
-                      onChange={(e) => setBayar(e.target.value.replace(/\D/g, ""))}
-                      placeholder="opsional"
-                      className="font-mono tabular-nums"
-                    />
-                  </div>
+                  {metode !== "bon" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bayar">Bayar</Label>
+                      <Input
+                        id="bayar"
+                        inputMode="numeric"
+                        value={bayar}
+                        onChange={(e) => setBayar(e.target.value.replace(/\D/g, ""))}
+                        placeholder="opsional"
+                        className="font-mono tabular-nums"
+                      />
+                    </div>
+                  )}
                 </div>
+
+                {metode === "bon" && (
+                  <div className="space-y-1.5">
+                    <label htmlFor="bon-phone" className="text-sm font-medium">
+                      No HP Pelanggan <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      id="bon-phone"
+                      value={bonPhone}
+                      onChange={(e) => { setBonPhone(e.target.value); setBonError(""); }}
+                      placeholder="08123456789 atau 628123456789"
+                      inputMode="tel"
+                    />
+                    {bonPhone && !isValidHp(bonPhone) && (
+                      <p className="text-xs text-destructive">Format: 08xxx atau 628xxx (10–15 digit)</p>
+                    )}
+                    {bonError && (
+                      <p className="text-xs text-destructive">{bonError}</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total ({cart.length} item)</span>
                     <span className="text-base font-semibold tabular-nums">{formatRupiah(total)}</span>
                   </div>
-                  {kembalian !== null && (
+                  {metode !== "bon" && kembalian !== null && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Kembalian</span>
                       <span className="font-medium tabular-nums">{formatRupiah(kembalian)}</span>
                     </div>
                   )}
-                  {bayarNum > 0 && bayarNum < total && (
+                  {metode !== "bon" && bayarNum > 0 && bayarNum < total && (
                     <p className="text-xs text-destructive">Uang kurang {formatRupiah(total - bayarNum)}.</p>
                   )}
                 </div>
@@ -305,7 +348,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                   disabled={pending || cart.length === 0}
                 >
                   {pending ? <Loader2 className="size-4 animate-spin" /> : <ShoppingCart className="size-4" />}
-                  Checkout
+                  {metode === "bon" ? "Catat Bon" : "Bayar"}
                 </Button>
               </div>
             </>
@@ -348,6 +391,12 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                   {result.kembalian !== null && (
                     <p className="text-xs text-muted-foreground">
                       Kembalian: {formatRupiah(result.kembalian)}
+                    </p>
+                  )}
+                  {result.piutang_id && (
+                    <p className="text-sm text-muted-foreground">
+                      Piutang: <span className="font-mono font-medium">{result.piutang_id}</span>
+                      {" · "}Rp {formatRupiah(result.total)} (belum dibayar)
                     </p>
                   )}
                 </div>

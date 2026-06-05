@@ -6,19 +6,26 @@ import { recordSale, type SaleLine } from "@/lib/sales";
 
 export interface CheckoutInput {
   items: { produkId: string; qty: number }[];
-  metode: string; // tunai | transfer | qris
+  metode: string; // tunai | transfer | qris | bon
   bayar?: number;
+  pelangganPhone?: string;
 }
 
 export type CheckoutResult =
-  | { ok: true; total: number; kembalian: number | null; lines: SaleLine[] }
+  | { ok: true; total: number; kembalian: number | null; lines: SaleLine[]; piutang_id?: string }
   | { ok: false; error: string };
 
 export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResult> {
   const session = await getSession();
   if (!session) return { ok: false, error: "Sesi berakhir. Silakan masuk lagi." };
 
-  const sale = await recordSale(input.items, input.metode, session.nama);
+  const sale = await recordSale(
+    input.items,
+    input.metode,
+    session.nama,
+    "via dashboard",
+    input.pelangganPhone,
+  );
   if (!sale.ok) return sale;
 
   revalidatePath("/kasir");
@@ -31,5 +38,11 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     typeof input.bayar === "number" && input.bayar > 0 ? Math.trunc(input.bayar) : null;
   const kembalian = bayar !== null && bayar >= sale.total ? bayar - sale.total : null;
 
-  return { ok: true, total: sale.total, kembalian, lines: sale.lines };
+  return {
+    ok: true,
+    total: sale.total,
+    kembalian,
+    lines: sale.lines,
+    ...(sale.piutang_id ? { piutang_id: sale.piutang_id } : {}),
+  };
 }
