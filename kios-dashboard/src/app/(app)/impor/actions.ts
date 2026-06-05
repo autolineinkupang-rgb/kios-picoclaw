@@ -18,7 +18,7 @@ import {
   upsertPelanggan,
 } from "@/lib/kios";
 import { todayWITA } from "@/lib/format";
-import type { Produk, Piutang, Hutang, Transaksi, StatusBon } from "@/lib/types";
+import type { Produk, Piutang, Hutang, Transaksi, StatusBon, Supplier } from "@/lib/types";
 
 export type TableRow = Record<string, string>;
 
@@ -368,7 +368,12 @@ export async function importHutangAction(rows: TableRow[]): Promise<ImportResult
   if (session.role !== "owner") return { ok: false, error: "Impor hutang khusus pemilik (owner)." };
   if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "File kosong." };
 
-  const allSuplier = await getAllSuplier();
+  let allSuplier: Supplier[];
+  try {
+    allSuplier = await getAllSuplier();
+  } catch {
+    return { ok: false, error: "Gagal memuat data supplier dari Redis." };
+  }
   const supById = new Map(allSuplier.map((s) => [s.id, s]));
   const supByNama = new Map(allSuplier.map((s) => [s.nama.trim().toLowerCase(), s]));
 

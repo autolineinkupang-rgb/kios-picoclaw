@@ -262,7 +262,7 @@ type KiosConfig struct {
 	NotifJam string `json:"notif_jam"`
 	// NotifPesananEnabled mengaktifkan notifikasi pesanan baru & menumpuk. Default true.
 	NotifPesananEnabled bool `json:"notif_pesanan_enabled"`
-	// NotifPiutangEnabled mengaktifkan ringkasan piutang terbuka harian ke owner. Default false.
+	// NotifPiutangEnabled mengaktifkan ringkasan piutang terbuka harian ke owner. Default true.
 	NotifPiutangEnabled bool `json:"notif_piutang_enabled"`
 	// QrisEnabled menampilkan opsi pembayaran QRIS di toko & perintah /qris. Default false.
 	QrisEnabled bool `json:"qris_enabled"`

@@ -29,7 +29,7 @@ export interface SaleLine {
 }
 
 export type SaleResult =
-  | { ok: true; total: number; lines: SaleLine[]; piutang_id?: string }
+  | { ok: true; total: number; lines: SaleLine[]; piutang_id?: string; piutang_warning?: string }
   | { ok: false; error: string };
 
 const METODE = new Set(["tunai", "transfer", "qris", "bon"]);
@@ -161,9 +161,13 @@ export async function recordSale(
       };
       await setPiutang(piu);
     } catch (e) {
+      // Jual sudah berhasil (stok sudah berkurang) tapi piutang gagal dicatat.
+      // Kembalikan partial success agar kasir tahu jual berhasil dan bisa catat piutang manual.
       return {
-        ok: false,
-        error: e instanceof Error ? e.message : "Gagal catat piutang.",
+        ok: true,
+        total,
+        lines,
+        piutang_warning: e instanceof Error ? e.message : "Piutang gagal dicatat — catat manual di menu Pelanggan.",
       };
     }
   }

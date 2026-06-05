@@ -1,15 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-
-function isValidHp(raw: string): boolean {
-  const d = raw.replace(/\D/g, "");
-  return (
-    d.length >= 10 &&
-    d.length <= 15 &&
-    (d.startsWith("62") || d.startsWith("08") || d.startsWith("8"))
-  );
-}
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -31,6 +22,15 @@ import { stokStatus, STATUS_META } from "@/lib/produk-status";
 import { cn, matchesQuery } from "@/lib/utils";
 import type { Produk } from "@/lib/types";
 import { checkoutAction, type CheckoutResult } from "@/app/(app)/kasir/actions";
+
+function isValidHp(raw: string): boolean {
+  const d = raw.replace(/\D/g, "");
+  return (
+    d.length >= 10 &&
+    d.length <= 15 &&
+    (d.startsWith("62") || d.startsWith("08") || d.startsWith("8"))
+  );
+}
 
 const JENIS_META: Record<string, { label: string; variant: "accent" | "warning" | "secondary" | "success" }> = {
   pulsa: { label: "Pulsa", variant: "accent" },
@@ -397,6 +397,12 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                     <p className="text-sm text-muted-foreground">
                       Piutang: <span className="font-mono font-medium">{result.piutang_id}</span>
                       {" · "}{formatRupiah(result.total)} (belum dibayar)
+                    </p>
+                  )}
+                  {result.piutang_warning && (
+                    <p className="flex items-center gap-1.5 text-sm text-warning">
+                      <TriangleAlert className="size-4 shrink-0" />
+                      {result.piutang_warning}
                     </p>
                   )}
                 </div>

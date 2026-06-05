@@ -12,7 +12,7 @@ export interface CheckoutInput {
 }
 
 export type CheckoutResult =
-  | { ok: true; total: number; kembalian: number | null; lines: SaleLine[]; piutang_id?: string }
+  | { ok: true; total: number; kembalian: number | null; lines: SaleLine[]; piutang_id?: string; piutang_warning?: string }
   | { ok: false; error: string };
 
 export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResult> {
@@ -44,5 +44,6 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     kembalian,
     lines: sale.lines,
     ...(sale.piutang_id ? { piutang_id: sale.piutang_id } : {}),
+    ...(sale.piutang_warning ? { piutang_warning: sale.piutang_warning } : {}),
   };
 }
