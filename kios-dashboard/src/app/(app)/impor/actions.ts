@@ -322,31 +322,36 @@ export async function importPiutangAction(rows: TableRow[]): Promise<ImportResul
 
     const sisa = Math.max(0, pokok - dibayar);
     const status: StatusBon = sisa <= 0 ? "lunas" : "terbuka";
-    const id = await nextPiutangId();
 
-    const piu: Piutang = {
-      id,
-      pelanggan_id: pelanggan.id,
-      phone: pelanggan.phone,
-      pokok,
-      dibayar,
-      sisa,
-      status,
-      tanggal,
-      jam: "00:00:00",
-      kasir: session.nama ?? "impor",
-      catatan,
-    };
-    await setPiutang(piu);
+    try {
+      const id = await nextPiutangId();
+      const piu: Piutang = {
+        id,
+        pelanggan_id: pelanggan.id,
+        phone: pelanggan.phone,
+        pokok,
+        dibayar,
+        sisa,
+        status,
+        tanggal,
+        jam: "00:00:00",
+        kasir: session.nama || "impor",
+        catatan,
+      };
+      await setPiutang(piu);
 
-    if (status === "terbuka" && sisa > 0) {
-      const fresh = await getPelanggan(pelanggan.phone);
-      if (fresh) {
-        fresh.total_utang = (fresh.total_utang ?? 0) + sisa;
-        await setPelanggan(fresh);
+      if (status === "terbuka") {
+        const fresh = await getPelanggan(pelanggan.phone);
+        if (fresh) {
+          fresh.total_utang = (fresh.total_utang ?? 0) + sisa;
+          await setPelanggan(fresh);
+        }
       }
+      created++;
+    } catch (e) {
+      skipped++;
+      if (errors.length < 12) errors.push(`Baris ${baris}: gagal menyimpan — ${e instanceof Error ? e.message : "kesalahan tidak diketahui"}.`);
     }
-    created++;
   }
 
   revalidatePath("/pelanggan");
