@@ -21,7 +21,7 @@ import { timeWITA, todayWITA } from "@/lib/format";
 import { hitungLaba, jenisOfTx } from "@/lib/analytics";
 import type { Produk } from "@/lib/types";
 
-export type JenisSampingan = "pulsa" | "bensin" | "solar" | "minyak_tanah";
+export type JenisSampingan = "pulsa" | "pertalite" | "pertamax" | "solar" | "minyak_tanah";
 
 export interface SampinganInput {
   id?: string;
@@ -48,7 +48,7 @@ export interface SampinganInput {
 
 export type ActionResult = { ok: true; message: string } | { ok: false; error: string };
 
-const VALID_JENIS: JenisSampingan[] = ["pulsa", "bensin", "solar", "minyak_tanah"];
+const VALID_JENIS: JenisSampingan[] = ["pulsa", "pertalite", "pertamax", "solar", "minyak_tanah"];
 
 async function ensureOwner(): Promise<ActionResult | null> {
   const session = await getSession();
@@ -106,9 +106,6 @@ export async function createSampinganAction(input: SampinganInput): Promise<Acti
     image_url: input.image_url?.trim() ?? "",
     jenis: input.jenis,
     ...(input.jenis === "pulsa" ? { saldo_modal: num(input.saldo_modal ?? 0) } : {}),
-    ...(input.jenis === "bensin"
-      ? { stok_ml: num(input.stok_ml ?? 0), stok_kritis_ml: num(input.stok_kritis_ml ?? 40000) }
-      : {}),
     ...(input.pack_defs?.length ? { pack_defs: input.pack_defs } : {}),
   };
   await setProduk(p);
@@ -145,12 +142,6 @@ export async function updateSampinganAction(input: SampinganInput): Promise<Acti
     image_url: input.image_url?.trim() ?? "",
     jenis: input.jenis,
     ...(input.jenis === "pulsa" ? { saldo_modal: num(input.saldo_modal ?? existing.saldo_modal ?? 0) } : {}),
-    ...(input.jenis === "bensin"
-      ? {
-          stok_ml: num(input.stok_ml ?? existing.stok_ml ?? 0),
-          stok_kritis_ml: num(input.stok_kritis_ml ?? existing.stok_kritis_ml ?? 40000),
-        }
-      : {}),
     pack_defs: input.pack_defs?.length ? input.pack_defs : existing.pack_defs,
   };
   await setProduk(p);
@@ -188,8 +179,13 @@ async function computePenghasilanTersediaJenis(jenis: JenisSampingan): Promise<n
   const byId = new Map(produk.map((p) => [p.id, p]));
   let penghasilan = 0;
   for (const tx of txs) {
-    if (jenisOfTx(tx, byId) !== jenis) continue;
-    penghasilan += tx.total;
+    const txJenis = jenisOfTx(tx, byId);
+    const cocok = txJenis === jenis ||
+      // hitung transaksi bensin lama berdasarkan kategori produk
+      ((jenis === "pertalite" || jenis === "pertamax") &&
+        txJenis === "bensin" &&
+        byId.get(tx.produk_id)?.kategori === jenis);
+    if (cocok) penghasilan += tx.total;
   }
   const totalTarik = penarikan
     .filter((p) => p.produk_id === jenis)
@@ -199,7 +195,8 @@ async function computePenghasilanTersediaJenis(jenis: JenisSampingan): Promise<n
 
 const JENIS_LABEL: Record<JenisSampingan, string> = {
   pulsa: "Pulsa",
-  bensin: "Bensin",
+  pertalite: "Pertalite",
+  pertamax: "Pertamax",
   solar: "Solar",
   minyak_tanah: "Minyak Tanah",
 };
@@ -312,7 +309,7 @@ export async function topupSaldoAction(
 }
 
 export async function topupStokAction(
-  jenis: "bensin" | "solar" | "minyak_tanah",
+  jenis: "pertalite" | "pertamax" | "solar" | "minyak_tanah",
   jumlah: number,
   catatan = "",
   fromLaba = false,

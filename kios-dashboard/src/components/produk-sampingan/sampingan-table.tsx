@@ -48,12 +48,13 @@ const JENIS_META: Record<JenisSampingan, {
   variant: "accent" | "warning" | "secondary" | "success";
 }> = {
   pulsa: { label: "Pulsa", icon: "📶", unit: "Rp", isPulsa: true, variant: "accent" },
-  bensin: { label: "Bensin", icon: "⛽", unit: "liter", isPulsa: false, variant: "warning" },
+  pertalite: { label: "Pertalite", icon: "⛽", unit: "liter", isPulsa: false, variant: "warning" },
+  pertamax: { label: "Pertamax", icon: "⛽", unit: "liter", isPulsa: false, variant: "secondary" },
   solar: { label: "Solar", icon: "🛢️", unit: "liter", isPulsa: false, variant: "secondary" },
   minyak_tanah: { label: "Minyak Tanah", icon: "🪔", unit: "liter", isPulsa: false, variant: "success" },
 };
 
-const ALL_JENIS: JenisSampingan[] = ["pulsa", "bensin", "solar", "minyak_tanah"];
+const ALL_JENIS: JenisSampingan[] = ["pulsa", "pertalite", "pertamax", "solar", "minyak_tanah"];
 
 function formatSaldo(jenis: JenisSampingan, nilai: number): string {
   return jenis === "pulsa"
@@ -107,16 +108,30 @@ export function SampinganTable({
   const [tarikCatatan, setTarikCatatan] = useState("");
   const [pendingTarik, startTarik] = useTransition();
 
-  // jenis present in produk list
+  // jenis present in produk list — bensin products are mapped via kategori ke pertalite/pertamax
   const jenisPresent = useMemo(() => {
-    const s = new Set(produk.map((p) => p.jenis as JenisSampingan));
-    return ALL_JENIS.filter((j) => s.has(j));
-  }, [produk]);
+    const jenisSet = new Set(produk.map((p) => p.jenis as string));
+    const bensinKats = new Set(
+      produk.filter((p) => p.jenis === "bensin").map((p) => p.kategori).filter(Boolean)
+    );
+    return ALL_JENIS.filter((j) => {
+      if (j === "pertalite" || j === "pertamax")
+        return bensinKats.has(j) || (saldo[j] ?? 0) > 0;
+      return jenisSet.has(j);
+    });
+  }, [produk, saldo]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return produk.filter((p) => {
-      if (jenisFilter && p.jenis !== jenisFilter) return false;
+      if (jenisFilter) {
+        // pertalite/pertamax difilter via kategori produk bensin
+        if (jenisFilter === "pertalite" || jenisFilter === "pertamax") {
+          if (!(p.jenis === "bensin" && p.kategori === jenisFilter) && p.jenis !== jenisFilter) return false;
+        } else if (p.jenis !== jenisFilter) {
+          return false;
+        }
+      }
       if (!q) return true;
       return matchesQuery(q, p.nama, p.id, p.barcode);
     });
@@ -335,7 +350,8 @@ export function SampinganTable({
         >
           <option value="">Semua jenis</option>
           <option value="pulsa">Pulsa</option>
-          <option value="bensin">Bensin</option>
+          <option value="pertalite">Pertalite</option>
+          <option value="pertamax">Pertamax</option>
           <option value="solar">Solar</option>
           <option value="minyak_tanah">Minyak Tanah</option>
         </Select>
@@ -385,9 +401,16 @@ export function SampinganTable({
               {rows.map((p) => {
                 const jenisMeta = JENIS_META[p.jenis as JenisSampingan] ?? null;
                 const isPulsa = p.jenis === "pulsa";
-                const stokTersedia = isPulsa && p.harga_beli > 0
-                  ? Math.floor((saldo.pulsa ?? 0) / p.harga_beli)
-                  : null;
+                const stokTersedia: number | null = (() => {
+                  if (isPulsa && p.harga_beli > 0)
+                    return Math.floor((saldo.pulsa ?? 0) / p.harga_beli);
+                  if (p.jenis === "bensin") {
+                    const kat = p.kategori as "pertalite" | "pertamax";
+                    if (kat === "pertalite" || kat === "pertamax")
+                      return (saldo[kat] as number) ?? 0;
+                  }
+                  return null;
+                })();
                 return (
                   <tr key={p.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
                     <td className="p-3">

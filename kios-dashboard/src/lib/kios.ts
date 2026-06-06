@@ -463,5 +463,7 @@ export async function setSampinganSaldo(s: SampinganSaldo): Promise<void> {
 
 export async function getOrInitSampinganSaldo(): Promise<SampinganSaldo> {
   const saved = await getSampinganSaldo();
-  return saved ? { ...SAMPINGAN_SALDO_DEFAULT, ...saved } : { ...SAMPINGAN_SALDO_DEFAULT };
+  const merged = saved ? { ...SAMPINGAN_SALDO_DEFAULT, ...saved } : { ...SAMPINGAN_SALDO_DEFAULT };
+  delete (merged as Record<string, unknown>).bensin;
+  return merged;
 }

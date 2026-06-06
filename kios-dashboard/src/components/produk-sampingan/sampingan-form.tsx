@@ -16,7 +16,8 @@ import type { Produk } from "@/lib/types";
 
 const JENIS_OPTIONS: { value: JenisSampingan; label: string }[] = [
   { value: "pulsa", label: "Pulsa" },
-  { value: "bensin", label: "Bensin" },
+  { value: "pertalite", label: "Pertalite" },
+  { value: "pertamax", label: "Pertamax" },
   { value: "solar", label: "Solar" },
   { value: "minyak_tanah", label: "Minyak Tanah" },
 ];
@@ -156,11 +157,13 @@ export function SampinganForm({
           placeholder={
             form.jenis === "pulsa"
               ? "mis. Pulsa Telkomsel 25rb"
-              : form.jenis === "bensin"
-                ? "mis. Bensin Pertalite"
-                : form.jenis === "solar"
-                  ? "mis. Solar Bio"
-                  : "mis. Minyak Tanah"
+              : form.jenis === "pertalite"
+                ? "mis. Pertalite 1 Liter"
+                : form.jenis === "pertamax"
+                  ? "mis. Pertamax 1 Liter"
+                  : form.jenis === "solar"
+                    ? "mis. Solar Bio"
+                    : "mis. Minyak Tanah"
           }
           required
           autoFocus

@@ -27,6 +27,11 @@ function efektifStok(p: Produk, saldo?: SampinganSaldo): number {
   if (p.jenis === "pulsa") {
     return p.harga_beli > 0 ? Math.floor((saldo?.pulsa ?? 0) / p.harga_beli) : 0;
   }
+  // bensin dengan kategori pertalite/pertamax → stok dari saldo kategori
+  if (p.jenis === "bensin") {
+    if (p.kategori === "pertalite") return saldo?.pertalite ?? p.stok;
+    if (p.kategori === "pertamax") return saldo?.pertamax ?? p.stok;
+  }
   return p.stok;
 }
 
