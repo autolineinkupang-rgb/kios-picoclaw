@@ -70,11 +70,15 @@ export function SampinganTable({
   canManage,
   labaTersedia = 0,
   saldo,
+  omzetPerJenis = {},
+  labaTersediaPerJenis = {},
 }: {
   produk: Produk[];
   canManage: boolean;
   labaTersedia?: number;
   saldo: SampinganSaldo;
+  omzetPerJenis?: Partial<Record<JenisSampingan, number>>;
+  labaTersediaPerJenis?: Partial<Record<JenisSampingan, number>>;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -239,6 +243,8 @@ export function SampinganTable({
             const minKey = getMinKey(jenis);
             const minNilaiSaldo = (saldo[minKey] as number | undefined) ?? 0;
             const belowMin = minNilaiSaldo > 0 && nilaiSaldo < minNilaiSaldo;
+            const penghasilan = omzetPerJenis[jenis] ?? 0;
+            const labaTersediaKat = labaTersediaPerJenis[jenis] ?? 0;
             return (
               <div
                 key={jenis}
@@ -268,6 +274,19 @@ export function SampinganTable({
                       min {formatSaldo(jenis, minNilaiSaldo)}
                     </p>
                   )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-2.5 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Penghasilan</p>
+                    <p className="font-semibold tabular-nums">{formatRupiah(penghasilan)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Laba Tersedia</p>
+                    <p className={cn("font-semibold tabular-nums", labaTersediaKat > 0 ? "text-success" : "text-muted-foreground")}>
+                      {formatRupiah(labaTersediaKat)}
+                    </p>
+                  </div>
                 </div>
 
                 {canManage && (
@@ -528,14 +547,14 @@ export function SampinganTable({
                       : "border-border text-muted-foreground hover:border-success/40"
                   }`}
                 >
-                  <p className="font-medium">Dari Laba</p>
+                  <p className="font-medium">Dari Penghasilan</p>
                   <p className="text-xs opacity-70">
-                    Tersedia: {formatRupiah(labaTersedia)}
+                    Tersedia: {formatRupiah(topupJenis ? (labaTersediaPerJenis[topupJenis] ?? 0) : 0)}
                   </p>
                 </button>
               </div>
-              {topupFromLaba && labaTersedia <= 0 && (
-                <p className="text-xs text-destructive">Laba tersedia tidak cukup.</p>
+              {topupFromLaba && topupJenis && (labaTersediaPerJenis[topupJenis] ?? 0) <= 0 && (
+                <p className="text-xs text-destructive">Penghasilan tersedia tidak cukup.</p>
               )}
             </div>
 
@@ -582,7 +601,7 @@ export function SampinganTable({
                 type="submit"
                 variant="accent"
                 size="sm"
-                disabled={pendingTopup || !topupJumlah || (topupFromLaba && labaTersedia <= 0)}
+                disabled={pendingTopup || !topupJumlah || (topupFromLaba && topupJenis !== null && (labaTersediaPerJenis[topupJenis] ?? 0) <= 0)}
               >
                 {pendingTopup && <Loader2 className="size-4 animate-spin" />}
                 {topupJenis === "pulsa" ? "Topup Saldo" : "Tambah Stok"}
@@ -597,14 +616,14 @@ export function SampinganTable({
         <Modal
           open={true}
           onClose={() => !pendingTarik && setTarikJenis(null)}
-          title={`Tarik Hasil — ${JENIS_META[tarikJenis].label}`}
-          description={`Laba tersedia: ${formatRupiah(labaTersedia)}`}
+          title={`Tarik Penghasilan — ${JENIS_META[tarikJenis].label}`}
+          description={`Penghasilan tersedia: ${formatRupiah(labaTersediaPerJenis[tarikJenis] ?? 0)}`}
           className="max-w-sm"
         >
           <form onSubmit={runTarik} className="space-y-4">
-            {labaTersedia <= 0 ? (
+            {(labaTersediaPerJenis[tarikJenis] ?? 0) <= 0 ? (
               <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
-                Belum ada laba yang bisa ditarik saat ini.
+                Belum ada penghasilan yang bisa ditarik saat ini.
               </p>
             ) : (
               <>
@@ -617,16 +636,16 @@ export function SampinganTable({
                     type="number"
                     inputMode="numeric"
                     min={1}
-                    max={labaTersedia}
+                    max={labaTersediaPerJenis[tarikJenis] ?? 0}
                     value={tarikJumlah}
                     onChange={(e) => setTarikJumlah(e.target.value)}
-                    placeholder={`maks ${formatRupiah(labaTersedia)}`}
+                    placeholder={`maks ${formatRupiah(labaTersediaPerJenis[tarikJenis] ?? 0)}`}
                     className="font-mono tabular-nums"
                     autoFocus
                     required
                   />
-                  {Number(tarikJumlah) > labaTersedia && (
-                    <p className="text-xs text-destructive">Melebihi laba tersedia.</p>
+                  {Number(tarikJumlah) > (labaTersediaPerJenis[tarikJenis] ?? 0) && (
+                    <p className="text-xs text-destructive">Melebihi penghasilan tersedia.</p>
                   )}
                 </div>
                 <div className="space-y-1.5">
@@ -644,15 +663,15 @@ export function SampinganTable({
               <Button type="button" variant="outline" size="sm" onClick={() => setTarikJenis(null)} disabled={pendingTarik}>
                 Batal
               </Button>
-              {labaTersedia > 0 && (
+              {(labaTersediaPerJenis[tarikJenis] ?? 0) > 0 && (
                 <Button
                   type="submit"
                   variant="accent"
                   size="sm"
-                  disabled={pendingTarik || !tarikJumlah || Number(tarikJumlah) > labaTersedia}
+                  disabled={pendingTarik || !tarikJumlah || Number(tarikJumlah) > (labaTersediaPerJenis[tarikJenis] ?? 0)}
                 >
                   {pendingTarik && <Loader2 className="size-4 animate-spin" />}
-                  Tarik Hasil
+                  Tarik Penghasilan
                 </Button>
               )}
             </div>

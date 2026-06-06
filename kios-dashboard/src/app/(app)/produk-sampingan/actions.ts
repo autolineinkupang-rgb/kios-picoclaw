@@ -18,7 +18,7 @@ import {
   setProduk,
 } from "@/lib/kios";
 import { timeWITA, todayWITA } from "@/lib/format";
-import { hitungLaba } from "@/lib/analytics";
+import { hitungLaba, jenisOfTx } from "@/lib/analytics";
 import type { Produk } from "@/lib/types";
 
 export type JenisSampingan = "pulsa" | "bensin" | "solar" | "minyak_tanah";
@@ -179,6 +179,25 @@ async function computeLabaTersedia(): Promise<number> {
   return Math.max(0, totalLaba - totalTarik);
 }
 
+async function computeLabaTersediaJenis(jenis: JenisSampingan): Promise<number> {
+  const [txs, produk, penarikan] = await Promise.all([
+    getAllTransaksi(),
+    getAllProduk(),
+    getAllPenarikan(),
+  ]);
+  const byId = new Map(produk.map((p) => [p.id, p]));
+  let laba = 0;
+  for (const tx of txs) {
+    if (jenisOfTx(tx, byId) !== jenis) continue;
+    const modal = tx.modal && tx.modal > 0 ? tx.modal : tx.qty * (byId.get(tx.produk_id)?.harga_beli ?? 0);
+    laba += tx.total - modal;
+  }
+  const totalTarik = penarikan
+    .filter((p) => p.produk_id === jenis)
+    .reduce((s, p) => s + p.jumlah, 0);
+  return Math.max(0, laba - totalTarik);
+}
+
 const JENIS_LABEL: Record<JenisSampingan, string> = {
   pulsa: "Pulsa",
   bensin: "Bensin",
@@ -196,9 +215,9 @@ export async function tarikHasilAction(
   if (!Number.isFinite(jumlah) || jumlah <= 0)
     return { ok: false, error: "Jumlah harus lebih dari 0." };
 
-  const tersedia = await computeLabaTersedia();
+  const tersedia = await computeLabaTersediaJenis(jenis);
   if (jumlah > tersedia)
-    return { ok: false, error: `Laba tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
+    return { ok: false, error: `Penghasilan ${JENIS_LABEL[jenis]} tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
 
   const session = await getSession();
   const label = JENIS_LABEL[jenis];
@@ -250,9 +269,9 @@ export async function topupSaldoAction(
     return { ok: false, error: "Jumlah harus lebih dari 0." };
 
   if (fromLaba) {
-    const tersedia = await computeLabaTersedia();
+    const tersedia = await computeLabaTersediaJenis("pulsa");
     if (jumlah > tersedia)
-      return { ok: false, error: `Laba tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
+      return { ok: false, error: `Penghasilan Pulsa tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
   }
 
   const session = await getSession();
@@ -316,11 +335,11 @@ export async function topupStokAction(
       : 0;
     if (avgHargaBeli > 0) {
       const biayaModal = tambah * avgHargaBeli;
-      const tersedia = await computeLabaTersedia();
+      const tersedia = await computeLabaTersediaJenis(jenis);
       if (biayaModal > tersedia)
         return {
           ok: false,
-          error: `Biaya modal ${tambah} liter = Rp ${biayaModal.toLocaleString("id-ID")}. Laba tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.`,
+          error: `Biaya modal ${tambah} liter = Rp ${biayaModal.toLocaleString("id-ID")}. Penghasilan ${JENIS_LABEL[jenis]} tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.`,
         };
       const prkId = await nextPenarikandId();
       const label = JENIS_LABEL[jenis];

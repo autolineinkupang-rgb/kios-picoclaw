@@ -26,10 +26,28 @@ export interface ModuleLaporan {
   daily_chart: ModuleDailyPoint[];
 }
 
-function jenisOfTx(tx: Transaksi, byId: Map<string, Produk>): string {
+export function jenisOfTx(tx: Transaksi, byId: Map<string, Produk>): string {
   const fromCatatan = jenisFromCatatan(tx.catatan);
   if (fromCatatan !== "biasa") return fromCatatan;
   return byId.get(tx.produk_id)?.jenis ?? "biasa";
+}
+
+export interface RingkasanJenis {
+  omzet: number;
+  laba: number;
+}
+
+export function ringkasanPerJenis(txs: Transaksi[], produk: Produk[]): Record<string, RingkasanJenis> {
+  const byId = new Map(produk.map((p) => [p.id, p]));
+  const result: Record<string, RingkasanJenis> = {};
+  for (const tx of txs) {
+    const jenis = jenisOfTx(tx, byId);
+    if (!result[jenis]) result[jenis] = { omzet: 0, laba: 0 };
+    const modal = tx.modal && tx.modal > 0 ? tx.modal : tx.qty * (byId.get(tx.produk_id)?.harga_beli ?? 0);
+    result[jenis].omzet += tx.total;
+    result[jenis].laba += tx.total - modal;
+  }
+  return result;
 }
 
 export function laporanPulsa(txs: Transaksi[], produk: Produk[], currentSaldo?: number): ModuleLaporan {

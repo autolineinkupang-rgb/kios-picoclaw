@@ -5,18 +5,22 @@ import { getSession } from "@/lib/auth";
 import { ConnectionError } from "@/components/connection-error";
 import { SampinganTable } from "@/components/produk-sampingan/sampingan-table";
 import { LaporanPulsaBensin } from "@/components/laporan/laporan-pulsa-bensin";
-import { hitungLaba } from "@/lib/analytics";
+import { hitungLaba, ringkasanPerJenis } from "@/lib/analytics";
+import type { JenisSampingan } from "./actions";
 
 export const metadata: Metadata = { title: "Produk Sampingan" };
 export const dynamic = "force-dynamic";
 
 const JENIS_SAMPINGAN = new Set(["pulsa", "bensin", "solar", "minyak_tanah"]);
+const ALL_JENIS: JenisSampingan[] = ["pulsa", "bensin", "solar", "minyak_tanah"];
 
 const DEFAULT_SALDO: SampinganSaldo = { pulsa: 0, bensin: 0, solar: 0, minyak_tanah: 0 };
 
 export default async function ProdukSampinganPage() {
   const session = await getSession();
   let produk, transaksi, labaTersedia: number, saldoKat: SampinganSaldo;
+  let omzetPerJenis: Partial<Record<JenisSampingan, number>>;
+  let labaTersediaPerJenis: Partial<Record<JenisSampingan, number>>;
   try {
     const [allProduk, txs, penarikan, saldo] = await Promise.all([
       getAllProduk(),
@@ -30,6 +34,16 @@ export default async function ProdukSampinganPage() {
     const totalTarik = penarikan.reduce((s, p) => s + p.jumlah, 0);
     labaTersedia = Math.max(0, totalLaba - totalTarik);
     saldoKat = saldo ?? DEFAULT_SALDO;
+
+    const stats = ringkasanPerJenis(txs, allProduk);
+    omzetPerJenis = {};
+    labaTersediaPerJenis = {};
+    for (const j of ALL_JENIS) {
+      omzetPerJenis[j] = stats[j]?.omzet ?? 0;
+      const labaJ = stats[j]?.laba ?? 0;
+      const tarikJ = penarikan.filter((p) => p.produk_id === j).reduce((s, p) => s + p.jumlah, 0);
+      labaTersediaPerJenis[j] = Math.max(0, labaJ - tarikJ);
+    }
   } catch (e) {
     return <ConnectionError message={e instanceof Error ? e.message : String(e)} />;
   }
@@ -47,7 +61,14 @@ export default async function ProdukSampinganPage() {
         </p>
       </div>
       <LaporanPulsaBensin transaksi={transaksi} produk={produk} saldoKategori={saldoKat} />
-      <SampinganTable produk={produk} canManage={canManage} labaTersedia={labaTersedia} saldo={saldoKat} />
+      <SampinganTable
+        produk={produk}
+        canManage={canManage}
+        labaTersedia={labaTersedia}
+        saldo={saldoKat}
+        omzetPerJenis={omzetPerJenis}
+        labaTersediaPerJenis={labaTersediaPerJenis}
+      />
     </div>
   );
 }
