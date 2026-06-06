@@ -20,8 +20,15 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { stokStatus, STATUS_META } from "@/lib/produk-status";
 import { cn, matchesQuery } from "@/lib/utils";
-import type { Produk } from "@/lib/types";
+import type { Produk, SampinganSaldo } from "@/lib/types";
 import { checkoutAction, type CheckoutResult } from "@/app/(app)/kasir/actions";
+
+function efektifStok(p: Produk, saldo?: SampinganSaldo): number {
+  if (p.jenis === "pulsa") {
+    return p.harga_beli > 0 ? Math.floor((saldo?.pulsa ?? 0) / p.harga_beli) : 0;
+  }
+  return p.stok;
+}
 
 function isValidHp(raw: string): boolean {
   const d = raw.replace(/\D/g, "");
@@ -44,7 +51,7 @@ interface CartLine {
   qty: number;
 }
 
-export function KasirForm({ produk }: { produk: Produk[] }) {
+export function KasirForm({ produk, saldo }: { produk: Produk[]; saldo?: SampinganSaldo }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -54,6 +61,14 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
   const [bonError, setBonError] = useState("");
   const [result, setResult] = useState<CheckoutResult | null>(null);
   const [pending, start] = useTransition();
+
+  const stokMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of produk) m.set(p.id, efektifStok(p, saldo));
+    return m;
+  }, [produk, saldo]);
+
+  const getStok = (id: string) => stokMap.get(id) ?? 0;
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -73,7 +88,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
       const idx = prev.findIndex((l) => l.produk.id === p.id);
       if (idx === -1) return [...prev, { produk: p, qty: 1 }];
       const next = [...prev];
-      next[idx] = { ...next[idx], qty: Math.min(next[idx].qty + 1, p.stok) };
+      next[idx] = { ...next[idx], qty: Math.min(next[idx].qty + 1, getStok(p.id)) };
       return next;
     });
   }
@@ -82,7 +97,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
     setCart((prev) =>
       prev.map((l) =>
         l.produk.id === id
-          ? { ...l, qty: Math.max(1, Math.min(qty || 1, l.produk.stok)) }
+          ? { ...l, qty: Math.max(1, Math.min(qty || 1, getStok(l.produk.id))) }
           : l,
       ),
     );
@@ -144,10 +159,11 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
               </li>
             )}
             {matches.map((p) => {
-              const st = STATUS_META[stokStatus(p)];
+              const stok = getStok(p.id);
+              const st = STATUS_META[stokStatus({ ...p, stok })];
               const inCart = cart.find((l) => l.produk.id === p.id)?.qty ?? 0;
-              const habis = p.stok <= 0;
-              const maxed = inCart >= p.stok;
+              const habis = stok <= 0;
+              const maxed = inCart >= stok;
               return (
                 <li key={p.id}>
                   <button
@@ -175,7 +191,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <Badge variant={st.variant}>
-                        {p.stok} {p.satuan}
+                        {stok} {p.satuan}
                       </Badge>
                       {inCart > 0 && (
                         <span className="text-xs font-medium text-accent">{inCart} di keranjang</span>
@@ -228,7 +244,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                             )}
                           </div>
                           <p className="font-mono text-xs text-muted-foreground">
-                            {formatRupiah(l.produk.harga_jual)} · stok {l.produk.stok}
+                            {formatRupiah(l.produk.harga_jual)} · stok {getStok(l.produk.id)}
                           </p>
                         </div>
                         <button
@@ -261,7 +277,7 @@ export function KasirForm({ produk }: { produk: Produk[] }) {
                           <button
                             type="button"
                             onClick={() => setQty(l.produk.id, l.qty + 1)}
-                            disabled={l.qty >= l.produk.stok}
+                            disabled={l.qty >= getStok(l.produk.id)}
                             aria-label="Tambah"
                             className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-input hover:bg-muted disabled:opacity-40"
                           >

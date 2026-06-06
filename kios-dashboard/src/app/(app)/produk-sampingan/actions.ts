@@ -179,23 +179,22 @@ async function computeLabaTersedia(): Promise<number> {
   return Math.max(0, totalLaba - totalTarik);
 }
 
-async function computeLabaTersediaJenis(jenis: JenisSampingan): Promise<number> {
+async function computePenghasilanTersediaJenis(jenis: JenisSampingan): Promise<number> {
   const [txs, produk, penarikan] = await Promise.all([
     getAllTransaksi(),
     getAllProduk(),
     getAllPenarikan(),
   ]);
   const byId = new Map(produk.map((p) => [p.id, p]));
-  let laba = 0;
+  let penghasilan = 0;
   for (const tx of txs) {
     if (jenisOfTx(tx, byId) !== jenis) continue;
-    const modal = tx.modal && tx.modal > 0 ? tx.modal : tx.qty * (byId.get(tx.produk_id)?.harga_beli ?? 0);
-    laba += tx.total - modal;
+    penghasilan += tx.total;
   }
   const totalTarik = penarikan
     .filter((p) => p.produk_id === jenis)
     .reduce((s, p) => s + p.jumlah, 0);
-  return Math.max(0, laba - totalTarik);
+  return Math.max(0, penghasilan - totalTarik);
 }
 
 const JENIS_LABEL: Record<JenisSampingan, string> = {
@@ -215,7 +214,7 @@ export async function tarikHasilAction(
   if (!Number.isFinite(jumlah) || jumlah <= 0)
     return { ok: false, error: "Jumlah harus lebih dari 0." };
 
-  const tersedia = await computeLabaTersediaJenis(jenis);
+  const tersedia = await computePenghasilanTersediaJenis(jenis);
   if (jumlah > tersedia)
     return { ok: false, error: `Penghasilan ${JENIS_LABEL[jenis]} tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
 
@@ -269,7 +268,7 @@ export async function topupSaldoAction(
     return { ok: false, error: "Jumlah harus lebih dari 0." };
 
   if (fromLaba) {
-    const tersedia = await computeLabaTersediaJenis("pulsa");
+    const tersedia = await computePenghasilanTersediaJenis("pulsa");
     if (jumlah > tersedia)
       return { ok: false, error: `Penghasilan Pulsa tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.` };
   }
@@ -317,6 +316,7 @@ export async function topupStokAction(
   jumlah: number,
   catatan = "",
   fromLaba = false,
+  hargaBeliPemasok = 0,
 ): Promise<ActionResult> {
   const denied = await ensureOwner();
   if (denied) return denied;
@@ -327,33 +327,27 @@ export async function topupStokAction(
   const tambah = Math.trunc(jumlah);
 
   if (fromLaba) {
-    // compute avg harga_beli from existing products of this jenis
-    const allProduk = await getAllProduk();
-    const matched = allProduk.filter((p) => p.jenis === jenis && p.harga_beli > 0);
-    const avgHargaBeli = matched.length > 0
-      ? Math.round(matched.reduce((s, p) => s + p.harga_beli, 0) / matched.length)
-      : 0;
-    if (avgHargaBeli > 0) {
-      const biayaModal = tambah * avgHargaBeli;
-      const tersedia = await computeLabaTersediaJenis(jenis);
-      if (biayaModal > tersedia)
-        return {
-          ok: false,
-          error: `Biaya modal ${tambah} liter = Rp ${biayaModal.toLocaleString("id-ID")}. Penghasilan ${JENIS_LABEL[jenis]} tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.`,
-        };
-      const prkId = await nextPenarikandId();
-      const label = JENIS_LABEL[jenis];
-      await pushPenarikan({
-        id: prkId,
-        tanggal: todayWITA(),
-        jam: timeWITA(),
-        jumlah: biayaModal,
-        produk_id: jenis,
-        produk_nama: label,
-        kasir: session?.nama ?? "owner",
-        catatan: catatan.trim() || `topup stok ${label} ${tambah}L`,
-      });
-    }
+    if (hargaBeliPemasok <= 0)
+      return { ok: false, error: "Harga beli dari pemasok wajib diisi untuk topup dari penghasilan." };
+    const biayaModal = tambah * hargaBeliPemasok;
+    const tersedia = await computePenghasilanTersediaJenis(jenis);
+    if (biayaModal > tersedia)
+      return {
+        ok: false,
+        error: `Biaya topup ${tambah} liter = Rp ${biayaModal.toLocaleString("id-ID")}. Penghasilan ${JENIS_LABEL[jenis]} tersedia hanya Rp ${tersedia.toLocaleString("id-ID")}.`,
+      };
+    const prkId = await nextPenarikandId();
+    const label = JENIS_LABEL[jenis];
+    await pushPenarikan({
+      id: prkId,
+      tanggal: todayWITA(),
+      jam: timeWITA(),
+      jumlah: biayaModal,
+      produk_id: jenis,
+      produk_nama: label,
+      kasir: session?.nama ?? "owner",
+      catatan: catatan.trim() || `topup stok ${label} ${tambah}L`,
+    });
   }
 
   const saldo = await getOrInitSampinganSaldo();

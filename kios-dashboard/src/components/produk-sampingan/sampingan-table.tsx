@@ -91,6 +91,7 @@ export function SampinganTable({
   // category-level topup state
   const [topupJenis, setTopupJenis] = useState<JenisSampingan | null>(null);
   const [topupJumlah, setTopupJumlah] = useState("");
+  const [topupHargaBeli, setTopupHargaBeli] = useState("");
   const [topupCatatan, setTopupCatatan] = useState("");
   const [topupFromLaba, setTopupFromLaba] = useState(false);
   const [pendingTopup, startTopup] = useTransition();
@@ -111,17 +112,6 @@ export function SampinganTable({
     const s = new Set(produk.map((p) => p.jenis as JenisSampingan));
     return ALL_JENIS.filter((j) => s.has(j));
   }, [produk]);
-
-  // avg harga_beli per jenis (for fromLaba cost hint in BBM topup)
-  const avgHargaBeli = useMemo(() => {
-    const out: Partial<Record<JenisSampingan, number>> = {};
-    for (const j of jenisPresent) {
-      const matched = produk.filter((p) => p.jenis === j && p.harga_beli > 0);
-      if (matched.length > 0)
-        out[j] = Math.round(matched.reduce((s, p) => s + p.harga_beli, 0) / matched.length);
-    }
-    return out;
-  }, [produk, jenisPresent]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -157,6 +147,7 @@ export function SampinganTable({
   function openTopup(jenis: JenisSampingan) {
     setTopupJenis(jenis);
     setTopupJumlah("");
+    setTopupHargaBeli("");
     setTopupCatatan("");
     setTopupFromLaba(false);
   }
@@ -171,7 +162,7 @@ export function SampinganTable({
       const r =
         jenis === "pulsa"
           ? await topupSaldoAction("pulsa", jumlah, topupCatatan, topupFromLaba)
-          : await topupStokAction(jenis, jumlah, topupCatatan, topupFromLaba);
+          : await topupStokAction(jenis, jumlah, topupCatatan, topupFromLaba, Number(topupHargaBeli) || 0);
       setTopupJenis(null);
       showToast(r);
       if (r.ok) router.refresh();
@@ -558,6 +549,31 @@ export function SampinganTable({
               )}
             </div>
 
+            {topupJenis !== "pulsa" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="topup-harga-beli">
+                  Harga Beli dari Pemasok (Rp/liter)
+                  {topupFromLaba && <span className="text-destructive"> *</span>}
+                </Label>
+                <Input
+                  id="topup-harga-beli"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  value={topupHargaBeli}
+                  onChange={(e) => setTopupHargaBeli(e.target.value)}
+                  placeholder="mis. 10000 (Pertalite/Pertamax)"
+                  className="font-mono tabular-nums"
+                />
+                {topupFromLaba && Number(topupJumlah) > 0 && Number(topupHargaBeli) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Total biaya: {formatRupiah(Number(topupJumlah) * Number(topupHargaBeli))}
+                    {" "}({topupJumlah} L × {formatRupiah(Number(topupHargaBeli))}/L)
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="topup-jumlah">
                 {topupJenis === "pulsa" ? "Jumlah Saldo (Rp)" : "Jumlah (Liter)"}
@@ -575,12 +591,6 @@ export function SampinganTable({
                 autoFocus
                 required
               />
-              {topupFromLaba && topupJenis !== "pulsa" && avgHargaBeli[topupJenis] && Number(topupJumlah) > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Biaya modal: {formatRupiah(Number(topupJumlah) * (avgHargaBeli[topupJenis] ?? 0))}
-                  {" "}(@ {formatRupiah(avgHargaBeli[topupJenis] ?? 0)}/L)
-                </p>
-              )}
             </div>
 
             <div className="space-y-1.5">
@@ -601,7 +611,12 @@ export function SampinganTable({
                 type="submit"
                 variant="accent"
                 size="sm"
-                disabled={pendingTopup || !topupJumlah || (topupFromLaba && topupJenis !== null && (labaTersediaPerJenis[topupJenis] ?? 0) <= 0)}
+                disabled={
+                  pendingTopup ||
+                  !topupJumlah ||
+                  (topupFromLaba && topupJenis !== null && (labaTersediaPerJenis[topupJenis] ?? 0) <= 0) ||
+                  (topupFromLaba && topupJenis !== "pulsa" && !topupHargaBeli)
+                }
               >
                 {pendingTopup && <Loader2 className="size-4 animate-spin" />}
                 {topupJenis === "pulsa" ? "Topup Saldo" : "Tambah Stok"}
