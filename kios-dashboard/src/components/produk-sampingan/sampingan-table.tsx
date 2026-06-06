@@ -366,6 +366,7 @@ export function SampinganTable({
                 <th className="p-3 font-medium">Jenis</th>
                 <th className="p-3 text-right font-medium">Harga Beli</th>
                 <th className="p-3 text-right font-medium">Harga Jual</th>
+                <th className="p-3 text-right font-medium">Stok Tersedia</th>
                 <th className="p-3 font-medium">Update</th>
                 {canManage && <th className="p-3 text-right font-medium">Aksi</th>}
               </tr>
@@ -373,6 +374,10 @@ export function SampinganTable({
             <tbody>
               {rows.map((p) => {
                 const jenisMeta = JENIS_META[p.jenis as JenisSampingan] ?? null;
+                const isPulsa = p.jenis === "pulsa";
+                const stokTersedia = isPulsa && p.harga_beli > 0
+                  ? Math.floor((saldo.pulsa ?? 0) / p.harga_beli)
+                  : null;
                 return (
                   <tr key={p.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
                     <td className="p-3">
@@ -397,14 +402,23 @@ export function SampinganTable({
                     </td>
                     <td className="p-3 text-right font-mono tabular-nums text-muted-foreground">
                       {formatRupiah(p.harga_beli)}
-                      {p.jenis !== "pulsa" && (
+                      {!isPulsa && (
                         <p className="text-xs">/liter</p>
                       )}
                     </td>
                     <td className="p-3 text-right font-mono tabular-nums">
                       {formatRupiah(p.harga_jual)}
-                      {p.jenis !== "pulsa" && (
+                      {!isPulsa && (
                         <p className="text-xs text-muted-foreground">/liter</p>
+                      )}
+                    </td>
+                    <td className="p-3 text-right tabular-nums">
+                      {stokTersedia !== null ? (
+                        <span className={cn("font-semibold", stokTersedia === 0 ? "text-destructive" : "text-foreground")}>
+                          {stokTersedia}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="p-3 text-xs text-muted-foreground">
