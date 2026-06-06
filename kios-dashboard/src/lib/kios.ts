@@ -450,7 +450,7 @@ export async function getPulsaAnchor(): Promise<Produk | null> {
 // ── Sampingan Saldo (universal per-category balance) ─────────────────────────
 
 const SAMPINGAN_SALDO_DEFAULT: SampinganSaldo = {
-  pulsa: 0, bensin: 0, solar: 0, minyak_tanah: 0,
+  pulsa: 0, pertalite: 0, pertamax: 0, solar: 0, minyak_tanah: 0,
 };
 
 export async function getSampinganSaldo(): Promise<SampinganSaldo | null> {
@@ -462,5 +462,6 @@ export async function setSampinganSaldo(s: SampinganSaldo): Promise<void> {
 }
 
 export async function getOrInitSampinganSaldo(): Promise<SampinganSaldo> {
-  return (await getSampinganSaldo()) ?? { ...SAMPINGAN_SALDO_DEFAULT };
+  const saved = await getSampinganSaldo();
+  return saved ? { ...SAMPINGAN_SALDO_DEFAULT, ...saved } : { ...SAMPINGAN_SALDO_DEFAULT };
 }

@@ -230,7 +230,7 @@ export function LaporanPulsaBensin({
 }) {
   const pulsaSaldo = saldoKategori?.pulsa;
   const bensinSaldo = saldoKategori
-    ? saldoKategori.bensin + saldoKategori.solar + saldoKategori.minyak_tanah
+    ? (saldoKategori.pertalite ?? 0) + (saldoKategori.pertamax ?? 0) + saldoKategori.solar + saldoKategori.minyak_tanah
     : undefined;
   const pulsa = useMemo(
     () => laporanPulsa(transaksi, produk, pulsaSaldo),

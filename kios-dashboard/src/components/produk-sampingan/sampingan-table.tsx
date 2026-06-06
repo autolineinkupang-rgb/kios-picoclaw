@@ -215,7 +215,7 @@ export function SampinganTable({
       <div className="flex items-center gap-3 rounded-xl border border-violet-500/25 bg-violet-500/8 px-4 py-3">
         <TrendingUp className="size-5 shrink-0 text-violet-500" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">Laba Tersedia (bisa ditarik)</p>
+          <p className="text-xs text-muted-foreground">Total Penghasilan Tersedia (bisa ditarik)</p>
           <p className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
             {formatRupiah(labaTersedia)}
           </p>
@@ -273,7 +273,7 @@ export function SampinganTable({
                     <p className="font-semibold tabular-nums">{formatRupiah(penghasilan)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Laba Tersedia</p>
+                    <p className="text-muted-foreground">Penghasilan Tersedia</p>
                     <p className={cn("font-semibold tabular-nums", labaTersediaKat > 0 ? "text-success" : "text-muted-foreground")}>
                       {formatRupiah(labaTersediaKat)}
                     </p>

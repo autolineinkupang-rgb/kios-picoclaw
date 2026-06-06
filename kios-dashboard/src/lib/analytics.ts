@@ -107,7 +107,7 @@ export function laporanPulsa(txs: Transaksi[], produk: Produk[], currentSaldo?: 
   };
 }
 
-const BBM_JENIS = new Set(["bensin", "solar", "minyak_tanah"]);
+const BBM_JENIS = new Set(["bensin", "pertalite", "pertamax", "solar", "minyak_tanah"]);
 
 export function laporanBensin(txs: Transaksi[], produk: Produk[], currentSaldo?: number): ModuleLaporan {
   const byId = new Map(produk.map((p) => [p.id, p]));

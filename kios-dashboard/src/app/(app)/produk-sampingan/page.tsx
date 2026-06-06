@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const JENIS_SAMPINGAN = new Set(["pulsa", "bensin", "solar", "minyak_tanah"]);
 const ALL_JENIS: JenisSampingan[] = ["pulsa", "bensin", "solar", "minyak_tanah"];
 
-const DEFAULT_SALDO: SampinganSaldo = { pulsa: 0, bensin: 0, solar: 0, minyak_tanah: 0 };
+const DEFAULT_SALDO: SampinganSaldo = { pulsa: 0, pertalite: 0, pertamax: 0, solar: 0, minyak_tanah: 0 };
 
 export default async function ProdukSampinganPage() {
   const session = await getSession();
@@ -39,10 +39,10 @@ export default async function ProdukSampinganPage() {
     omzetPerJenis = {};
     labaTersediaPerJenis = {};
     for (const j of ALL_JENIS) {
-      omzetPerJenis[j] = stats[j]?.omzet ?? 0;
-      const labaJ = stats[j]?.laba ?? 0;
+      const omzetJ = stats[j]?.omzet ?? 0;
+      omzetPerJenis[j] = omzetJ;
       const tarikJ = penarikan.filter((p) => p.produk_id === j).reduce((s, p) => s + p.jumlah, 0);
-      labaTersediaPerJenis[j] = Math.max(0, labaJ - tarikJ);
+      labaTersediaPerJenis[j] = Math.max(0, omzetJ - tarikJ);
     }
   } catch (e) {
     return <ConnectionError message={e instanceof Error ? e.message : String(e)} />;

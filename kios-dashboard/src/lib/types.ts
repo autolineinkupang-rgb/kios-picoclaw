@@ -217,13 +217,17 @@ export interface KiosConfig {
 
 export interface SampinganSaldo {
   pulsa: number;             // Rp saldo modal universal
-  bensin: number;            // liter
+  pertalite: number;         // liter (menggantikan bensin)
+  pertamax: number;          // liter
   solar: number;             // liter
   minyak_tanah: number;      // liter
-  min_pulsa?: number;        // alert threshold Rp
-  min_bensin?: number;       // alert threshold liter
+  bensin?: number;           // legacy only — jangan dipakai untuk data baru
+  min_pulsa?: number;
+  min_pertalite?: number;
+  min_pertamax?: number;
   min_solar?: number;
   min_minyak_tanah?: number;
+  min_bensin?: number;       // legacy
 }
 
 export interface Penarikan {
