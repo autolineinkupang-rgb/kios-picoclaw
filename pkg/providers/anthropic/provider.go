@@ -262,7 +262,9 @@ func applyThinkingConfig(params *anthropic.MessageNewParams, level string) {
 	params.Temperature = anthropic.MessageNewParams{}.Temperature
 
 	if level == "adaptive" {
-		adaptive := anthropic.NewThinkingConfigAdaptiveParam()
+		// anthropic-sdk-go v1.45 removed NewThinkingConfigAdaptiveParam();
+		// construct the param directly with the required type discriminator.
+		adaptive := anthropic.ThinkingConfigAdaptiveParam{Type: "adaptive"}
 		params.Thinking = anthropic.ThinkingConfigParamUnion{OfAdaptive: &adaptive}
 		params.OutputConfig = anthropic.OutputConfigParam{
 			Effort: anthropic.OutputConfigEffortHigh,
