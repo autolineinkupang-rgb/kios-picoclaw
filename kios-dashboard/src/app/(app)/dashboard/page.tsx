@@ -53,12 +53,13 @@ export default async function DashboardPage() {
 
   const LABEL_JENIS: Record<string, string> = {
     pulsa: "Pulsa",
-    bensin: "Bensin",
+    pertalite: "Pertalite",
+    pertamax: "Pertamax",
     solar: "Solar",
     minyak_tanah: "Minyak Tanah",
   };
   const modalSampinganRows = (
-    ["pulsa", "bensin", "solar", "minyak_tanah"] as const
+    ["pulsa", "pertalite", "pertamax", "solar", "minyak_tanah"] as const
   ).filter((j) => modalSampinganHariIni[j] > 0);
 
   // Yesterday's omzet for the trend hint.

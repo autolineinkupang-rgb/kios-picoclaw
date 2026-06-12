@@ -25,8 +25,9 @@ export function kategoriBBM(p: Produk): KategoriBBM | null {
  */
 export function normalisasiJenis(p: Produk): Produk {
   if (p.jenis === "bensin") {
-    const kat = kategoriBBM(p);
-    if (kat) p.jenis = kat;
+    // "bensin" is fully retired: map via kategori, defaulting to pertalite
+    // (owner decision — same allocation as legacy withdrawals).
+    p.jenis = kategoriBBM(p) ?? "pertalite";
   }
   return p;
 }
@@ -54,13 +55,9 @@ export function omzetJenis(txs: Transaksi[], produk: Produk[], jenis: string): n
   const byId = new Map(produk.map((p) => [p.id, p]));
   let omzet = 0;
   for (const tx of txs) {
-    const txJenis = jenisOfTx(tx, byId);
-    const cocok =
-      txJenis === jenis ||
-      ((jenis === "pertalite" || jenis === "pertamax") &&
-        txJenis === "bensin" &&
-        byId.get(tx.produk_id)?.kategori === jenis);
-    if (cocok) omzet += tx.total;
+    // jenisOfTx never returns "bensin": legacy transactions are resolved to
+    // pertalite/pertamax via the product, defaulting to pertalite.
+    if (jenisOfTx(tx, byId) === jenis) omzet += tx.total;
   }
   return omzet;
 }

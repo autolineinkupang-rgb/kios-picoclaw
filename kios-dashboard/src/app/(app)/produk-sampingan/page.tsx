@@ -12,7 +12,9 @@ import type { JenisSampingan } from "./actions";
 export const metadata: Metadata = { title: "Produk Sampingan" };
 export const dynamic = "force-dynamic";
 
-const JENIS_SAMPINGAN = new Set(["pulsa", "bensin", "pertalite", "pertamax", "solar", "minyak_tanah"]);
+// "bensin" tidak ada lagi: normalisasiJenis (lib/sampingan.ts) memetakan
+// produk lama ke pertalite/pertamax saat dibaca.
+const JENIS_SAMPINGAN = new Set(["pulsa", "pertalite", "pertamax", "solar", "minyak_tanah"]);
 const ALL_JENIS: JenisSampingan[] = ["pulsa", "pertalite", "pertamax", "solar", "minyak_tanah"];
 
 const DEFAULT_SALDO: SampinganSaldo = { pulsa: 0, pertalite: 0, pertamax: 0, solar: 0, minyak_tanah: 0 };

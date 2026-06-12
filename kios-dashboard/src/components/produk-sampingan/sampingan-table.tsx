@@ -34,6 +34,7 @@ import {
 } from "@/app/(app)/produk-sampingan/actions";
 import { Label } from "@/components/ui/input";
 import { formatRupiah, formatTanggal } from "@/lib/format";
+import { efektifStok, kategoriBBM } from "@/lib/sampingan";
 import { produkImage } from "@/lib/produk-image";
 import { cn, matchesQuery } from "@/lib/utils";
 import type { Produk, SampinganSaldo } from "@/lib/types";
@@ -108,29 +109,18 @@ export function SampinganTable({
   const [tarikCatatan, setTarikCatatan] = useState("");
   const [pendingTarik, startTarik] = useTransition();
 
-  // jenis present in produk list — bensin products are mapped via kategori ke pertalite/pertamax
+  // jenis present in produk list — kategoriBBM maps legacy bensin products too
   const jenisPresent = useMemo(() => {
-    const jenisSet = new Set(produk.map((p) => p.jenis as string));
-    const bensinKats = new Set(
-      produk.filter((p) => p.jenis === "bensin").map((p) => p.kategori).filter(Boolean)
-    );
-    return ALL_JENIS.filter((j) => {
-      if (j === "pertalite" || j === "pertamax")
-        return bensinKats.has(j) || (saldo[j] ?? 0) > 0;
-      return jenisSet.has(j);
-    });
+    const present = new Set(produk.map((p) => (kategoriBBM(p) ?? p.jenis) as string));
+    return ALL_JENIS.filter((j) => present.has(j) || (saldo[j] ?? 0) > 0);
   }, [produk, saldo]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return produk.filter((p) => {
       if (jenisFilter) {
-        // pertalite/pertamax difilter via kategori produk bensin
-        if (jenisFilter === "pertalite" || jenisFilter === "pertamax") {
-          if (!(p.jenis === "bensin" && p.kategori === jenisFilter) && p.jenis !== jenisFilter) return false;
-        } else if (p.jenis !== jenisFilter) {
-          return false;
-        }
+        const efektifJenis = kategoriBBM(p) ?? p.jenis;
+        if (efektifJenis !== jenisFilter) return false;
       }
       if (!q) return true;
       return matchesQuery(q, p.nama, p.id, p.barcode);
@@ -401,16 +391,12 @@ export function SampinganTable({
               {rows.map((p) => {
                 const jenisMeta = JENIS_META[p.jenis as JenisSampingan] ?? null;
                 const isPulsa = p.jenis === "pulsa";
-                const stokTersedia: number | null = (() => {
-                  if (isPulsa && p.harga_beli > 0)
-                    return Math.floor((saldo.pulsa ?? 0) / p.harga_beli);
-                  if (p.jenis === "bensin") {
-                    const kat = p.kategori as "pertalite" | "pertamax";
-                    if (kat === "pertalite" || kat === "pertamax")
-                      return (saldo[kat] as number) ?? 0;
-                  }
-                  return null;
-                })();
+                // Shared formula with the cashier (lib/sampingan.ts) so the
+                // "Stok Tersedia" column always matches the category saldo.
+                const stokTersedia: number | null =
+                  (isPulsa && p.harga_beli > 0) || kategoriBBM(p)
+                    ? efektifStok(p, saldo)
+                    : null;
                 return (
                   <tr key={p.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
                     <td className="p-3">

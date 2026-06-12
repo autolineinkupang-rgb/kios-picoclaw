@@ -28,8 +28,15 @@ export interface ModuleLaporan {
 
 export function jenisOfTx(tx: Transaksi, byId: Map<string, Produk>): string {
   const fromCatatan = jenisFromCatatan(tx.catatan);
+  if (fromCatatan === "bensin") {
+    // "bensin" is retired: resolve legacy tags via the product's (normalized)
+    // jenis, defaulting to pertalite — same allocation as legacy withdrawals.
+    const pj = byId.get(tx.produk_id)?.jenis;
+    return pj === "pertamax" ? "pertamax" : "pertalite";
+  }
   if (fromCatatan !== "biasa") return fromCatatan;
-  return byId.get(tx.produk_id)?.jenis ?? "biasa";
+  const jenis = byId.get(tx.produk_id)?.jenis ?? "biasa";
+  return jenis === "bensin" ? "pertalite" : jenis;
 }
 
 export interface RingkasanJenis {
@@ -307,23 +314,31 @@ export function jenisFromCatatan(catatan: string): string {
 export interface ModalPerJenis {
   biasa: number;
   pulsa: number;
-  bensin: number;
+  pertalite: number;
+  pertamax: number;
   solar: number;
   minyak_tanah: number;
   total: number;
 }
 
 /** Modal breakdown per product kind using tx.modal when set (accurate), falling
- * back to qty * current harga_beli for old bot transactions. */
+ * back to qty * current harga_beli for old bot transactions. Legacy "bensin"
+ * transactions are attributed via jenisOfTx (pertalite/pertamax). */
 export function modalPerJenis(txs: Transaksi[], produk: Produk[]): ModalPerJenis {
   const beli = new Map<string, number>();
   for (const p of produk) beli.set(p.id, p.harga_beli);
+  const byId = new Map(produk.map((p) => [p.id, p]));
 
-  const result: ModalPerJenis = { biasa: 0, pulsa: 0, bensin: 0, solar: 0, minyak_tanah: 0, total: 0 };
+  const result: ModalPerJenis = {
+    biasa: 0, pulsa: 0, pertalite: 0, pertamax: 0, solar: 0, minyak_tanah: 0, total: 0,
+  };
   for (const tx of txs) {
     const m = tx.modal && tx.modal > 0 ? tx.modal : tx.qty * (beli.get(tx.produk_id) ?? 0);
-    const jenis = jenisFromCatatan(tx.catatan);
-    if (jenis === "pulsa" || jenis === "bensin" || jenis === "solar" || jenis === "minyak_tanah") {
+    const jenis = jenisOfTx(tx, byId);
+    if (
+      jenis === "pulsa" || jenis === "pertalite" || jenis === "pertamax" ||
+      jenis === "solar" || jenis === "minyak_tanah"
+    ) {
       result[jenis] += m;
     } else {
       result.biasa += m;

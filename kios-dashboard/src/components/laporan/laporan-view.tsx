@@ -88,7 +88,8 @@ export function LaporanView({
               {[
                 { label: "Produk Biasa", value: modalJenis.biasa },
                 { label: "Pulsa", value: modalJenis.pulsa },
-                { label: "Bensin", value: modalJenis.bensin },
+                { label: "Pertalite", value: modalJenis.pertalite },
+                { label: "Pertamax", value: modalJenis.pertamax },
                 { label: "Solar", value: modalJenis.solar },
                 { label: "Minyak Tanah", value: modalJenis.minyak_tanah },
               ]
