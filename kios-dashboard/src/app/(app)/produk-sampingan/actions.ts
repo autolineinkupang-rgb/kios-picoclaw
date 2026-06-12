@@ -133,7 +133,9 @@ export async function updateSampinganAction(input: SampinganInput): Promise<Acti
     kategori: input.kategori?.trim() || input.jenis,
     satuan: input.satuan?.trim() || "pcs",
     stok: num(input.stok),
-    harga_beli: num(input.harga_beli),
+    // Non-pulsa: harga_beli comes from the supplier price at topup time —
+    // the form has no input for it, so keep the stored value.
+    harga_beli: input.jenis === "pulsa" ? num(input.harga_beli) : existing.harga_beli,
     harga_jual: num(input.harga_jual),
     stok_minimum: num(input.stok_minimum),
     stok_kritis: num(input.stok_kritis),

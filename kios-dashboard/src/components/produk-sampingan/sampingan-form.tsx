@@ -185,18 +185,27 @@ export function SampinganForm({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="harga_beli">Harga Beli / Modal (Rp)</Label>
-          <Input
-            id="harga_beli"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={String(form.harga_beli)}
-            onChange={(e) => set("harga_beli", Number(e.target.value))}
-            className="font-mono tabular-nums"
-          />
-        </div>
+        {form.jenis === "pulsa" ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="harga_beli">Harga Beli / Modal (Rp)</Label>
+            <Input
+              id="harga_beli"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={String(form.harga_beli)}
+              onChange={(e) => set("harga_beli", Number(e.target.value))}
+              className="font-mono tabular-nums"
+            />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label>Harga Beli / Modal (Rp)</Label>
+            <p className="flex h-9 items-center text-sm text-muted-foreground">
+              Otomatis dari harga pemasok saat topup stok.
+            </p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="harga_jual">Harga Jual (Rp)</Label>
           <Input
