@@ -18,6 +18,20 @@ export function kategoriBBM(p: Produk): KategoriBBM | null {
 }
 
 /**
+ * Canonicalizes jenis on read: legacy fuel rows stored as jenis "bensin" +
+ * kategori pertalite/pertamax/solar/minyak_tanah become the category itself,
+ * so the rest of the app only ever needs to check `jenis` (kategori stays a
+ * free-text display label).
+ */
+export function normalisasiJenis(p: Produk): Produk {
+  if (p.jenis === "bensin") {
+    const kat = kategoriBBM(p);
+    if (kat) p.jenis = kat;
+  }
+  return p;
+}
+
+/**
  * Effective sellable stock shown to the cashier and used to validate sales.
  * Pulsa: how many units the universal modal pool can cover at this product's
  * cost price. BBM: liters from the per-category saldo. Others: unit stock.

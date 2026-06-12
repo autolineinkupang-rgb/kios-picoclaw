@@ -1,5 +1,6 @@
 import { KEY, redis } from "./redis";
 import { formatSuplierId, todayWITA } from "./format";
+import { normalisasiJenis } from "./sampingan";
 import type {
   Produk,
   Transaksi,
@@ -48,14 +49,15 @@ function normalizeList<T>(vals: unknown[]): T[] {
 export async function getAllProduk(): Promise<Produk[]> {
   const map = await redis().hgetall<Record<string, unknown>>(KEY.produk);
   if (!map) return [];
-  const list = normalizeList<Produk>(Object.values(map));
+  const list = normalizeList<Produk>(Object.values(map)).map(normalisasiJenis);
   list.sort((a, b) => a.id.localeCompare(b.id));
   return list;
 }
 
 export async function getProduk(id: string): Promise<Produk | null> {
   const v = await redis().hget<unknown>(KEY.produk, id);
-  return normalize<Produk>(v);
+  const p = normalize<Produk>(v);
+  return p ? normalisasiJenis(p) : null;
 }
 
 export async function setProduk(p: Produk): Promise<void> {

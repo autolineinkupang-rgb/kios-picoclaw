@@ -49,7 +49,9 @@ function fromProduk(p: Produk): SampinganInput {
     jenis: (p.jenis as JenisSampingan) ?? "pulsa",
     nama: p.nama,
     barcode: p.barcode,
-    kategori: p.kategori,
+    // Always empty so the server action re-derives kategori from jenis —
+    // prevents a stale label when the jenis is changed on edit.
+    kategori: "",
     satuan: p.satuan,
     stok: p.stok,
     harga_beli: p.harga_beli,
@@ -170,25 +172,16 @@ export function SampinganForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="kategori">Kategori</Label>
-          <Input
-            id="kategori"
-            value={form.kategori}
-            onChange={(e) => set("kategori", e.target.value)}
-            placeholder={form.jenis}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="satuan">Satuan</Label>
-          <Input
-            id="satuan"
-            value={form.satuan}
-            onChange={(e) => set("satuan", e.target.value)}
-            placeholder={form.jenis === "pulsa" ? "paket" : "liter"}
-          />
-        </div>
+      {/* Kategori intentionally has no input: it always follows jenis
+          (server action defaults kategori = jenis when left empty). */}
+      <div className="space-y-1.5">
+        <Label htmlFor="satuan">Satuan</Label>
+        <Input
+          id="satuan"
+          value={form.satuan}
+          onChange={(e) => set("satuan", e.target.value)}
+          placeholder={form.jenis === "pulsa" ? "paket" : "liter"}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
