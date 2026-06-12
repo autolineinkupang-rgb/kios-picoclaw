@@ -617,6 +617,8 @@ func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.T
 	case "pulsa":
 		if removed.Modal > 0 {
 			_ = t.store.IncrSaldoModal(ctx, item.ID, removed.Modal)
+			// Restore the dashboard saldo pool too (negative delta = add back).
+			_ = t.store.DecrSampinganSaldo(ctx, "pulsa", -float64(removed.Modal))
 			reloaded, _ := t.store.GetProduk(ctx, item.ID)
 			saldoKini := 0
 			if reloaded != nil {
@@ -634,6 +636,10 @@ func (t *StokTool) batalkanTx(ctx context.Context, args map[string]any) *tools.T
 			item.Stok = item.StokMl / 1000
 			item.LastUpdate = NowWITA().Format("2006-01-02")
 			_ = t.store.SetProduk(ctx, item)
+			// Restore the dashboard saldo pool too (negative delta = add back).
+			if kat := kategoriBBM(item); kat != "" {
+				_ = t.store.DecrSampinganSaldo(ctx, kat, -removed.Liter)
+			}
 			return tools.NewToolResult(fmt.Sprintf("Transaksi %s dibatalkan, stok bensin %s dikembalikan (+%.3fL, sisa %.1fL).",
 				removed.ID, item.Nama, removed.Liter, float64(item.StokMl)/1000))
 		}

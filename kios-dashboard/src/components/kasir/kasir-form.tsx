@@ -19,21 +19,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { stokStatus, STATUS_META } from "@/lib/produk-status";
+import { efektifStok } from "@/lib/sampingan";
 import { cn, matchesQuery } from "@/lib/utils";
 import type { Produk, SampinganSaldo } from "@/lib/types";
 import { checkoutAction, type CheckoutResult } from "@/app/(app)/kasir/actions";
-
-function efektifStok(p: Produk, saldo?: SampinganSaldo): number {
-  if (p.jenis === "pulsa") {
-    return p.harga_beli > 0 ? Math.floor((saldo?.pulsa ?? 0) / p.harga_beli) : 0;
-  }
-  // bensin dengan kategori pertalite/pertamax → stok dari saldo kategori
-  if (p.jenis === "bensin") {
-    if (p.kategori === "pertalite") return saldo?.pertalite ?? p.stok;
-    if (p.kategori === "pertamax") return saldo?.pertamax ?? p.stok;
-  }
-  return p.stok;
-}
 
 function isValidHp(raw: string): boolean {
   const d = raw.replace(/\D/g, "");

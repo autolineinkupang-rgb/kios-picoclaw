@@ -1,5 +1,7 @@
 import {
   getAllProduk,
+  getOrInitSampinganSaldo,
+  setSampinganSaldo,
   nextTrxId,
   pushTransaksi,
   setProduk,
@@ -10,6 +12,7 @@ import {
   upsertPelanggan,
 } from "./kios";
 import { timeWITA, todayWITA, formatRupiah } from "./format";
+import { efektifStok, kategoriBBM } from "./sampingan";
 import type { Transaksi, Piutang } from "./types";
 
 export interface SaleItemInput {
@@ -67,12 +70,17 @@ export async function recordSale(
 
   const all = await getAllProduk();
   const byId = new Map(all.map((p) => [p.id, p]));
+  const saldo = await getOrInitSampinganSaldo();
+  let saldoDirty = false;
 
   const insufficient: string[] = [];
   for (const [id, q] of wanted) {
     const p = byId.get(id);
     if (!p) return { ok: false, error: `Produk ${id} tidak ditemukan.` };
-    if (p.stok < q) insufficient.push(`${p.nama} (minta ${q}, sisa ${p.stok})`);
+    // Pulsa & BBM stock lives in the sampingan saldo pool, not p.stok —
+    // validate against the same effective stock the cashier UI displays.
+    const sisa = efektifStok(p, saldo);
+    if (sisa < q) insufficient.push(`${p.nama} (minta ${q}, sisa ${sisa})`);
   }
   if (insufficient.length) {
     return { ok: false, error: `Stok tidak cukup: ${insufficient.join("; ")}.` };
@@ -89,6 +97,7 @@ export async function recordSale(
     const sub = q * p.harga_jual;
     const modal = p.harga_beli * q;
     const jenis = p.jenis && p.jenis !== "biasa" ? p.jenis : undefined;
+    const kat = kategoriBBM(p);
     const catatanTx = jenis ? `${catatan} [${jenis}]` : catatan;
 
     const txId = await nextTrxId();
@@ -107,20 +116,30 @@ export async function recordSale(
       catatan: catatanTx,
       session_id: "",
       modal,
-      ...(jenis === "bensin" ? { liter: q } : {}),
+      ...(kat ? { liter: q } : {}),
     };
     await pushTransaksi(tx);
 
-    p.stok -= q;
     p.last_update = today;
 
     let catatan_sampingan: string | undefined;
     if (jenis === "pulsa") {
+      // Debit both the universal pool (cashier display) and the product's
+      // own modal balance (read by the Telegram bot).
       const debit = p.harga_beli * q;
+      saldo.pulsa = Math.max(0, saldo.pulsa - debit);
+      saldoDirty = true;
       p.saldo_modal = Math.max(0, (p.saldo_modal ?? 0) - debit);
       catatan_sampingan = `saldo modal -${formatRupiah(debit)}`;
-    } else if (jenis === "bensin") {
-      p.stok_ml = Math.max(0, (p.stok_ml ?? 0) - q * 1000);
+    } else if (kat) {
+      // Liter-based fuel: debit the per-category pool and mirror to the
+      // product's ml stock (read by the Telegram bot).
+      saldo[kat] = Math.max(0, (saldo[kat] ?? 0) - q);
+      saldoDirty = true;
+      p.stok_ml = Math.max(0, (p.stok_ml ?? p.stok * 1000) - q * 1000);
+      p.stok = Math.floor((p.stok_ml ?? 0) / 1000);
+    } else {
+      p.stok -= q;
     }
 
     await setProduk(p);
@@ -131,11 +150,13 @@ export async function recordSale(
       qty: q,
       harga: p.harga_jual,
       subtotal: sub,
-      sisa: p.stok,
+      sisa: efektifStok(p, saldo),
       ...(jenis ? { jenis } : {}),
       ...(catatan_sampingan ? { catatan_sampingan } : {}),
     });
   }
+
+  if (saldoDirty) await setSampinganSaldo(saldo);
 
   let piutang_id: string | undefined;
   if (m === "bon" && pelangganPhone) {

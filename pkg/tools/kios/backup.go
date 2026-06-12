@@ -18,25 +18,25 @@ import (
 // free tier wipes data 30 days after credits run out, so the only durable copy
 // is the file we send to Telegram.
 type BackupData struct {
-	Versi         string          `json:"versi"`
-	Dibuat        string          `json:"dibuat"` // WITA timestamp
-	Produk        []*Produk       `json:"produk"`
-	Transaksi     []*Transaksi    `json:"transaksi"`
-	Pembelian     []*Pembelian    `json:"pembelian"`
-	PriceHistory  []*PriceHistory `json:"price_history"`
-	Supplier      []*Supplier     `json:"supplier"`
-	Promo         []*Promo        `json:"promo"`
-	Pustaka       []*Pustaka      `json:"pustaka"`
-	Users         []*UserKios     `json:"users"`
-	Shift         *Shift          `json:"shift,omitempty"`
-	HargaSupplier     map[string]int                `json:"harga_supplier,omitempty"`
+	Versi             string                       `json:"versi"`
+	Dibuat            string                       `json:"dibuat"` // WITA timestamp
+	Produk            []*Produk                    `json:"produk"`
+	Transaksi         []*Transaksi                 `json:"transaksi"`
+	Pembelian         []*Pembelian                 `json:"pembelian"`
+	PriceHistory      []*PriceHistory              `json:"price_history"`
+	Supplier          []*Supplier                  `json:"supplier"`
+	Promo             []*Promo                     `json:"promo"`
+	Pustaka           []*Pustaka                   `json:"pustaka"`
+	Users             []*UserKios                  `json:"users"`
+	Shift             *Shift                       `json:"shift,omitempty"`
+	HargaSupplier     map[string]int               `json:"harga_supplier,omitempty"`
 	HargaSupplierLast map[string]HargaSupplierLast `json:"harga_supplier_last,omitempty"`
 	Pelanggan         []*Pelanggan                 `json:"pelanggan,omitempty"`
-	Piutang       []*Piutang      `json:"piutang,omitempty"`
-	Hutang        []*Hutang       `json:"hutang,omitempty"`
-	Pembayaran    []*Pembayaran   `json:"pembayaran,omitempty"`
-	PulsaDenom    []*PulsaDenom   `json:"pulsa_denom,omitempty"`
-	PulsaTopup    []*PulsaTopup   `json:"pulsa_topup,omitempty"`
+	Piutang           []*Piutang                   `json:"piutang,omitempty"`
+	Hutang            []*Hutang                    `json:"hutang,omitempty"`
+	Pembayaran        []*Pembayaran                `json:"pembayaran,omitempty"`
+	PulsaDenom        []*PulsaDenom                `json:"pulsa_denom,omitempty"`
+	PulsaTopup        []*PulsaTopup                `json:"pulsa_topup,omitempty"`
 }
 
 // BuildBackup reads every kios dataset from Redis into a single snapshot.

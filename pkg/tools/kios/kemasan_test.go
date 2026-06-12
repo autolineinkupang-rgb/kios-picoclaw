@@ -15,7 +15,7 @@ func TestComputeFromPack(t *testing.T) {
 		wantQty   int
 		wantHarga int
 	}{
-		{"dos", 2, 24000, 12, 24, 2000},  // 24000/12 = 2000/pcs
+		{"dos", 2, 24000, 12, 24, 2000},   // 24000/12 = 2000/pcs
 		{"lusin", 1, 36000, 12, 12, 3000}, // 36000/12 = 3000/pcs
 		// round(30000/3) = 10000/pcs (hargaPack = harga per SATU kemasan)
 		{"renteng", 3, 30000, 3, 9, 10000},

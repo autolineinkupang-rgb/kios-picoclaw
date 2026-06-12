@@ -106,6 +106,56 @@ func (s *Store) IncrSaldoModal(ctx context.Context, produkID string, delta int) 
 	return s.SetProduk(ctx, p)
 }
 
+const keySampinganSaldo = "kios:sampingan:saldo"
+
+// kategoriBBM returns the dashboard saldo-pool field for a fuel product, or ""
+// when the product is not liter-based fuel. Mirrors kios-dashboard/src/lib/sampingan.ts.
+func kategoriBBM(p *Produk) string {
+	switch p.Jenis {
+	case "pertalite", "pertamax", "solar", "minyak_tanah":
+		return p.Jenis
+	case "bensin":
+		switch p.Kategori {
+		case "pertalite", "pertamax", "solar", "minyak_tanah":
+			return p.Kategori
+		}
+	}
+	return ""
+}
+
+// DecrSampinganSaldo subtracts delta from one category field of the dashboard
+// sampingan saldo pool (kios:sampingan:saldo), clamping at 0. Pass a negative
+// delta to add back (e.g. on cancellation). The pool is what the dashboard
+// cashier displays for pulsa modal (Rp) and fuel stock (liters); syncing it on
+// bot sales prevents stale stock numbers. A missing key is not an error — the
+// pool simply has not been initialized by the dashboard yet.
+func (s *Store) DecrSampinganSaldo(ctx context.Context, field string, delta float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	raw, err := s.rdb.Get(ctx, keySampinganSaldo).Result()
+	if err == redis.Nil {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return fmt.Errorf("saldo sampingan korup: %w", err)
+	}
+	cur, _ := m[field].(float64)
+	next := cur - delta
+	if next < 0 {
+		next = 0
+	}
+	m[field] = next
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return s.rdb.Set(ctx, keySampinganSaldo, string(b), 0).Err()
+}
+
 // DecrSaldoModal reduces SaldoModal by delta. Returns error if delta > SaldoModal.
 func (s *Store) DecrSaldoModal(ctx context.Context, produkID string, delta int) error {
 	s.mu.Lock()

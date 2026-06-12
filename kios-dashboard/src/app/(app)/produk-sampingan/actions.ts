@@ -9,6 +9,7 @@ import {
   getAllTransaksi,
   getOrInitSampinganSaldo,
   getProduk,
+  getPulsaAnchor,
   nextPenarikandId,
   nextProdukId,
   nextPulsaTopupId,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/kios";
 import { timeWITA, todayWITA } from "@/lib/format";
 import { hitungLaba, jenisOfTx } from "@/lib/analytics";
+import { kategoriBBM } from "@/lib/sampingan";
 import type { Produk } from "@/lib/types";
 
 export type JenisSampingan = "pulsa" | "pertalite" | "pertamax" | "solar" | "minyak_tanah";
@@ -232,7 +234,7 @@ export async function tarikHasilAction(
   revalidate();
   revalidatePath("/laporan");
   revalidatePath("/produk-sampingan");
-  return { ok: true, message: `Berhasil tarik Rp ${Math.trunc(jumlah).toLocaleString("id-ID")} dari laba ${label}.` };
+  return { ok: true, message: `Berhasil tarik Rp ${Math.trunc(jumlah).toLocaleString("id-ID")} dari penghasilan ${label}.` };
 }
 
 export async function setAmbangBatasKategoriAction(
@@ -274,6 +276,15 @@ export async function topupSaldoAction(
   const saldo = await getOrInitSampinganSaldo();
   saldo.pulsa += Math.trunc(jumlah);
   await setSampinganSaldo(saldo);
+
+  // Mirror to the pulsa product's own modal balance — the Telegram bot sells
+  // against produk.saldo_modal, not the dashboard pool.
+  const anchor = await getPulsaAnchor();
+  if (anchor) {
+    anchor.saldo_modal = (anchor.saldo_modal ?? 0) + Math.trunc(jumlah);
+    anchor.last_update = todayWITA();
+    await setProduk(anchor);
+  }
 
   const topupId = await nextPulsaTopupId();
   await pushPulsaTopup({
@@ -350,6 +361,18 @@ export async function topupStokAction(
   const saldo = await getOrInitSampinganSaldo();
   saldo[jenis] += tambah;
   await setSampinganSaldo(saldo);
+
+  // Mirror to the fuel product's ml stock — the Telegram bot sells against
+  // produk.stok_ml, not the dashboard pool.
+  const all = await getAllProduk();
+  const target = all.find((p) => kategoriBBM(p) === jenis);
+  if (target) {
+    target.stok_ml = (target.stok_ml ?? target.stok * 1000) + tambah * 1000;
+    target.stok = Math.floor(target.stok_ml / 1000);
+    if (hargaBeliPemasok > 0) target.harga_beli = Math.trunc(hargaBeliPemasok);
+    target.last_update = todayWITA();
+    await setProduk(target);
+  }
 
   revalidate();
   revalidatePath("/laporan");

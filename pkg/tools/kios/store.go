@@ -11,52 +11,57 @@ import (
 
 // Produk represents a product in the shop.
 type Produk struct {
-	ID          string `json:"id"`
-	Barcode     string `json:"barcode"`
-	Nama        string `json:"nama"`
-	Kategori    string `json:"kategori"`
-	Satuan      string `json:"satuan"`
-	Stok        int    `json:"stok"`
-	HargaBeli   int    `json:"harga_beli"`
-	HargaJual   int    `json:"harga_jual"`
-	StokMinimum int    `json:"stok_minimum"`
-	StokKritis  int    `json:"stok_kritis"`
-	Supplier    string `json:"supplier"`
-	LastUpdate  string `json:"last_update"`
-	HasExp      bool   `json:"has_exp"`
-	ExpDate     string `json:"exp_date"`
-	ImageURL    string `json:"image_url"`
-	Jenis        string `json:"jenis,omitempty"`        // "" | "biasa" | "pulsa" | "bensin"
-	SupplierID   string `json:"supplier_id,omitempty"`  // FK stabil ke Supplier.ID
-	SaldoModal   int    `json:"saldo_modal,omitempty"`  // pulsa: saldo modal rupiah
-	StokMl       int    `json:"stok_ml,omitempty"`      // bensin: stok mili-liter
-	StokKritisMl int    `json:"stok_kritis_ml,omitempty"` // bensin: ambang kritis (default 40000 = 40L)
-	PackDefs     []Kemasan `json:"pack_defs,omitempty"` // kemasan-kemasan restock yang dikenal
+	ID           string    `json:"id"`
+	Barcode      string    `json:"barcode"`
+	Nama         string    `json:"nama"`
+	Kategori     string    `json:"kategori"`
+	Satuan       string    `json:"satuan"`
+	Stok         int       `json:"stok"`
+	HargaBeli    int       `json:"harga_beli"`
+	HargaJual    int       `json:"harga_jual"`
+	StokMinimum  int       `json:"stok_minimum"`
+	StokKritis   int       `json:"stok_kritis"`
+	Supplier     string    `json:"supplier"`
+	LastUpdate   string    `json:"last_update"`
+	HasExp       bool      `json:"has_exp"`
+	ExpDate      string    `json:"exp_date"`
+	ImageURL     string    `json:"image_url"`
+	Jenis        string    `json:"jenis,omitempty"`          // "" | "biasa" | "pulsa" | "bensin"
+	SupplierID   string    `json:"supplier_id,omitempty"`    // FK stabil ke Supplier.ID
+	SaldoModal   int       `json:"saldo_modal,omitempty"`    // pulsa: saldo modal rupiah
+	StokMl       int       `json:"stok_ml,omitempty"`        // bensin: stok mili-liter
+	StokKritisMl int       `json:"stok_kritis_ml,omitempty"` // bensin: ambang kritis (default 40000 = 40L)
+	PackDefs     []Kemasan `json:"pack_defs,omitempty"`      // kemasan-kemasan restock yang dikenal
 }
 
 // JenisOrDefault returns the product kind, defaulting to "biasa" when unset so
 // pre-existing products (which have no jenis field) behave as ordinary stock items.
 func (p *Produk) JenisOrDefault() string {
-	if p.Jenis == "" {
+	switch p.Jenis {
+	case "":
 		return "biasa"
+	case "pertalite", "pertamax", "solar", "minyak_tanah":
+		// Fuel categories from the dashboard sampingan split — all are
+		// liter-based and must go through the bensin sale path (StokMl).
+		return "bensin"
 	}
 	return p.Jenis
 }
 
 // Transaksi represents a sales transaction.
 type Transaksi struct {
-	ID          string `json:"id"`
-	Tanggal     string `json:"tanggal"`
-	Jam         string `json:"jam"`
-	ProdukID    string `json:"produk_id"`
-	NamaProduk  string `json:"nama_produk"`
-	Kategori    string `json:"kategori"`
-	Qty         int    `json:"qty"`
-	HargaSatuan int    `json:"harga_satuan"`
-	Total       int    `json:"total"`
-	MetodeBayar string `json:"metode_bayar"`
-	Kasir       string `json:"kasir"`
-	Catatan     string `json:"catatan"`
+	ID          string  `json:"id"`
+	Tanggal     string  `json:"tanggal"`
+	Jam         string  `json:"jam"`
+	ProdukID    string  `json:"produk_id"`
+	NamaProduk  string  `json:"nama_produk"`
+	Kategori    string  `json:"kategori"`
+	Qty         int     `json:"qty"`
+	HargaSatuan int     `json:"harga_satuan"`
+	Total       int     `json:"total"`
+	MetodeBayar string  `json:"metode_bayar"`
+	Kasir       string  `json:"kasir"`
+	Catatan     string  `json:"catatan"`
 	SessionID   string  `json:"session_id"`
 	PiutangID   string  `json:"piutang_id,omitempty"` // diisi saat jual bon
 	Modal       int     `json:"modal,omitempty"`      // modal dikunci saat jual → laba akurat & historis
@@ -78,7 +83,7 @@ type Pembelian struct {
 	Kasir      string `json:"kasir"`
 	Catatan    string `json:"catatan"`
 	// Pack fields — diisi saat restock menggunakan satuan kemasan.
-	Kemasan    string `json:"kemasan,omitempty"`    // mis. "dos", "lusin"
+	Kemasan    string `json:"kemasan,omitempty"`     // mis. "dos", "lusin"
 	Isi        int    `json:"isi,omitempty"`         // pcs per kemasan
 	QtyPack    int    `json:"qty_pack,omitempty"`    // jumlah kemasan dibeli
 	HargaPack  int    `json:"harga_pack,omitempty"`  // harga total satu kemasan (rupiah)
@@ -202,47 +207,47 @@ type Pembayaran struct {
 
 // Redis key constants.
 const (
-	keyProduk            = "kios:produk"
-	keyTransaksi         = "kios:transaksi"
-	keySeqTrx            = "kios:seq:trx"
-	keyPembelian         = "kios:pembelian"
-	keySeqPem            = "kios:seq:pem"
-	keyPriceHist         = "kios:price_history"
-	keySeqPhg            = "kios:seq:phg"
-	keyShift             = "kios:shift"
-	keyUsers             = "kios:users"
-	keySeedDone          = "kios:seed:done"
-	keySupplier          = "kios:supplier"
-	keySeqSup            = "kios:seq:sup"
-	keyHargaSupplier     = "kios:harga_supplier"
-	keyPromo             = "kios:promo"
-	keySeqPromo          = "kios:seq:promo"
-	keyPustaka           = "kios:pustaka"
-	keySeqPus            = "kios:seq:pus"
-	keyPasarRef          = "kios:pasar:ref"
-	keyLearnPat          = "kios:learn:patterns"
-	keyLearnAls          = "kios:learn:aliases"
-	keyLearnShc          = "kios:learn:shortcuts"
-	keyLearnHab          = "kios:learn:habits"
-	keyLearnUnk          = "kios:learn:unknowns"
-	keyKiosConfig        = "kios:config"
-	keyNotifLastDate     = "kios:notif:last_date"
-	keyLoginPrefix       = "kios:login:" // one-time dashboard login codes
-	keyPesanan           = "kios:pesanan"
-	keyNotifPesananLast  = "kios:notif:pesanan_last"  // highest PSN seq notified to owners
-	keyNotifPendingState    = "kios:notif:pending_state"    // "alerted" | "clear"
+	keyProduk               = "kios:produk"
+	keyTransaksi            = "kios:transaksi"
+	keySeqTrx               = "kios:seq:trx"
+	keyPembelian            = "kios:pembelian"
+	keySeqPem               = "kios:seq:pem"
+	keyPriceHist            = "kios:price_history"
+	keySeqPhg               = "kios:seq:phg"
+	keyShift                = "kios:shift"
+	keyUsers                = "kios:users"
+	keySeedDone             = "kios:seed:done"
+	keySupplier             = "kios:supplier"
+	keySeqSup               = "kios:seq:sup"
+	keyHargaSupplier        = "kios:harga_supplier"
+	keyPromo                = "kios:promo"
+	keySeqPromo             = "kios:seq:promo"
+	keyPustaka              = "kios:pustaka"
+	keySeqPus               = "kios:seq:pus"
+	keyPasarRef             = "kios:pasar:ref"
+	keyLearnPat             = "kios:learn:patterns"
+	keyLearnAls             = "kios:learn:aliases"
+	keyLearnShc             = "kios:learn:shortcuts"
+	keyLearnHab             = "kios:learn:habits"
+	keyLearnUnk             = "kios:learn:unknowns"
+	keyKiosConfig           = "kios:config"
+	keyNotifLastDate        = "kios:notif:last_date"
+	keyLoginPrefix          = "kios:login:" // one-time dashboard login codes
+	keyPesanan              = "kios:pesanan"
+	keyNotifPesananLast     = "kios:notif:pesanan_last"      // highest PSN seq notified to owners
+	keyNotifPendingState    = "kios:notif:pending_state"     // "alerted" | "clear"
 	keyNotifPiutangLastDate = "kios:notif:piutang_last_date" // tanggal terakhir notif piutang dikirim
-	keyPelanggan         = "kios:pelanggan"           // HASH: field = no. WA ternormalisasi; value = Pelanggan JSON
-	keyPiutang           = "kios:piutang"
-	keyHutang            = "kios:hutang"
-	keyPembayaran        = "kios:pembayaran"
-	keySeqPiu            = "kios:seq:piu"
-	keySeqHut            = "kios:seq:hut"
-	keySeqPay            = "kios:seq:pay"
-	keyPulsaDenom        = "kios:pulsa:denom"         // HASH field=nominal string, value=PulsaDenom JSON
-	keyPulsaTopup        = "kios:pulsa:topup"         // LIST append-only, value=PulsaTopup JSON
-	keySeqPtu            = "kios:seq:ptu"             // INCR counter untuk PTU-NNNN
-	keyHargaSupplierLast = "kios:harga_supplier_last" // HASH: field=produkID|supplierID, value=HargaSupplierLast JSON
+	keyPelanggan            = "kios:pelanggan"               // HASH: field = no. WA ternormalisasi; value = Pelanggan JSON
+	keyPiutang              = "kios:piutang"
+	keyHutang               = "kios:hutang"
+	keyPembayaran           = "kios:pembayaran"
+	keySeqPiu               = "kios:seq:piu"
+	keySeqHut               = "kios:seq:hut"
+	keySeqPay               = "kios:seq:pay"
+	keyPulsaDenom           = "kios:pulsa:denom"         // HASH field=nominal string, value=PulsaDenom JSON
+	keyPulsaTopup           = "kios:pulsa:topup"         // LIST append-only, value=PulsaTopup JSON
+	keySeqPtu               = "kios:seq:ptu"             // INCR counter untuk PTU-NNNN
+	keyHargaSupplierLast    = "kios:harga_supplier_last" // HASH: field=produkID|supplierID, value=HargaSupplierLast JSON
 )
 
 // loginCodeTTL is how long a /login code stays valid.

@@ -34,6 +34,8 @@ func sellPulsa(ctx context.Context, store *Store, item *Produk, nominal int, met
 	if err := store.DecrSaldoModal(ctx, item.ID, denom.HargaModal); err != nil {
 		return nil, nil, 0, fmt.Errorf("gagal kurangi saldo modal: %w", err)
 	}
+	// Best-effort sync of the dashboard saldo pool (cashier stock display).
+	_ = store.DecrSampinganSaldo(ctx, "pulsa", float64(denom.HargaModal))
 	// Reload to get the fresh SaldoModal after atomic decr.
 	updated, err := store.GetProduk(ctx, item.ID)
 	if err != nil || updated == nil {
@@ -90,6 +92,10 @@ func sellBensin(ctx context.Context, store *Store, item *Produk, ml int, metode,
 	}
 
 	liter := float64(ml) / 1000
+	// Best-effort sync of the dashboard saldo pool (cashier stock display).
+	if kat := kategoriBBM(item); kat != "" {
+		_ = store.DecrSampinganSaldo(ctx, kat, liter)
+	}
 	total := int(math.Round(float64(item.HargaJual) * liter))
 	modal := int(math.Round(float64(item.HargaBeli) * liter))
 
