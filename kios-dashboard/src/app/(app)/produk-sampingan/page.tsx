@@ -5,7 +5,8 @@ import { getSession } from "@/lib/auth";
 import { ConnectionError } from "@/components/connection-error";
 import { SampinganTable } from "@/components/produk-sampingan/sampingan-table";
 import { LaporanPulsaBensin } from "@/components/laporan/laporan-pulsa-bensin";
-import { hitungLaba, ringkasanPerJenis } from "@/lib/analytics";
+import { hitungLaba } from "@/lib/analytics";
+import { omzetJenis, tarikJenis } from "@/lib/sampingan";
 import type { JenisSampingan } from "./actions";
 
 export const metadata: Metadata = { title: "Produk Sampingan" };
@@ -35,14 +36,15 @@ export default async function ProdukSampinganPage() {
     labaTersedia = Math.max(0, totalLaba - totalTarik);
     saldoKat = saldo ?? DEFAULT_SALDO;
 
-    const stats = ringkasanPerJenis(txs, allProduk);
     omzetPerJenis = {};
     labaTersediaPerJenis = {};
     for (const j of ALL_JENIS) {
-      const omzetJ = stats[j]?.omzet ?? 0;
+      // Shared formula with tarikHasilAction validation: legacy "bensin"
+      // transactions follow the product's kategori; legacy "bensin"
+      // withdrawals are allocated to pertalite.
+      const omzetJ = omzetJenis(txs, allProduk, j);
       omzetPerJenis[j] = omzetJ;
-      const tarikJ = penarikan.filter((p) => p.produk_id === j).reduce((s, p) => s + p.jumlah, 0);
-      labaTersediaPerJenis[j] = Math.max(0, omzetJ - tarikJ);
+      labaTersediaPerJenis[j] = Math.max(0, omzetJ - tarikJenis(penarikan, j));
     }
   } catch (e) {
     return <ConnectionError message={e instanceof Error ? e.message : String(e)} />;

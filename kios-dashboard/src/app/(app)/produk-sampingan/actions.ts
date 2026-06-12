@@ -19,8 +19,8 @@ import {
   setProduk,
 } from "@/lib/kios";
 import { timeWITA, todayWITA } from "@/lib/format";
-import { hitungLaba, jenisOfTx } from "@/lib/analytics";
-import { kategoriBBM } from "@/lib/sampingan";
+import { hitungLaba } from "@/lib/analytics";
+import { kategoriBBM, penghasilanTersediaJenis } from "@/lib/sampingan";
 import type { Produk } from "@/lib/types";
 
 export type JenisSampingan = "pulsa" | "pertalite" | "pertamax" | "solar" | "minyak_tanah";
@@ -178,21 +178,7 @@ async function computePenghasilanTersediaJenis(jenis: JenisSampingan): Promise<n
     getAllProduk(),
     getAllPenarikan(),
   ]);
-  const byId = new Map(produk.map((p) => [p.id, p]));
-  let penghasilan = 0;
-  for (const tx of txs) {
-    const txJenis = jenisOfTx(tx, byId);
-    const cocok = txJenis === jenis ||
-      // hitung transaksi bensin lama berdasarkan kategori produk
-      ((jenis === "pertalite" || jenis === "pertamax") &&
-        txJenis === "bensin" &&
-        byId.get(tx.produk_id)?.kategori === jenis);
-    if (cocok) penghasilan += tx.total;
-  }
-  const totalTarik = penarikan
-    .filter((p) => p.produk_id === jenis)
-    .reduce((s, p) => s + p.jumlah, 0);
-  return Math.max(0, penghasilan - totalTarik);
+  return penghasilanTersediaJenis(txs, produk, penarikan, jenis);
 }
 
 const JENIS_LABEL: Record<JenisSampingan, string> = {

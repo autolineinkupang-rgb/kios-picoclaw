@@ -1,4 +1,5 @@
-import type { Produk, SampinganSaldo } from "./types";
+import { jenisOfTx } from "./analytics";
+import type { Penarikan, Produk, SampinganSaldo, Transaksi } from "./types";
 
 export type KategoriBBM = "pertalite" | "pertamax" | "solar" | "minyak_tanah";
 
@@ -28,4 +29,45 @@ export function efektifStok(p: Produk, saldo?: SampinganSaldo | null): number {
   const kat = kategoriBBM(p);
   if (kat) return saldo ? (saldo[kat] ?? p.stok) : p.stok;
   return p.stok;
+}
+
+/**
+ * Total omzet (revenue) of one sampingan category. Legacy "bensin"
+ * transactions are attributed to pertalite/pertamax via the product's
+ * kategori field.
+ */
+export function omzetJenis(txs: Transaksi[], produk: Produk[], jenis: string): number {
+  const byId = new Map(produk.map((p) => [p.id, p]));
+  let omzet = 0;
+  for (const tx of txs) {
+    const txJenis = jenisOfTx(tx, byId);
+    const cocok =
+      txJenis === jenis ||
+      ((jenis === "pertalite" || jenis === "pertamax") &&
+        txJenis === "bensin" &&
+        byId.get(tx.produk_id)?.kategori === jenis);
+    if (cocok) omzet += tx.total;
+  }
+  return omzet;
+}
+
+/**
+ * Total withdrawn from one sampingan category. Legacy withdrawals recorded
+ * with produk_id "bensin" (before the pertalite/pertamax split) are allocated
+ * to pertalite.
+ */
+export function tarikJenis(penarikan: Penarikan[], jenis: string): number {
+  return penarikan
+    .filter((p) => p.produk_id === jenis || (jenis === "pertalite" && p.produk_id === "bensin"))
+    .reduce((s, p) => s + p.jumlah, 0);
+}
+
+/** Withdrawable income of one category: omzet minus withdrawals, floored at 0. */
+export function penghasilanTersediaJenis(
+  txs: Transaksi[],
+  produk: Produk[],
+  penarikan: Penarikan[],
+  jenis: string,
+): number {
+  return Math.max(0, omzetJenis(txs, produk, jenis) - tarikJenis(penarikan, jenis));
 }
