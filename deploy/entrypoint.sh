@@ -231,6 +231,15 @@ fi
 CONTEXT_WINDOW="${KIOS_CONTEXT_WINDOW:-12000}"
 SUMMARIZE_PERCENT="${KIOS_SUMMARIZE_PERCENT:-70}"
 
+# Web search tool — DEFAULT MATI. Bot kios tidak butuh (sudah ada kios_pasar),
+# dan schema tool web_search bikin Groq tolak 400 "tool call validation failed"
+# (parameter "count"). Set KIOS_WEB_SEARCH=on untuk mengaktifkan kembali
+# (pakai backend DuckDuckGo tanpa key).
+WEB_SEARCH_ENABLED="false"
+if [ "$KIOS_WEB_SEARCH" = "on" ] || [ "$KIOS_WEB_SEARCH" = "true" ]; then
+    WEB_SEARCH_ENABLED="true"
+fi
+
 cat > "$CONFIG" <<EOF
 {
   "version": 3,
@@ -253,6 +262,12 @@ cat > "$CONFIG" <<EOF
         "threshold": 0.15,
         "heavy_threshold": 0.50
       }
+    }
+  },
+  "tools": {
+    "web": {
+      "enabled": $WEB_SEARCH_ENABLED,
+      "duckduckgo": { "enabled": $WEB_SEARCH_ENABLED }
     }
   },
   "model_list": [
