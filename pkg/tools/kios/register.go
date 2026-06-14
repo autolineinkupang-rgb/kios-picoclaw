@@ -41,9 +41,11 @@ func NewUploadTool(store *Store) *UploadTool { return &UploadTool{store: store} 
 func NewRestoreTool(store *Store) *RestoreTool { return &RestoreTool{store: store} }
 
 // AllTools returns the full set of kios tools backed by the given store,
-// ready to register in picoclaw's tool registry.
+// ready to register in picoclaw's tool registry. Every tool is wrapped with
+// withSchemaCompat so strict providers (e.g. Groq) accept loosely-typed model
+// output without a HTTP 400 "tool call validation failed" — see schema_compat.go.
 func AllTools(store *Store) []tools.Tool {
-	return []tools.Tool{
+	raw := []tools.Tool{
 		NewStokTool(store),
 		NewKasirTool(store),
 		NewLaporanTool(store),
@@ -58,4 +60,9 @@ func AllTools(store *Store) []tools.Tool {
 		NewRestoreTool(store),
 		NewBonTool(store),
 	}
+	out := make([]tools.Tool, len(raw))
+	for i, t := range raw {
+		out[i] = withSchemaCompat(t)
+	}
+	return out
 }
