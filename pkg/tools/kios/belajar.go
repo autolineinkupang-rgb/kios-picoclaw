@@ -178,7 +178,7 @@ func (t *BelajarTool) Parameters() map[string]any {
 			"alias":  map[string]any{"type": "string"},
 			"target": map[string]any{"type": "string"},
 			"nama":   map[string]any{"type": "string", "description": "nama shortcut"},
-			"items":  map[string]any{"type": "string", "description": "isi shortcut, pisah koma"},
+			"items":  map[string]any{"type": "string", "description": "isi shortcut sebagai STRING dipisah koma (mis. \"beras, gula, minyak\"), BUKAN array"},
 			"tipe":   map[string]any{"type": "string", "enum": []string{"sale", "report_request"}},
 			"value":  map[string]any{"type": "string"},
 			"input":  map[string]any{"type": "string"},
@@ -225,7 +225,7 @@ func (t *BelajarTool) Parameters() map[string]any {
 }
 
 func (t *BelajarTool) Execute(ctx context.Context, args map[string]any) *tools.ToolResult {
-	_, role, refusal := resolveRole(ctx, t.store)
+	role, _, refusal := resolveRole(ctx, t.store)
 	if refusal != nil {
 		return refusal
 	}

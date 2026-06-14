@@ -38,9 +38,10 @@ func (t *RestoreTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"paksa": map[string]any{
 				"type":        "boolean",
-				"description": "true untuk benar-benar menimpa data sekarang (setelah owner mengonfirmasi).",
+				"description": "kosong/false = hanya preview isi file backup; true = EKSEKUSI restore menimpa data sekarang (wajib konfirmasi owner dulu).",
 			},
 		},
+		"required": []string{},
 	}
 }
 
