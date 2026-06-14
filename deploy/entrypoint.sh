@@ -49,7 +49,10 @@ fi
 # Validate required secrets. GROQ_API_KEY is only required in cloud mode; in
 # ollama mode the model runs locally so no Groq key is needed.
 REQUIRED_VARS="TELEGRAM_BOT_TOKEN UPSTASH_REDIS_URL KIOS_ALLOW_FROM"
-if [ "$LLM_MODE" = "cloud" ]; then
+# In cloud mode a primary model is required. Groq is the default preset, so
+# GROQ_API_KEY is required UNLESS you supply a custom primary via KIOS_MODEL
+# (any provider — see the model section below).
+if [ "$LLM_MODE" = "cloud" ] && [ -z "$KIOS_MODEL" ]; then
     REQUIRED_VARS="$REQUIRED_VARS GROQ_API_KEY"
 fi
 missing=""
@@ -59,6 +62,11 @@ for v in $REQUIRED_VARS; do
 done
 if [ -n "$missing" ]; then
     echo "FATAL: missing required environment variables:$missing" >&2
+    exit 1
+fi
+# A custom primary (KIOS_MODEL) needs either an API key or a (keyless local) base.
+if [ "$LLM_MODE" = "cloud" ] && [ -n "$KIOS_MODEL" ] && [ -z "$KIOS_MODEL_KEY" ] && [ -z "$KIOS_MODEL_BASE" ]; then
+    echo "FATAL: KIOS_MODEL is set but neither KIOS_MODEL_KEY nor KIOS_MODEL_BASE is provided" >&2
     exit 1
 fi
 
@@ -86,6 +94,17 @@ append_model() {
 append_fallback() {
     FALLBACK_MODELS="${FALLBACK_MODELS:+$FALLBACK_MODELS,}\"$1\""
 }
+# Build a generic model_list JSON object for ANY provider.
+# Args: name, model_id ("protocol/model"), api_key (may be empty), api_base (may be empty).
+# api_keys is omitted when the key is empty (e.g. keyless local endpoint with a base);
+# api_base is omitted when empty.
+build_model_json() {
+    _name="$1"; _model="$2"; _key="$3"; _base="$4"
+    _json="{\"model_name\":\"$_name\",\"model\":\"$_model\""
+    [ -n "$_key" ]  && _json="$_json,\"api_keys\":[\"$_key\"]"
+    [ -n "$_base" ] && _json="$_json,\"api_base\":\"$_base\""
+    printf '%s}' "$_json"
+}
 
 if [ "$LLM_MODE" = "ollama" ]; then
     # Primary: local Ollama (empty api_key is allowed when api_base is set).
@@ -96,50 +115,102 @@ if [ "$LLM_MODE" = "ollama" ]; then
         append_model "$(printf '{"model_name":"groq-llama","model":"groq/%s","api_keys":["%s"]}' "${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}" "$GROQ_API_KEY")"
         append_fallback "groq-llama"
     fi
+elif [ -n "$KIOS_MODEL" ]; then
+    # Cloud mode, GENERIC primary — works with ANY provider, no file edit needed.
+    # Switch the whole bot to another model purely via Railway env:
+    #   KIOS_MODEL       (required) full "protocol/model-id", e.g.
+    #                    "openai/gpt-4o-mini", "deepseek/deepseek-chat",
+    #                    "moonshot/kimi-k2", "mistral/mistral-large-latest",
+    #                    "openrouter/anthropic/claude-3.5-sonnet"
+    #   KIOS_MODEL_KEY   (required unless KIOS_MODEL_BASE is a keyless local endpoint)
+    #   KIOS_MODEL_BASE  (optional) custom api_base / OpenAI-compatible endpoint
+    #   KIOS_MODEL_NAME  (optional) alias, default "primary"
+    PRIMARY_MODEL_NAME="${KIOS_MODEL_NAME:-primary}"
+    append_model "$(build_model_json "$PRIMARY_MODEL_NAME" "$KIOS_MODEL" "$KIOS_MODEL_KEY" "$KIOS_MODEL_BASE")"
 else
-    # Cloud mode: Groq primary (GROQ_API_KEY is required and already validated).
+    # Cloud mode, DEFAULT preset: Groq primary (GROQ_API_KEY required & validated).
+    #
+    # ── GANTI MODEL GROQ: set env GROQ_MODEL di Railway (mis. "llama-3.3-70b-versatile").
+    #    Daftar model: https://console.groq.com/docs/models
+    #    Atau pakai provider lain sepenuhnya lewat KIOS_MODEL (lihat cabang di atas).
     PRIMARY_MODEL_NAME="groq-llama"
     append_model "$(printf '{"model_name":"groq-llama","model":"groq/%s","api_keys":["%s"]}' "${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}" "$GROQ_API_KEY")"
 fi
 
-# Optional fallback models (Gemini and/or Claude — only when keys are provided).
-# These also feed the 3-tier router below.
+# Optional FALLBACK models (Gemini and/or Claude — hanya dibuat kalau key-nya ada).
+# Fallback = dipakai SAAT primary (Groq) gagal, BUKAN untuk trafik normal.
+# Routing (bagi trafik ke model ini per kompleksitas) hanya aktif jika
+# KIOS_ROUTING=on — lihat blok routing di bawah.
+#
+# ── GANTI MODEL GEMINI: set env GEMINI_MODEL (mis. "gemini-2.0-flash", "gemini-1.5-flash").
+#    Catatan: free tier punya kuota harian kecil → gampang kena 429.
 if [ -n "$GEMINI_API_KEY" ]; then
     append_model "$(printf '{"model_name":"gemini-flash","model":"gemini/%s","api_keys":["%s"]}' "${GEMINI_MODEL:-gemini-2.0-flash}" "$GEMINI_API_KEY")"
     append_fallback "gemini-flash"
 fi
 
+# ── GANTI MODEL CLAUDE: set env ANTHROPIC_MODEL (mis. "claude-sonnet-4-6", "claude-haiku-4-5-20251001").
 if [ -n "$ANTHROPIC_API_KEY" ]; then
     append_model "$(printf '{"model_name":"claude","model":"anthropic/%s","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "${ANTHROPIC_MODEL:-claude-sonnet-4-6}" "$ANTHROPIC_API_KEY")"
     append_fallback "claude"
 fi
 
+# Generic EXTRA models — add ANY number of models from ANY provider via env,
+# no file edit needed. KIOS_EXTRA_MODELS is a JSON array of model_list entries:
+#   KIOS_EXTRA_MODELS='[{"model_name":"kimi","model":"moonshot/kimi-k2","api_keys":["sk-..."]},
+#                       {"model_name":"gpt","model":"openai/gpt-4o-mini","api_keys":["sk-..."]}]'
+# To use them as failover, list their model_name(s) in KIOS_EXTRA_FALLBACKS (comma-separated),
+# e.g. KIOS_EXTRA_FALLBACKS="kimi,gpt". They can also be targeted by routing
+# via KIOS_ROUTING_LIGHT / KIOS_ROUTING_MEDIUM (see routing block below).
+if [ -n "$KIOS_EXTRA_MODELS" ]; then
+    # Strip the outer [ ] and surrounding whitespace, then splice the inner objects in.
+    EXTRA_INNER=$(printf '%s' "$KIOS_EXTRA_MODELS" | sed 's/^[[:space:]]*\[//; s/\][[:space:]]*$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
+    [ -n "$EXTRA_INNER" ] && append_model "$EXTRA_INNER"
+fi
+if [ -n "$KIOS_EXTRA_FALLBACKS" ]; then
+    OLDIFS="$IFS"; IFS=','
+    for fb in $KIOS_EXTRA_FALLBACKS; do
+        fb=$(printf '%s' "$fb" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+        [ -n "$fb" ] && append_fallback "$fb"
+    done
+    IFS="$OLDIFS"
+fi
+
 FALLBACKS="[${FALLBACK_MODELS}]"
 
-# 3-tier model routing:
-#   simple (score < 0.15)        → Gemini  (light)
-#   medium (0.15 <= score < 0.50)→ Claude  (medium)
-#   complex (score >= 0.50)      → primary (heavy: Groq, or Ollama in local mode)
-# Routing is enabled only when Gemini and/or Claude cloud keys are present. In a
-# pure Ollama run (no cloud keys) routing stays off so everything hits the local
-# model.
+# 3-tier model routing — OPT-IN, DEFAULT MATI.
+#
+# DEFAULT (KIOS_ROUTING tidak diisi / "off"):
+#   Routing dimatikan. SEMUA pesan ditangani primary (Groq di cloud mode).
+#   Gemini/Claude tetap ada HANYA sebagai fallback saat Groq gagal.
+#   → Ini mencegah 429 Gemini free-tier karena trafik normal tidak lagi
+#     dilempar ke Gemini setiap pesan sederhana.
+#
+# AKTIFKAN ROUTING (kalau nanti dibutuhkan): set env KIOS_ROUTING=on di Railway.
+#   Saat aktif, pesan dibagi per kompleksitas:
+#     simple  (score < 0.15)        → light_model
+#     medium  (0.15 ≤ score < 0.50) → medium_model
+#     complex (score ≥ 0.50)        → primary
+#   Default light/medium memakai preset (Gemini=light, Claude=medium) bila key-nya
+#   ada, TAPI bisa diarahkan ke model APA SAJA (termasuk KIOS_EXTRA_MODELS) lewat:
+#     KIOS_ROUTING_LIGHT="<model_name>"   KIOS_ROUTING_MEDIUM="<model_name>"
 ROUTING_ENABLED="false"
 ROUTING_LIGHT=""
 ROUTING_MEDIUM=""
-if [ -n "$GEMINI_API_KEY" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
-    ROUTING_ENABLED="true"
-    ROUTING_LIGHT="gemini-flash"
-    ROUTING_MEDIUM="claude"
-elif [ -n "$ANTHROPIC_API_KEY" ]; then
-    # Only Claude available: simple → Claude, complex → primary (no light tier)
-    ROUTING_ENABLED="true"
-    ROUTING_LIGHT="claude"
-    ROUTING_MEDIUM=""
-elif [ -n "$GEMINI_API_KEY" ]; then
-    # Only Gemini available: simple → Gemini, rest → primary (no medium tier)
-    ROUTING_ENABLED="true"
-    ROUTING_LIGHT="gemini-flash"
-    ROUTING_MEDIUM=""
+if [ "$KIOS_ROUTING" = "on" ] || [ "$KIOS_ROUTING" = "true" ]; then
+    # Sensible defaults from whichever preset keys are present.
+    if [ -n "$GEMINI_API_KEY" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
+        ROUTING_LIGHT="gemini-flash"; ROUTING_MEDIUM="claude"
+    elif [ -n "$ANTHROPIC_API_KEY" ]; then
+        ROUTING_LIGHT="claude"
+    elif [ -n "$GEMINI_API_KEY" ]; then
+        ROUTING_LIGHT="gemini-flash"
+    fi
+    # Override to ANY model_name (custom/extra models supported).
+    [ -n "$KIOS_ROUTING_LIGHT" ]  && ROUTING_LIGHT="$KIOS_ROUTING_LIGHT"
+    [ -n "$KIOS_ROUTING_MEDIUM" ] && ROUTING_MEDIUM="$KIOS_ROUTING_MEDIUM"
+    # Enable only once at least a light model is resolved.
+    [ -n "$ROUTING_LIGHT" ] && ROUTING_ENABLED="true"
 fi
 
 cat > "$CONFIG" <<EOF
@@ -181,4 +252,5 @@ EOF
 rm -f "$PICOCLAW_HOME/.picoclaw.pid"
 
 echo "kios-picoclaw: starting gateway on 0.0.0.0:$PORT (workspace: $WORKSPACE)"
+echo "kios-picoclaw: LLM primary=$PRIMARY_MODEL_NAME, fallbacks=$FALLBACKS, routing=$ROUTING_ENABLED (light=$ROUTING_LIGHT, medium=$ROUTING_MEDIUM)"
 exec picoclaw gateway
