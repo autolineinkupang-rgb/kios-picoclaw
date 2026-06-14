@@ -53,7 +53,8 @@ REQUIRED_VARS="TELEGRAM_BOT_TOKEN UPSTASH_REDIS_URL KIOS_ALLOW_FROM"
 # GROQ_API_KEY is required UNLESS you supply a custom primary via KIOS_MODEL
 # (any provider — see the model section below).
 if [ "$LLM_MODE" = "cloud" ] && [ -z "$KIOS_MODEL" ]; then
-    REQUIRED_VARS="$REQUIRED_VARS GROQ_API_KEY"
+    # Groq preset path needs BOTH key and model name (no model name is hardcoded).
+    REQUIRED_VARS="$REQUIRED_VARS GROQ_API_KEY GROQ_MODEL"
 fi
 missing=""
 for v in $REQUIRED_VARS; do
@@ -94,15 +95,23 @@ append_model() {
 append_fallback() {
     FALLBACK_MODELS="${FALLBACK_MODELS:+$FALLBACK_MODELS,}\"$1\""
 }
+# Tool schema compatibility. Groq & sebagian provider memvalidasi argumen tool
+# secara KETAT dan menolak JSON Schema kompleks → HTTP 400 "tool call validation
+# failed" (mis. parameter "count" pada web_search). "simple" meratakan schema
+# agar lolos. Override via KIOS_TOOL_SCHEMA ("simple"/"basic"/"strict"/"flat");
+# set kosong untuk mematikan.
+SCHEMA_TRANSFORM="${KIOS_TOOL_SCHEMA-simple}"
+
 # Build a generic model_list JSON object for ANY provider.
 # Args: name, model_id ("protocol/model"), api_key (may be empty), api_base (may be empty).
 # api_keys is omitted when the key is empty (e.g. keyless local endpoint with a base);
-# api_base is omitted when empty.
+# api_base is omitted when empty. tool_schema_transform is added when SCHEMA_TRANSFORM is set.
 build_model_json() {
     _name="$1"; _model="$2"; _key="$3"; _base="$4"
     _json="{\"model_name\":\"$_name\",\"model\":\"$_model\""
     [ -n "$_key" ]  && _json="$_json,\"api_keys\":[\"$_key\"]"
     [ -n "$_base" ] && _json="$_json,\"api_base\":\"$_base\""
+    [ -n "$SCHEMA_TRANSFORM" ] && _json="$_json,\"tool_schema_transform\":\"$SCHEMA_TRANSFORM\""
     printf '%s}' "$_json"
 }
 
@@ -110,9 +119,9 @@ if [ "$LLM_MODE" = "ollama" ]; then
     # Primary: local Ollama (empty api_key is allowed when api_base is set).
     PRIMARY_MODEL_NAME="ollama-local"
     append_model "$(printf '{"model_name":"ollama-local","model":"ollama/%s","api_base":"%s","api_keys":[],"request_timeout":%d}' "$OLLAMA_MODEL" "$OLLAMA_BASE_URL" "$OLLAMA_REQUEST_TIMEOUT")"
-    # Optional cloud fallback to Groq if a key is provided.
-    if [ -n "$GROQ_API_KEY" ]; then
-        append_model "$(printf '{"model_name":"groq-llama","model":"groq/%s","api_keys":["%s"]}' "${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}" "$GROQ_API_KEY")"
+    # Optional cloud fallback to Groq when both key and model name are provided.
+    if [ -n "$GROQ_API_KEY" ] && [ -n "$GROQ_MODEL" ]; then
+        append_model "$(build_model_json "groq-llama" "groq/$GROQ_MODEL" "$GROQ_API_KEY" "")"
         append_fallback "groq-llama"
     fi
 elif [ -n "$KIOS_MODEL" ]; then
@@ -134,7 +143,7 @@ else
     #    Daftar model: https://console.groq.com/docs/models
     #    Atau pakai provider lain sepenuhnya lewat KIOS_MODEL (lihat cabang di atas).
     PRIMARY_MODEL_NAME="groq-llama"
-    append_model "$(printf '{"model_name":"groq-llama","model":"groq/%s","api_keys":["%s"]}' "${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}" "$GROQ_API_KEY")"
+    append_model "$(build_model_json "groq-llama" "groq/$GROQ_MODEL" "$GROQ_API_KEY" "")"
 fi
 
 # Optional FALLBACK models (Gemini and/or Claude — hanya dibuat kalau key-nya ada).
@@ -144,14 +153,14 @@ fi
 #
 # ── GANTI MODEL GEMINI: set env GEMINI_MODEL (mis. "gemini-2.0-flash", "gemini-1.5-flash").
 #    Catatan: free tier punya kuota harian kecil → gampang kena 429.
-if [ -n "$GEMINI_API_KEY" ]; then
-    append_model "$(printf '{"model_name":"gemini-flash","model":"gemini/%s","api_keys":["%s"]}' "${GEMINI_MODEL:-gemini-2.0-flash}" "$GEMINI_API_KEY")"
+if [ -n "$GEMINI_API_KEY" ] && [ -n "$GEMINI_MODEL" ]; then
+    append_model "$(build_model_json "gemini-flash" "gemini/$GEMINI_MODEL" "$GEMINI_API_KEY" "")"
     append_fallback "gemini-flash"
 fi
 
 # ── GANTI MODEL CLAUDE: set env ANTHROPIC_MODEL (mis. "claude-sonnet-4-6", "claude-haiku-4-5-20251001").
-if [ -n "$ANTHROPIC_API_KEY" ]; then
-    append_model "$(printf '{"model_name":"claude","model":"anthropic/%s","api_keys":["%s"],"api_base":"https://api.anthropic.com/v1"}' "${ANTHROPIC_MODEL:-claude-sonnet-4-6}" "$ANTHROPIC_API_KEY")"
+if [ -n "$ANTHROPIC_API_KEY" ] && [ -n "$ANTHROPIC_MODEL" ]; then
+    append_model "$(build_model_json "claude" "anthropic/$ANTHROPIC_MODEL" "$ANTHROPIC_API_KEY" "https://api.anthropic.com/v1")"
     append_fallback "claude"
 fi
 
