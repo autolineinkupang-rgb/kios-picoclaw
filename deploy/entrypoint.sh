@@ -213,6 +213,15 @@ if [ "$KIOS_ROUTING" = "on" ] || [ "$KIOS_ROUTING" = "true" ]; then
     [ -n "$ROUTING_LIGHT" ] && ROUTING_ENABLED="true"
 fi
 
+# Context window guard — paksa picoclaw mengompres riwayat LEBIH AWAL agar ukuran
+# request tidak pernah melebihi batas model free-tier (cegah error 413
+# "Request too large", mis. Groq/Cerebras free tier).
+#   KIOS_CONTEXT_WINDOW    = batas token konteks (default 12000; aman utk free tier).
+#                            Naikkan jika model Anda berkonteks besar & tier-nya lapang.
+#   KIOS_SUMMARIZE_PERCENT = mulai ringkas saat konteks capai % ini (default 70).
+CONTEXT_WINDOW="${KIOS_CONTEXT_WINDOW:-12000}"
+SUMMARIZE_PERCENT="${KIOS_SUMMARIZE_PERCENT:-70}"
+
 cat > "$CONFIG" <<EOF
 {
   "version": 3,
@@ -225,6 +234,9 @@ cat > "$CONFIG" <<EOF
       "max_tokens": 4096,
       "max_tool_iterations": 12,
       "temperature": 0.5,
+      "context_window": $CONTEXT_WINDOW,
+      "summarize_token_percent": $SUMMARIZE_PERCENT,
+      "summarize_message_threshold": 16,
       "routing": {
         "enabled": $ROUTING_ENABLED,
         "light_model": "$ROUTING_LIGHT",
