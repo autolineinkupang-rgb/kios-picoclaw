@@ -34,7 +34,7 @@ func (t *LaporanTool) Parameters() map[string]any {
 					"terlaris",
 					"riwayat_harga",
 				},
-				"description": "Jenis laporan.",
+				"description": "Jenis laporan. ringkas/mingguan/bulanan: ringkasan KPI omzet+laba (tidak perlu periode). laba/riwayat/terlaris: pakai parameter 'periode' untuk rentang waktu. riwayat_harga: log perubahan harga.",
 			},
 			"periode": map[string]any{
 				"type":        "string",

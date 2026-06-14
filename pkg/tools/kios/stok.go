@@ -35,7 +35,14 @@ func (t *StokTool) Parameters() map[string]any {
 			"items": map[string]any{
 				"type":        "array",
 				"description": "daftar item untuk tambah_massal/edit_massal (tiap item berisi field yang sama seperti tambah/edit_produk)",
-				"items":       map[string]any{"type": "object"},
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"produk":     map[string]any{"type": "string", "description": "id atau nama produk"},
+						"qty":        map[string]any{"type": "integer", "description": "jumlah unit (tambah_massal)"},
+						"harga_beli": map[string]any{"type": "integer", "description": "harga beli per pcs (opsional)"},
+					},
+				},
 			},
 			"produk": map[string]any{"type": "string", "description": "id atau nama produk"},
 			"qty":    map[string]any{"type": "integer", "description": "jumlah (jual/restock)"},
@@ -44,8 +51,8 @@ func (t *StokTool) Parameters() map[string]any {
 				"enum":        []string{"tunai", "transfer", "qris"},
 				"description": "metode bayar saat jual",
 			},
-			"harga":    map[string]any{"type": "integer", "description": "harga beli (restock)"},
-			"supplier": map[string]any{"type": "string"},
+			"harga":    map[string]any{"type": "integer", "description": "harga beli per pcs saat restock/tambah (rupiah; alias dari harga_beli)"},
+			"supplier": map[string]any{"type": "string", "description": "nama supplier untuk pencatatan restock / default supplier produk baru"},
 			"auto_create": map[string]any{
 				"type":        "boolean",
 				"description": "buat produk otomatis saat restock bila belum ada",
@@ -58,20 +65,31 @@ func (t *StokTool) Parameters() map[string]any {
 				"type":        "string",
 				"description": "kode barcode produk (opsional, untuk scan)",
 			},
-			"kategori":     map[string]any{"type": "string"},
-			"satuan":       map[string]any{"type": "string"},
-			"harga_beli":   map[string]any{"type": "integer"},
-			"harga_jual":   map[string]any{"type": "integer"},
-			"stok_awal":    map[string]any{"type": "integer"},
+			"kategori":     map[string]any{"type": "string", "description": "kategori produk, mis. makanan/minuman/umum (tambah_produk/edit_produk)"},
+			"satuan":       map[string]any{"type": "string", "description": "satuan jual, mis. pcs/kg/botol (tambah_produk/edit_produk)"},
+			"harga_beli":   map[string]any{"type": "integer", "description": "harga beli per satuan, rupiah (tambah_produk/edit_produk; juga alias 'harga' saat tambah/restock)"},
+			"harga_jual":   map[string]any{"type": "integer", "description": "harga jual per satuan, rupiah (wajib untuk tambah_produk)"},
+			"stok_awal":    map[string]any{"type": "integer", "description": "stok awal saat mendaftarkan produk baru (tambah_produk)"},
 			"stok_baru":    map[string]any{"type": "integer", "description": "nilai stok absolut (set_stok)"},
-			"stok_minimum": map[string]any{"type": "integer"},
-			"stok_kritis":  map[string]any{"type": "integer"},
+			"stok_minimum": map[string]any{"type": "integer", "description": "batas stok minimum untuk notifikasi menipis"},
+			"stok_kritis":  map[string]any{"type": "integer", "description": "batas stok kritis untuk peringatan lebih keras"},
 			"exp_date":     map[string]any{"type": "string", "description": "tanggal kedaluwarsa YYYY-MM-DD"},
 			"id":           map[string]any{"type": "string", "description": "id transaksi (batalkan_tx)"},
-			"kemasan":      map[string]any{"type": "string", "description": "nama kemasan (dos/lusin/box/renteng/dll) untuk restock"},
-			"qty_pack":     map[string]any{"type": "integer", "description": "jumlah kemasan yang dibeli (restock pack)"},
-			"harga_pack":   map[string]any{"type": "integer", "description": "harga satu kemasan (rupiah)"},
-			"isi":          map[string]any{"type": "integer", "description": "pcs per kemasan — wajib bila kemasan tidak dikenal otomatis"},
+			"kemasan":      map[string]any{"type": "string", "description": "nama kemasan (dos/lusin/box/renteng/dll) — HANYA untuk action tambah/restock pack"},
+			"kemasan_defs": map[string]any{
+				"type":        "array",
+				"description": "daftar definisi kemasan produk untuk action atur_kemasan, mis. [{\"nama\":\"dos\",\"isi\":48}]",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"nama": map[string]any{"type": "string", "description": "nama kemasan (dos/lusin/box/dll)"},
+						"isi":  map[string]any{"type": "integer", "description": "jumlah pcs per kemasan"},
+					},
+				},
+			},
+			"qty_pack":   map[string]any{"type": "integer", "description": "jumlah kemasan yang dibeli (restock pack)"},
+			"harga_pack": map[string]any{"type": "integer", "description": "harga satu kemasan (rupiah)"},
+			"isi":        map[string]any{"type": "integer", "description": "pcs per kemasan — wajib bila kemasan tidak dikenal otomatis"},
 		},
 		"required": []string{"action"},
 	}
@@ -210,6 +228,11 @@ func (t *StokTool) tambah(ctx context.Context, args map[string]any, kasir string
 	nama := argStr(args, "produk")
 	qty := argInt(args, "qty")
 	hargaBeli := argInt(args, "harga")
+	if hargaBeli == 0 {
+		// Accept "harga_beli" as an alias so the model can reuse the same key
+		// it uses for tambah_produk/edit_produk when restocking.
+		hargaBeli = argInt(args, "harga_beli")
+	}
 	supplier := argStr(args, "supplier")
 
 	// --- Branch satuan beli (pack) ---
@@ -694,9 +717,14 @@ func (t *StokTool) aturKemasan(ctx context.Context, args map[string]any) *tools.
 	if err != nil || item == nil {
 		return tools.ErrorResult(fmt.Sprintf("Produk %q nggak ketemu kak 🔍", produkQ))
 	}
-	rawList, ok := args["kemasan"].([]any)
+	// Prefer the dedicated array param "kemasan_defs"; fall back to "kemasan"
+	// for backward compatibility (older callers passed the array there).
+	rawList, ok := args["kemasan_defs"].([]any)
 	if !ok || len(rawList) == 0 {
-		return tools.ErrorResult("Sebutkan daftar kemasan ya kak, mis. [{\"nama\":\"dos\",\"isi\":48}]")
+		rawList, ok = args["kemasan"].([]any)
+	}
+	if !ok || len(rawList) == 0 {
+		return tools.ErrorResult("Sebutkan daftar kemasan ya kak, mis. kemasan_defs=[{\"nama\":\"dos\",\"isi\":48}]")
 	}
 	newPacks := make([]Kemasan, 0, len(rawList))
 	for _, r := range rawList {
