@@ -245,8 +245,15 @@ func TestSetDefaultModel_ModelWithoutAPIKey(t *testing.T) {
 }
 
 func TestSetDefaultModel_SaveConfigError(t *testing.T) {
-	// Use an invalid path to trigger save error
-	invalidPath := "/nonexistent/directory/config.json"
+	// Create a path that cannot be created as a directory by SaveConfig.
+	// MkdirAll will fail if a non-directory file exists where a directory
+	// is expected, which reliably triggers a save error across environments.
+	tmp := t.TempDir()
+	blocker := filepath.Join(tmp, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatalf("failed to create blocker file: %v", err)
+	}
+	invalidPath := filepath.Join(blocker, "config.json")
 
 	cfg := &config.Config{
 		Agents: config.AgentsConfig{
