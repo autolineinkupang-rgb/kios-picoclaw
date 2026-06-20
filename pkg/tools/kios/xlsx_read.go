@@ -110,7 +110,13 @@ func readXLSXFile(path string) ([]map[string]string, error) {
 	}
 	headers := make([]string, len(grid[0]))
 	for i, h := range grid[0] {
-		headers[i] = strings.ToLower(strings.TrimSpace(h))
+		header := strings.TrimSpace(h)
+		// Remove common annotation characters (e.g. trailing '*') and
+		// normalize surrounding whitespace so templates with markers
+		// like "Nama *" map to the canonical header "nama".
+		header = strings.TrimSuffix(header, "*")
+		header = strings.TrimSpace(header)
+		headers[i] = strings.ToLower(header)
 	}
 	out := make([]map[string]string, 0, len(grid)-1)
 	for _, row := range grid[1:] {
