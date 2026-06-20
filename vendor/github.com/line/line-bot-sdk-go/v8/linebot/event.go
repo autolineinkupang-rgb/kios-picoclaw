@@ -1,0 +1,440 @@
+// Copyright 2016 LINE Corporation
+//
+// LINE Corporation licenses this file to you under the Apache License,
+// version 2.0 (the "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at:
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations
+// under the License.
+
+package linebot
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"time"
+)
+
+// EventType type
+type EventType string
+
+// EventType constants
+const (
+	EventTypeMessage           EventType = "message"
+	EventTypeFollow            EventType = "follow"
+	EventTypeUnfollow          EventType = "unfollow"
+	EventTypeJoin              EventType = "join"
+	EventTypeLeave             EventType = "leave"
+	EventTypeMemberJoined      EventType = "memberJoined"
+	EventTypeMemberLeft        EventType = "memberLeft"
+	EventTypePostback          EventType = "postback"
+	EventTypeBeacon            EventType = "beacon"
+	EventTypeAccountLink       EventType = "accountLink"
+	EventTypeUnsend            EventType = "unsend"
+	EventTypeVideoPlayComplete EventType = "videoPlayComplete"
+)
+
+// EventMode type
+type EventMode string
+
+// EventMode constants
+const (
+	EventModeActive  EventMode = "active"
+	EventModeStandby EventMode = "standby"
+)
+
+// EventSourceType type
+type EventSourceType string
+
+// EventSourceType constants
+const (
+	EventSourceTypeUser  EventSourceType = "user"
+	EventSourceTypeGroup EventSourceType = "group"
+	EventSourceTypeRoom  EventSourceType = "room"
+)
+
+// EventSource type
+// Deprecated: Use OpenAPI based classes instead.
+type EventSource struct {
+	Type    EventSourceType `json:"type"`
+	UserID  string          `json:"userId,omitempty"`
+	GroupID string          `json:"groupId,omitempty"`
+	RoomID  string          `json:"roomId,omitempty"`
+}
+
+// Params type
+// Deprecated: Use OpenAPI based classes instead.
+type Params struct {
+	Date               string `json:"date,omitempty"`
+	Time               string `json:"time,omitempty"`
+	Datetime           string `json:"datetime,omitempty"`
+	NewRichMenuAliasID string `json:"newRichMenuAliasId,omitempty"`
+	Status             string `json:"status,omitempty"`
+}
+
+// Members type
+// Deprecated: Use OpenAPI based classes instead.
+type Members struct {
+	Members []EventSource `json:"members"`
+}
+
+// Postback type
+// Deprecated: Use OpenAPI based classes instead.
+type Postback struct {
+	Data   string  `json:"data"`
+	Params *Params `json:"params,omitempty"`
+}
+
+// BeaconEventType type
+type BeaconEventType string
+
+// BeaconEventType constants
+const (
+	BeaconEventTypeEnter  BeaconEventType = "enter"
+	BeaconEventTypeLeave  BeaconEventType = "leave"
+	BeaconEventTypeBanner BeaconEventType = "banner"
+	BeaconEventTypeStay   BeaconEventType = "stay"
+)
+
+// Beacon type
+// Deprecated: Use OpenAPI based classes instead.
+type Beacon struct {
+	Hwid          string
+	Type          BeaconEventType
+	DeviceMessage []byte
+}
+
+// AccountLinkResult type
+type AccountLinkResult string
+
+// AccountLinkResult constants
+const (
+	AccountLinkResultOK     AccountLinkResult = "ok"
+	AccountLinkResultFailed AccountLinkResult = "failed"
+)
+
+// AccountLink type
+// Deprecated: Use OpenAPI based classes instead.
+type AccountLink struct {
+	Result AccountLinkResult
+	Nonce  string
+}
+
+// Unsend type
+// Deprecated: Use OpenAPI based classes instead.
+type Unsend struct {
+	MessageID string `json:"messageId"`
+}
+
+// VideoPlayComplete type
+// Deprecated: Use OpenAPI based classes instead.
+type VideoPlayComplete struct {
+	TrackingID string `json:"trackingId"`
+}
+
+// StickerResourceType type
+type StickerResourceType string
+
+// StickerResourceType constants
+const (
+	StickerResourceTypeStatic         StickerResourceType = "STATIC"
+	StickerResourceTypeAnimation      StickerResourceType = "ANIMATION"
+	StickerResourceTypeSound          StickerResourceType = "SOUND"
+	StickerResourceTypeAnimationSound StickerResourceType = "ANIMATION_SOUND"
+	StickerResourceTypePerStickerText StickerResourceType = "MESSAGE"
+	StickerResourceTypePopup          StickerResourceType = "POPUP"
+	StickerResourceTypePopupSound     StickerResourceType = "POPUP_SOUND"
+	StickerResourceTypeNameText       StickerResourceType = "CUSTOM"
+)
+
+// DeliveryContext type
+// Deprecated: Use OpenAPI based classes instead.
+type DeliveryContext struct {
+	IsRedelivery bool `json:"isRedelivery"`
+}
+
+// Event type
+// Deprecated: Use OpenAPI based classes instead.
+type Event struct {
+	ReplyToken        string
+	Type              EventType
+	Mode              EventMode
+	Timestamp         time.Time
+	Source            *EventSource
+	Message           Message
+	Joined            *Members
+	Left              *Members
+	Postback          *Postback
+	Beacon            *Beacon
+	AccountLink       *AccountLink
+	Members           []*EventSource
+	Unsend            *Unsend
+	VideoPlayComplete *VideoPlayComplete
+	WebhookEventID    string
+	DeliveryContext   DeliveryContext
+}
+
+// Deprecated: Use OpenAPI based classes instead.
+type rawEvent struct {
+	ReplyToken        string               `json:"replyToken,omitempty"`
+	Type              EventType            `json:"type"`
+	Mode              EventMode            `json:"mode"`
+	Timestamp         int64                `json:"timestamp"`
+	Source            *EventSource         `json:"source"`
+	Message           *rawEventMessage     `json:"message,omitempty"`
+	Postback          *Postback            `json:"postback,omitempty"`
+	Beacon            *rawBeaconEvent      `json:"beacon,omitempty"`
+	AccountLink       *rawAccountLinkEvent `json:"link,omitempty"`
+	Joined            *rawMemberEvent      `json:"joined,omitempty"`
+	Left              *rawMemberEvent      `json:"left,omitempty"`
+	Unsend            *Unsend              `json:"unsend,omitempty"`
+	VideoPlayComplete *VideoPlayComplete   `json:"videoPlayComplete,omitempty"`
+	WebhookEventID    string               `json:"webhookEventId"`
+	DeliveryContext   DeliveryContext      `json:"deliveryContext"`
+}
+
+// Deprecated: Use OpenAPI based classes instead.
+type rawMemberEvent struct {
+	Members []*EventSource `json:"members"`
+}
+
+// Deprecated: Use OpenAPI based classes instead.
+type rawEventMessage struct {
+	ID                  string              `json:"id"`
+	Type                MessageType         `json:"type"`
+	Text                string              `json:"text,omitempty"`
+	Duration            int                 `json:"duration,omitempty"`
+	Title               string              `json:"title,omitempty"`
+	Address             string              `json:"address,omitempty"`
+	FileName            string              `json:"fileName,omitempty"`
+	FileSize            int                 `json:"fileSize,omitempty"`
+	Latitude            float64             `json:"latitude,omitempty"`
+	Longitude           float64             `json:"longitude,omitempty"`
+	PackageID           string              `json:"packageId,omitempty"`
+	StickerID           string              `json:"stickerId,omitempty"`
+	ContentProvider     *ContentProvider    `json:"contentProvider,omitempty"`
+	ImageSet            *ImageSet           `json:"imageSet,omitempty"`
+	StickerResourceType StickerResourceType `json:"stickerResourceType,omitempty"`
+	Keywords            []string            `json:"keywords,omitempty"`
+	Emojis              []*Emoji            `json:"emojis,omitempty"`
+	Mention             *Mention            `json:"mention,omitempty"`
+}
+
+// Deprecated: Use OpenAPI based classes instead.
+type rawBeaconEvent struct {
+	Hwid string          `json:"hwid"`
+	Type BeaconEventType `json:"type"`
+	DM   string          `json:"dm,omitempty"`
+}
+
+// Deprecated: Use OpenAPI based classes instead.
+type rawAccountLinkEvent struct {
+	Result AccountLinkResult `json:"result"`
+	Nonce  string            `json:"nonce"`
+}
+
+const (
+	milliSecPerSec     = int64(time.Second / time.Millisecond)
+	nanoSecPerMilliSec = int64(time.Millisecond / time.Nanosecond)
+)
+
+// MarshalJSON method of Event
+func (e *Event) MarshalJSON() ([]byte, error) {
+	raw := rawEvent{
+		ReplyToken:        e.ReplyToken,
+		Type:              e.Type,
+		Mode:              e.Mode,
+		Timestamp:         e.Timestamp.Unix()*milliSecPerSec + int64(e.Timestamp.Nanosecond())/int64(time.Millisecond),
+		Source:            e.Source,
+		Postback:          e.Postback,
+		Unsend:            e.Unsend,
+		VideoPlayComplete: e.VideoPlayComplete,
+		WebhookEventID:    e.WebhookEventID,
+		DeliveryContext:   e.DeliveryContext,
+	}
+	if e.Beacon != nil {
+		raw.Beacon = &rawBeaconEvent{
+			Hwid: e.Beacon.Hwid,
+			Type: e.Beacon.Type,
+			DM:   hex.EncodeToString(e.Beacon.DeviceMessage),
+		}
+	}
+	if e.AccountLink != nil {
+		raw.AccountLink = &rawAccountLinkEvent{
+			Result: e.AccountLink.Result,
+			Nonce:  e.AccountLink.Nonce,
+		}
+	}
+
+	switch e.Type {
+	case EventTypeMemberJoined:
+		raw.Joined = &rawMemberEvent{
+			Members: e.Members,
+		}
+	case EventTypeMemberLeft:
+		raw.Left = &rawMemberEvent{
+			Members: e.Members,
+		}
+	}
+
+	switch m := e.Message.(type) {
+	case *TextMessage:
+		raw.Message = &rawEventMessage{
+			Type:    MessageTypeText,
+			ID:      m.ID,
+			Text:    m.Text,
+			Emojis:  m.Emojis,
+			Mention: m.Mention,
+		}
+	case *ImageMessage:
+		raw.Message = &rawEventMessage{
+			Type:            MessageTypeImage,
+			ID:              m.ID,
+			ContentProvider: m.ContentProvider,
+			ImageSet:        m.ImageSet,
+		}
+	case *VideoMessage:
+		raw.Message = &rawEventMessage{
+			Type:            MessageTypeVideo,
+			ID:              m.ID,
+			Duration:        m.Duration,
+			ContentProvider: m.ContentProvider,
+		}
+	case *AudioMessage:
+		raw.Message = &rawEventMessage{
+			Type:            MessageTypeAudio,
+			ID:              m.ID,
+			Duration:        m.Duration,
+			ContentProvider: m.ContentProvider,
+		}
+	case *FileMessage:
+		raw.Message = &rawEventMessage{
+			Type:     MessageTypeFile,
+			ID:       m.ID,
+			FileName: m.FileName,
+			FileSize: m.FileSize,
+		}
+	case *LocationMessage:
+		raw.Message = &rawEventMessage{
+			Type:      MessageTypeLocation,
+			ID:        m.ID,
+			Title:     m.Title,
+			Address:   m.Address,
+			Latitude:  m.Latitude,
+			Longitude: m.Longitude,
+		}
+	case *StickerMessage:
+		raw.Message = &rawEventMessage{
+			Type:                MessageTypeSticker,
+			ID:                  m.ID,
+			PackageID:           m.PackageID,
+			StickerID:           m.StickerID,
+			StickerResourceType: m.StickerResourceType,
+			Keywords:            m.Keywords,
+			Text:                m.Text,
+		}
+	}
+	return json.Marshal(&raw)
+}
+
+// UnmarshalJSON method of Event
+func (e *Event) UnmarshalJSON(body []byte) (err error) {
+	rawEvent := rawEvent{}
+	if err = json.Unmarshal(body, &rawEvent); err != nil {
+		return
+	}
+
+	e.ReplyToken = rawEvent.ReplyToken
+	e.Type = rawEvent.Type
+	e.Mode = rawEvent.Mode
+	e.Timestamp = time.Unix(rawEvent.Timestamp/milliSecPerSec, (rawEvent.Timestamp%milliSecPerSec)*nanoSecPerMilliSec).UTC()
+	e.Source = rawEvent.Source
+	e.WebhookEventID = rawEvent.WebhookEventID
+	e.DeliveryContext = rawEvent.DeliveryContext
+
+	switch rawEvent.Type {
+	case EventTypeMessage:
+		switch rawEvent.Message.Type {
+		case MessageTypeText:
+			e.Message = &TextMessage{
+				ID:      rawEvent.Message.ID,
+				Text:    rawEvent.Message.Text,
+				Emojis:  rawEvent.Message.Emojis,
+				Mention: rawEvent.Message.Mention,
+			}
+		case MessageTypeImage:
+			e.Message = &ImageMessage{
+				ID:              rawEvent.Message.ID,
+				ContentProvider: rawEvent.Message.ContentProvider,
+				ImageSet:        rawEvent.Message.ImageSet,
+			}
+		case MessageTypeVideo:
+			e.Message = &VideoMessage{
+				ID:              rawEvent.Message.ID,
+				Duration:        rawEvent.Message.Duration,
+				ContentProvider: rawEvent.Message.ContentProvider,
+			}
+		case MessageTypeAudio:
+			e.Message = &AudioMessage{
+				ID:              rawEvent.Message.ID,
+				Duration:        rawEvent.Message.Duration,
+				ContentProvider: rawEvent.Message.ContentProvider,
+			}
+		case MessageTypeFile:
+			e.Message = &FileMessage{
+				ID:       rawEvent.Message.ID,
+				FileName: rawEvent.Message.FileName,
+				FileSize: rawEvent.Message.FileSize,
+			}
+		case MessageTypeLocation:
+			e.Message = &LocationMessage{
+				ID:        rawEvent.Message.ID,
+				Title:     rawEvent.Message.Title,
+				Address:   rawEvent.Message.Address,
+				Latitude:  rawEvent.Message.Latitude,
+				Longitude: rawEvent.Message.Longitude,
+			}
+		case MessageTypeSticker:
+			e.Message = &StickerMessage{
+				ID:                  rawEvent.Message.ID,
+				PackageID:           rawEvent.Message.PackageID,
+				StickerID:           rawEvent.Message.StickerID,
+				StickerResourceType: rawEvent.Message.StickerResourceType,
+				Keywords:            rawEvent.Message.Keywords,
+				Text:                rawEvent.Message.Text,
+			}
+		}
+	case EventTypePostback:
+		e.Postback = rawEvent.Postback
+	case EventTypeBeacon:
+		var deviceMessage []byte
+		deviceMessage, err = hex.DecodeString(rawEvent.Beacon.DM)
+		if err != nil {
+			return
+		}
+		e.Beacon = &Beacon{
+			Hwid:          rawEvent.Beacon.Hwid,
+			Type:          rawEvent.Beacon.Type,
+			DeviceMessage: deviceMessage,
+		}
+	case EventTypeAccountLink:
+		e.AccountLink = &AccountLink{
+			Result: rawEvent.AccountLink.Result,
+			Nonce:  rawEvent.AccountLink.Nonce,
+		}
+	case EventTypeMemberJoined:
+		e.Members = rawEvent.Joined.Members
+	case EventTypeMemberLeft:
+		e.Members = rawEvent.Left.Members
+	case EventTypeUnsend:
+		e.Unsend = rawEvent.Unsend
+	case EventTypeVideoPlayComplete:
+		e.VideoPlayComplete = rawEvent.VideoPlayComplete
+	}
+	return
+}
