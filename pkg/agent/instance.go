@@ -488,6 +488,26 @@ func (a *AgentInstance) Close() error {
 // Falls back to SessionManager if the JSONL store cannot be initialized or
 // if migration fails (which indicates the store cannot write reliably).
 func initSessionStore(dir string) session.SessionStore {
+	// Prefer remote Redis-backed store when UPSTASH_REDIS_URL is set. This
+	// allows session persistence across ephemeral container redeploys.
+	if url := os.Getenv("UPSTASH_REDIS_URL"); strings.TrimSpace(url) != "" {
+		rst, err := memory.NewRedisStore(url)
+		if err == nil {
+			// Migrate legacy JSON files into Redis (idempotent)
+			if n, merr := memory.MigrateFromJSON(context.Background(), dir, rst); merr != nil {
+				logger.WarnCF("agent", "Memory migration to Redis failed; falling back to file sessions",
+					map[string]any{"error": merr.Error()})
+				rst.Close()
+				// fallthrough to local JSONL below
+			} else if n > 0 {
+				logger.InfoCF("agent", "Memory migrated to Redis", map[string]any{"sessions_migrated": n})
+			}
+			return session.NewJSONLBackend(rst)
+		}
+		logger.WarnCF("agent", "Redis session store init failed; continuing with local storage",
+			map[string]any{"error": err.Error()})
+	}
+
 	store, err := memory.NewJSONLStore(dir)
 	if err != nil {
 		logger.WarnCF("agent", "Memory JSONL store init failed; falling back to json sessions",
