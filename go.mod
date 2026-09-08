@@ -5,7 +5,7 @@ go 1.25.11
 require (
 	fyne.io/systray v1.12.1
 	github.com/SevereCloud/vksdk/v3 v3.3.1
-	github.com/adhocore/gronx v1.20.0
+	github.com/adhocore/gronx v1.20.3
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/anthropics/anthropic-sdk-go v1.45.0
 	github.com/atc0005/go-teams-notify/v2 v2.14.0
