@@ -3,7 +3,7 @@ module github.com/sipeed/picoclaw
 go 1.25.11
 
 require (
-	fyne.io/systray v1.12.1
+	fyne.io/systray v1.12.2
 	github.com/SevereCloud/vksdk/v3 v3.3.1
 	github.com/adhocore/gronx v1.20.0
 	github.com/alicebob/miniredis/v2 v2.38.0
